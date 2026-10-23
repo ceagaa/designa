@@ -2,12 +2,15 @@ import { Hono } from 'hono'
 import type { Estado } from './lib/dominio'
 import { estadoInicial, normalizarEstado } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
+import { enviarParaTodas } from './lib/pushServidor'
+import { MESES } from './lib/constants'
 
 const ID_REGISTRO = 'default_config'
 
 interface D1Statement {
   bind(...params: unknown[]): D1Statement
   first<T = Record<string, unknown>>(): Promise<T | null>
+  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>
   run(): Promise<unknown>
 }
 
@@ -21,6 +24,8 @@ interface Env {
   APP_PIN?: string
   /** Chave pública VAPID (base64url) do push. Configure com `wrangler secret put PUSH_VAPID_PUBLICA`. */
   PUSH_VAPID_PUBLICA?: string
+  /** Escalar privada VAPID (base64url) do push. Configure com `wrangler secret put PUSH_VAPID_PRIVADA`. */
+  PUSH_VAPID_PRIVADA?: string
 }
 
 interface LinhaEstado {
@@ -158,22 +163,67 @@ app.post('/api/push/inscricao', async (c) => {
   }
 })
 
-/** Dia 20, 00:00 BRT (cron 03:00 UTC): gera a escala do mês seguinte. */
+/** Envia uma notificação de teste para todos os aparelhos inscritos. */
+app.post('/api/push/testar', async (c) => {
+  if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
+  if (!c.env.PUSH_VAPID_PUBLICA || !c.env.PUSH_VAPID_PRIVADA) {
+    return c.json({ erro: 'nao_configurado' }, 404)
+  }
+  try {
+    const resultado = await enviarParaTodas(c.env, {
+      titulo: 'Teste de notificação',
+      corpo: 'Tudo certo! Os avisos da escala estão funcionando neste aparelho.',
+      url: '/',
+      tag: 'teste',
+    })
+    return c.json(resultado)
+  } catch {
+    return c.json({ erro: 'falha_envio' }, 500)
+  }
+})
+
+/** Gera (no dia e horário configurados, fuso de São Paulo) a escala do mês seguinte e avisa os aparelhos. */
 async function executarAgendamento(env: Env): Promise<void> {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
+  const agora = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  })
-  const [anoStr, mesStr, diaStr] = fmt.format(new Date()).split('-')
-  const dia = Number(diaStr)
-  if (dia < 20) return
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date())
+  const numero = (tipo: string) => Number(agora.find((parte) => parte.type === tipo)?.value ?? '0')
+  const ano = numero('year')
+  const mes = numero('month') - 1
+  const dia = numero('day')
+  const minutos = numero('hour') * 60 + numero('minute')
 
-  const proximo = proximoMes(Number(anoStr), Number(mesStr) - 1)
   const estado = await carregarEstado(env.DB)
+  const config = estado.escalas._config
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate()
+  const diaEfetivo = Math.min(config.disparo_dia, diasNoMes)
+  const [horaAlvo, minutoAlvo] = config.disparo_hora.split(':').map(Number)
+  const alvo = horaAlvo * 60 + minutoAlvo
+  const devido = dia > diaEfetivo || (dia === diaEfetivo && minutos >= alvo)
+  if (!devido) return
+
+  const proximo = proximoMes(ano, mes)
   const novo = gerarEscalaDoMes(estado, proximo.chave)
-  if (novo !== estado) await salvarEstadoD1(env.DB, novo)
+  if (novo === estado) return
+
+  await salvarEstadoD1(env.DB, novo)
+  console.log(
+    `[agendamento] escala ${proximo.chave} gerada (disparo dia ${config.disparo_dia} às ${config.disparo_hora})`,
+  )
+
+  const envio = await enviarParaTodas(env, {
+    titulo: `Escala de ${MESES[proximo.mes]}`,
+    corpo: `A escala de ${MESES[proximo.mes]} já está disponível no app.`,
+    url: '/',
+    tag: 'escala-mensal',
+  })
+  console.log(`[agendamento] push: ${JSON.stringify(envio)}`)
 }
 
 export default {

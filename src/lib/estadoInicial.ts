@@ -102,6 +102,8 @@ export function estadoInicial(): Estado {
         limite_mensal: 3,
         ajustar_feriados: false,
         horario_feriado: '08:00',
+        disparo_dia: 20,
+        disparo_hora: '00:00',
       },
     },
   }
@@ -147,6 +149,17 @@ export function normalizarEstado(bruto: unknown): Estado {
       ? config.horario_feriado
       : '08:00'
 
+  const disparoDiaBruto = config.disparo_dia
+  const disparoDia =
+    typeof disparoDiaBruto === 'number' && Number.isFinite(disparoDiaBruto)
+      ? Math.min(31, Math.max(1, Math.floor(disparoDiaBruto)))
+      : 20
+
+  const disparoHora =
+    typeof config.disparo_hora === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(config.disparo_hora)
+      ? config.disparo_hora
+      : '00:00'
+
   const normalizarCampos = (lista: Campo[]): Campo[] =>
     lista.map((c) => ({
       ...c,
@@ -172,6 +185,8 @@ export function normalizarEstado(bruto: unknown): Estado {
         limite_mensal: limiteMensal,
         ajustar_feriados: config.ajustar_feriados === true,
         horario_feriado: horarioFeriado,
+        disparo_dia: disparoDia,
+        disparo_hora: disparoHora,
       },
     },
   }

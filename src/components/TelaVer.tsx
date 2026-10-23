@@ -104,6 +104,8 @@ export default function TelaVer({
             limite_mensal: 3,
             ajustar_feriados: false,
             horario_feriado: '08:00',
+            disparo_dia: 20,
+            disparo_hora: '00:00',
           }
         : null,
     [dados],

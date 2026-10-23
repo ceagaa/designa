@@ -11,8 +11,8 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { MESES } from '../lib/constants'
-import type { EstadoNotificacoes, ResultadoAtivacao } from '../lib/push'
-import { ativarNotificacoes, estadoNotificacoes } from '../lib/push'
+import type { EstadoNotificacoes, ResultadoAtivacao, ResultadoTestePush } from '../lib/push'
+import { ativarNotificacoes, enviarTestePush, estadoNotificacoes } from '../lib/push'
 import { Botao, Input, Kicker, Modal, Rotulo, Select, Toggle } from './ui'
 
 /** Horários oferecidos para o feriado: 05:00 às 21:30, de 30 em 30 minutos. */
@@ -23,9 +23,37 @@ const HORARIOS_FERIADO: string[] = Array.from({ length: 34 }, (_, i) => {
   return `${String(hora).padStart(2, '0')}:${String(resto).padStart(2, '0')}`
 })
 
+/** Dias oferecidos para o disparo automático (1–31). */
+const DIAS_DISPARO: number[] = Array.from({ length: 31 }, (_, i) => i + 1)
+
+/** Horários do disparo automático: 00:00 às 23:30, de 30 em 30 minutos. */
+const HORARIOS_DISPARO: string[] = Array.from(
+  { length: 48 },
+  (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 === 0 ? '00' : '30'}`,
+)
+
 /** Data de hoje resolvida uma vez (oxlint: sem Date instável no render). */
 const HOJE = new Date()
 const ATUALIZADO = `em ${MESES[HOJE.getMonth()]} de ${HOJE.getFullYear()}`
+const PROXIMO_MES = HOJE.getMonth() === 11 ? 0 : HOJE.getMonth() + 1
+
+function textoTeste(resultado: ResultadoTestePush): string {
+  if (resultado.erro === 'nao_configurado') {
+    return 'Falta configurar as chaves de push no servidor (PUSH_VAPID_PUBLICA / PUSH_VAPID_PRIVADA).'
+  }
+  if (resultado.erro === 'pin_invalido') return 'PIN incorreto — tente novamente.'
+  if (resultado.erro) return 'Não foi possível enviar o teste agora. Tente de novo.'
+  const enviadas = resultado.enviadas ?? 0
+  const removidas = resultado.removidas ?? 0
+  const falhas = resultado.falhas ?? 0
+  if (enviadas === 0 && falhas === 0 && removidas === 0) {
+    return 'Nenhum aparelho inscrito — ative as notificações primeiro.'
+  }
+  const partes = [`Teste enviado para ${enviadas} aparelho(s)`]
+  if (removidas > 0) partes.push(`${removidas} desativado(s)`)
+  if (falhas > 0) partes.push(`${falhas} falha(s)`)
+  return `${partes.join(' • ')}.`
+}
 
 function Linha({
   rotulo,
@@ -138,6 +166,8 @@ export default function ConfigCampos({
   const [push, setPush] = useState<EstadoNotificacoes | null>(null)
   const [pushOcupado, setPushOcupado] = useState(false)
   const [pushMensagem, setPushMensagem] = useState<string | null>(null)
+  const [testeOcupado, setTesteOcupado] = useState(false)
+  const [testeMensagem, setTesteMensagem] = useState<string | null>(null)
 
   useEffect(() => {
     let vivo = true
@@ -164,6 +194,14 @@ export default function ConfigCampos({
     setPushMensagem(textos[resultado])
     setPush(await estadoNotificacoes())
     setPushOcupado(false)
+  }
+
+  async function aoEnviarTeste() {
+    setTesteOcupado(true)
+    setTesteMensagem(null)
+    const resultado = await enviarTestePush()
+    setTesteMensagem(textoTeste(resultado))
+    setTesteOcupado(false)
   }
 
   const fixaLigada = config.designacao_fixa === true
@@ -342,6 +380,55 @@ export default function ConfigCampos({
       </section>
 
       <section className="space-y-2">
+        <TituloSecao
+          titulo="Geração automática"
+          descricao="Quando a escala do mês seguinte é criada sozinha"
+        />
+        <div className="divide-y divide-line-soft overflow-hidden rounded-xl bg-card shadow-sm">
+          <Linha
+            rotulo="Dia do disparo"
+            descricao={`Todo mês no dia ${config.disparo_dia}, às ${config.disparo_hora} (horário de São Paulo)`}
+            acao={
+              <Select
+                aria-label="Dia do disparo"
+                className="w-24"
+                value={String(config.disparo_dia)}
+                onChange={(e) => aoAlterarConfig({ disparo_dia: Number(e.target.value) })}
+              >
+                {DIAS_DISPARO.map((dia) => (
+                  <option key={dia} value={dia}>
+                    {dia}
+                  </option>
+                ))}
+              </Select>
+            }
+          />
+          <Linha
+            rotulo="Horário do disparo"
+            descricao="A escala entra sozinha e os aparelhos inscritos recebem um aviso"
+            acao={
+              <Select
+                aria-label="Horário do disparo"
+                className="w-28"
+                value={config.disparo_hora}
+                onChange={(e) => aoAlterarConfig({ disparo_hora: e.target.value })}
+              >
+                {HORARIOS_DISPARO.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
+                ))}
+              </Select>
+            }
+          />
+        </div>
+        <p className="rounded-xl border-l-2 border-teal bg-teal-tint px-3 py-2 text-[13px] text-ink">
+          A escala de {MESES[PROXIMO_MES]} será gerada no dia {config.disparo_dia}, às{' '}
+          {config.disparo_hora}, e os aparelhos receberão um aviso.
+        </p>
+      </section>
+
+      <section className="space-y-2">
         <TituloSecao titulo="Notificações" descricao="Avisos no aparelho mesmo com o app fechado" />
         <div className="rounded-xl bg-card p-4 shadow-sm">
           <div className="flex items-start gap-3.5">
@@ -378,6 +465,18 @@ export default function ConfigCampos({
             <Bell className="size-4" aria-hidden="true" />
             {push?.inscrito ? 'Notificações ativadas' : 'Ativar notificações'}
           </Botao>
+          <Botao
+            variante="secundario"
+            className="mt-2 w-full"
+            disabled={pushOcupado || testeOcupado}
+            onClick={aoEnviarTeste}
+          >
+            <Send className="size-4" aria-hidden="true" />
+            {testeOcupado ? 'Enviando teste…' : 'Enviar teste'}
+          </Botao>
+          {testeMensagem ? (
+            <p className="mt-2 text-[12px] font-semibold text-teal">{testeMensagem}</p>
+          ) : null}
         </div>
       </section>
 

@@ -131,8 +131,19 @@ export default function ResumoDesignacao({
       deHojeTodas[deHojeTodas.length - 1])
     : null
   const destaque = deHoje ?? proximas[0] ?? null
-  const lista = proximas.slice(0, 8)
-  const restam = proximas.length - lista.length
+  // A lista começa DEPOIS do que o card mostra: mesmo dia por horário (inclui
+  // saídas gêmeas no mesmo horário), ou os dias seguintes — nunca repete o card.
+  const posteriores = destaque
+    ? proximas.filter((o) => {
+        if (o.iso !== destaque.iso) return o.iso > destaque.iso
+        const horario = String(o.campo.horario)
+        const horarioCard = String(destaque.campo.horario)
+        if (horario !== horarioCard) return horario > horarioCard
+        return o.key !== destaque.key
+      })
+    : []
+  const lista = posteriores.slice(0, 8)
+  const restam = posteriores.length - lista.length
 
   const anos = Array.from({ length: 9 }, (_, i) => ano - 4 + i)
   const porId = new Map(dirigentes.map((d) => [d.id, d]))
@@ -282,7 +293,7 @@ export default function ResumoDesignacao({
         </section>
       )}
 
-      {proximas.length ? (
+      {posteriores.length ? (
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2 px-1">
             <div className="flex min-w-0 items-center gap-2">

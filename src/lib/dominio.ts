@@ -45,6 +45,10 @@ export interface ConfigEscala {
   ajustar_feriados: boolean
   /** Horário que vale nos feriados quando `ajustar_feriados` está ligado. */
   horario_feriado: string
+  /** Dia do mês (1–31) em que a escala do mês seguinte é gerada automaticamente. */
+  disparo_dia: number
+  /** Horário (HH:MM, fuso de São Paulo) da geração automática. */
+  disparo_hora: string
 }
 
 /** `MapaDesignacoes` cobre os registros de `escalas` (também guarda `_config`). */

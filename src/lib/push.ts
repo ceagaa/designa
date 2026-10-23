@@ -105,3 +105,26 @@ export async function ativarNotificacoes(): Promise<ResultadoAtivacao> {
     return 'erro'
   }
 }
+
+export interface ResultadoTestePush {
+  configurado?: boolean
+  enviadas?: number
+  removidas?: number
+  falhas?: number
+  erro?: string
+}
+
+/** Pede ao servidor que envie uma notificação de teste para todos os aparelhos inscritos. */
+export async function enviarTestePush(): Promise<ResultadoTestePush> {
+  try {
+    const resposta = await fetch('/api/push/testar', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...cabecalhosPin() },
+    })
+    const dados = (await resposta.json()) as ResultadoTestePush
+    if (!resposta.ok) return { erro: dados.erro ?? 'falha' }
+    return dados
+  } catch {
+    return { erro: 'rede' }
+  }
+}
