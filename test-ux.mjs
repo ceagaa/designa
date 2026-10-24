@@ -60,13 +60,13 @@ async function dialogoBaixarPdf(tela) {
 try {
   // ---------- 1) Marca na tela de login (apos splash) ----------
   await page.goto(BASE, { waitUntil: 'networkidle', timeout: 45000 })
-  await page.waitForSelector('h1:has-text("Designa")', { timeout: 20000 })
   await page.waitForSelector('#lg-email', { state: 'visible', timeout: 20000 })
-  ck('login: titulo = Designa', await page.locator('h1:has-text("Designa")').first().isVisible())
+  ck('login: titulo visual e logotipo', await page.locator('h1 img[src="/img/LOGOTIPO.png"]').isVisible())
   ck(
     'login: logotipo Designa visivel',
     await page.locator('img[src="/img/LOGOTIPO.png"]').first().isVisible(),
   )
+  ck('login: sem titulo Designa duplicado', (await page.locator('h1').innerText()) === '')
   ck('login: sem referencia a Sao Joao', !(await page.content()).includes('Paraíso'))
   await shot('01-login')
 

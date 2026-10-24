@@ -77,191 +77,204 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
   const ehCriar = modo === 'criar'
 
   return (
-    <div className="flex min-h-svh flex-col justify-center px-5 py-8">
-      <div className="mx-auto w-full max-w-md">
-        <header className="mb-6 text-center">
-          <span
-            className="mx-auto flex w-fit items-center justify-center rounded-2xl bg-white px-5 py-3 shadow-lg"
-            aria-hidden="true"
-          >
-            <img src="/img/LOGOTIPO.png" alt="" className="h-9 w-auto" draggable={false} />
-          </span>
-          <h1 className="mt-4 text-[27px] font-bold tracking-tight text-ink">Designa</h1>
-          <p className="mt-1 text-sm text-muted">
-            Designação da congregação, com acesso por setor.
+    <div className="flex min-h-svh items-center justify-center px-5 py-8">
+      <div className="mx-auto grid w-full max-w-5xl items-center gap-10 md:grid-cols-2 md:gap-16">
+        <header className="text-center md:text-left">
+          <h1 className="mx-auto w-fit md:mx-0">
+            <img
+              src="/img/LOGOTIPO.png"
+              alt="Designa"
+              className="h-14 w-auto md:h-20"
+              draggable={false}
+            />
+          </h1>
+          <p className="mt-6 text-sm font-semibold uppercase tracking-wider text-teal">
+            Designações mecânicas automáticas
+          </p>
+          <h2 className="mt-3 text-2xl font-bold leading-tight tracking-tight text-ink md:text-3xl">
+            Tudo o que sua equipe precisa para cuidar das designações mecânicas da congregação.
+          </h2>
+          <p className="mt-4 max-w-lg text-base leading-relaxed text-muted">
+            Automatize a designação mecânica, acompanhe em tempo real e mantenha a boa organização
+            em um só lugar.
+          </p>
+          <p className="mt-5 text-sm font-semibold text-ink">
+            Feito para automatizar as designações mecânicas
           </p>
         </header>
 
-        <div
-          role="group"
-          aria-label="Modo de acesso"
-          className="flex rounded-xl bg-card p-1 shadow-sm"
-        >
-          <button
-            type="button"
-            aria-pressed={!ehCriar}
-            onClick={() => trocarModo('entrar')}
-            className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-              !ehCriar ? 'bg-teal text-white shadow-sm' : 'text-muted hover:text-ink'
-            }`}
+        <div className="w-full max-w-md md:justify-self-end">
+          <div
+            role="group"
+            aria-label="Modo de acesso"
+            className="flex rounded-xl bg-card p-1 shadow-sm"
           >
-            Entrar
-          </button>
-          <button
-            type="button"
-            aria-pressed={ehCriar}
-            onClick={() => trocarModo('criar')}
-            className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-              ehCriar ? 'bg-teal text-white shadow-sm' : 'text-muted hover:text-ink'
-            }`}
-          >
-            Criar conta
-          </button>
-        </div>
-
-        <form onSubmit={enviar} className="mt-5 space-y-4" noValidate>
-          {ehCriar ? (
-            <div>
-              <Rotulo htmlFor="lg-nome">Nome do administrador</Rotulo>
-              <Input
-                id="lg-nome"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                autoComplete="name"
-                placeholder="Seu nome completo"
-                autoCapitalize="words"
-                enterKeyHint="next"
-                autoFocus
-              />
-            </div>
-          ) : null}
-
-          <div>
-            <Rotulo htmlFor="lg-email">E-mail</Rotulo>
-            <Input
-              id="lg-email"
-              type="email"
-              inputMode="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              placeholder="voce@exemplo.com"
-              enterKeyHint={ehCriar ? 'next' : 'next'}
-              autoFocus={!ehCriar}
-            />
+            <button
+              type="button"
+              aria-pressed={!ehCriar}
+              onClick={() => trocarModo('entrar')}
+              className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                !ehCriar ? 'bg-teal text-white shadow-sm' : 'text-muted hover:text-ink'
+              }`}
+            >
+              Entrar
+            </button>
+            <button
+              type="button"
+              aria-pressed={ehCriar}
+              onClick={() => trocarModo('criar')}
+              className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                ehCriar ? 'bg-teal text-white shadow-sm' : 'text-muted hover:text-ink'
+              }`}
+            >
+              Criar conta
+            </button>
           </div>
 
-          <div>
-            <Rotulo htmlFor="lg-senha">Senha</Rotulo>
-            <div className="relative">
-              <Input
-                id="lg-senha"
-                type={verSenha ? 'text' : 'password'}
-                className="pr-11"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                autoComplete={ehCriar ? 'new-password' : 'current-password'}
-                placeholder={ehCriar ? 'Mínimo de 6 caracteres' : 'Sua senha'}
-                enterKeyHint={ehCriar ? 'next' : 'done'}
-              />
-              <button
-                type="button"
-                onClick={() => setVerSenha((v) => !v)}
-                aria-pressed={verSenha}
-                aria-label={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
-                title={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-muted transition-colors hover:bg-canvas hover:text-teal"
-              >
-                {verSenha ? (
-                  <EyeOff className="size-4" aria-hidden="true" />
-                ) : (
-                  <Eye className="size-4" aria-hidden="true" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {ehCriar ? (
-            <>
-              <div className="border-t border-line-soft pt-4">
-                <Kicker className="text-muted">Congregação</Kicker>
-              </div>
+          <form onSubmit={enviar} className="mt-5 space-y-4" noValidate>
+            {ehCriar ? (
               <div>
-                <Rotulo htmlFor="lg-cong">Nome da congregação</Rotulo>
+                <Rotulo htmlFor="lg-nome">Nome do administrador</Rotulo>
                 <Input
-                  id="lg-cong"
-                  value={congregacaoNome}
-                  onChange={(e) => setCongregacaoNome(e.target.value)}
-                  placeholder="Ex.: Bancários"
+                  id="lg-nome"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  autoComplete="name"
+                  placeholder="Seu nome completo"
                   autoCapitalize="words"
                   enterKeyHint="next"
+                  autoFocus
                 />
               </div>
-              <div>
-                <Rotulo htmlFor="lg-num">Número (opcional)</Rotulo>
+            ) : null}
+
+            <div>
+              <Rotulo htmlFor="lg-email">E-mail</Rotulo>
+              <Input
+                id="lg-email"
+                type="email"
+                inputMode="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                placeholder="voce@exemplo.com"
+                enterKeyHint={ehCriar ? 'next' : 'next'}
+                autoFocus={!ehCriar}
+              />
+            </div>
+
+            <div>
+              <Rotulo htmlFor="lg-senha">Senha</Rotulo>
+              <div className="relative">
                 <Input
-                  id="lg-num"
-                  inputMode="numeric"
-                  value={congregacaoNumero}
-                  onChange={(e) => setCongregacaoNumero(e.target.value)}
-                  placeholder="Ex.: 140921"
-                  enterKeyHint="done"
+                  id="lg-senha"
+                  type={verSenha ? 'text' : 'password'}
+                  className="pr-11"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  autoComplete={ehCriar ? 'new-password' : 'current-password'}
+                  placeholder={ehCriar ? 'Mínimo de 6 caracteres' : 'Sua senha'}
+                  enterKeyHint={ehCriar ? 'next' : 'done'}
                 />
+                <button
+                  type="button"
+                  onClick={() => setVerSenha((v) => !v)}
+                  aria-pressed={verSenha}
+                  aria-label={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                  title={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-muted transition-colors hover:bg-canvas hover:text-teal"
+                >
+                  {verSenha ? (
+                    <EyeOff className="size-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="size-4" aria-hidden="true" />
+                  )}
+                </button>
               </div>
-            </>
-          ) : null}
+            </div>
 
-          {erro ? (
-            <p
-              role="alert"
-              className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] font-semibold text-ink"
-            >
-              {erro}
-            </p>
-          ) : null}
+            {ehCriar ? (
+              <>
+                <div className="border-t border-line-soft pt-4">
+                  <Kicker className="text-muted">Congregação</Kicker>
+                </div>
+                <div>
+                  <Rotulo htmlFor="lg-cong">Nome da congregação</Rotulo>
+                  <Input
+                    id="lg-cong"
+                    value={congregacaoNome}
+                    onChange={(e) => setCongregacaoNome(e.target.value)}
+                    placeholder="Ex.: Bancários"
+                    autoCapitalize="words"
+                    enterKeyHint="next"
+                  />
+                </div>
+                <div>
+                  <Rotulo htmlFor="lg-num">Número (opcional)</Rotulo>
+                  <Input
+                    id="lg-num"
+                    inputMode="numeric"
+                    value={congregacaoNumero}
+                    onChange={(e) => setCongregacaoNumero(e.target.value)}
+                    placeholder="Ex.: 140921"
+                    enterKeyHint="done"
+                  />
+                </div>
+              </>
+            ) : null}
 
-          <Botao type="submit" variante="primario" className="w-full" disabled={ocupado}>
-            {ocupado ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            ) : ehCriar ? (
-              <UserPlus className="size-4" aria-hidden="true" />
+            {erro ? (
+              <p
+                role="alert"
+                className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] font-semibold text-ink"
+              >
+                {erro}
+              </p>
+            ) : null}
+
+            <Botao type="submit" variante="primario" className="w-full" disabled={ocupado}>
+              {ocupado ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : ehCriar ? (
+                <UserPlus className="size-4" aria-hidden="true" />
+              ) : (
+                <ArrowRight className="size-4" aria-hidden="true" />
+              )}
+              {ocupado ? 'Aguarde…' : ehCriar ? 'Criar conta' : 'Entrar'}
+            </Botao>
+          </form>
+
+          <p className="mt-5 text-center text-[13px] text-muted">
+            {ehCriar ? (
+              <>
+                Já tem conta?{' '}
+                <button
+                  type="button"
+                  onClick={() => trocarModo('entrar')}
+                  className="font-semibold text-teal underline-offset-2 hover:underline"
+                >
+                  Entrar
+                </button>
+              </>
             ) : (
-              <ArrowRight className="size-4" aria-hidden="true" />
+              <>
+                Não tem conta?{' '}
+                <button
+                  type="button"
+                  onClick={() => trocarModo('criar')}
+                  className="font-semibold text-teal underline-offset-2 hover:underline"
+                >
+                  Criar conta de administrador
+                </button>
+              </>
             )}
-            {ocupado ? 'Aguarde…' : ehCriar ? 'Criar conta' : 'Entrar'}
-          </Botao>
-        </form>
+          </p>
 
-        <p className="mt-5 text-center text-[13px] text-muted">
-          {ehCriar ? (
-            <>
-              Já tem conta?{' '}
-              <button
-                type="button"
-                onClick={() => trocarModo('entrar')}
-                className="font-semibold text-teal underline-offset-2 hover:underline"
-              >
-                Entrar
-              </button>
-            </>
-          ) : (
-            <>
-              Não tem conta?{' '}
-              <button
-                type="button"
-                onClick={() => trocarModo('criar')}
-                className="font-semibold text-teal underline-offset-2 hover:underline"
-              >
-                Criar conta de administrador
-              </button>
-            </>
-          )}
-        </p>
-
-        <p className="mt-4 flex items-start justify-center gap-1.5 text-center text-[12px] text-muted">
-          <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-          Recebeu um convite? O link do convite já abre direto o cadastro do seu setor.
-        </p>
+          <p className="mt-4 flex items-start justify-center gap-1.5 text-center text-[12px] text-muted">
+            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            Recebeu um convite? O link do convite já abre direto o cadastro do seu setor.
+          </p>
+        </div>
       </div>
     </div>
   )
