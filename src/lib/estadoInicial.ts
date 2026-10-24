@@ -1,7 +1,6 @@
 import type { Campo, Dirigente, Estado, Escalas, RegistroMes } from './dominio'
 import { CONGREGACAO_PADRAO, TITULO_PADRAO, frequenciaValida } from './constants'
 
-export const ID_REGISTRO = 'default_config'
 export const CHAVE_LOCAL = 'dirigentes:estado:v1'
 
 export function estadoInicial(): Estado {
@@ -105,6 +104,19 @@ export function estadoInicial(): Estado {
         disparo_dia: 20,
         disparo_hora: '00:00',
       },
+    },
+  }
+}
+
+/** Estado de uma congregação nova: sem demonstração, com o nome dela no cabeçalho. */
+export function estadoVazio(congregacao: string): Estado {
+  const base = estadoInicial()
+  return {
+    dirigentes: [],
+    config_campos: [],
+    escalas: {
+      ...base.escalas,
+      _config: { ...base.escalas._config, congregacao },
     },
   }
 }

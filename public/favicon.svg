@@ -1,7 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Dirigentes de Campo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Designa">
   <rect width="32" height="32" fill="#045A6C" />
   <path
-    d="M16 6.5c-4.14 0-7.5 3.24-7.5 7.24 0 5.06 6.6 11.4 7.5 11.4s7.5-6.34 7.5-11.4c0-4-3.36-7.24-7.5-7.24Zm0 9.9a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"
-    fill="#FFFFFF"
+    d="M8.5 17.2 13.6 22.3 23.5 10.5"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="4.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
   />
 </svg>

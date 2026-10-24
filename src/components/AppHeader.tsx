@@ -1,4 +1,4 @@
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, LogOut } from 'lucide-react'
 import SinoNotificacoes from './SinoNotificacoes'
 import type { Notificacao } from './SinoNotificacoes'
 
@@ -7,10 +7,12 @@ interface AppHeaderProps {
   notificacoes: Notificacao[]
   /** Presente na tela de montagem (volta para o resumo). */
   aoVoltar?: () => void
+  /** Encerra a sessão da conta. */
+  aoSair?: () => void
 }
 
-/** Header de topo: apenas o nome da página e o sino de notificações. */
-export default function AppHeader({ titulo, notificacoes, aoVoltar }: AppHeaderProps) {
+/** Header de topo: nome da página, sino de notificações e sair da conta. */
+export default function AppHeader({ titulo, notificacoes, aoVoltar, aoSair }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-surface/85 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-[640px] items-center justify-between gap-3 px-4">
@@ -27,7 +29,19 @@ export default function AppHeader({ titulo, notificacoes, aoVoltar }: AppHeaderP
           ) : null}
           <h1 className="truncate text-base font-semibold tracking-tight text-ink">{titulo}</h1>
         </div>
-        <SinoNotificacoes notificacoes={notificacoes} />
+        <div className="flex shrink-0 items-center gap-1">
+          <SinoNotificacoes notificacoes={notificacoes} />
+          {aoSair ? (
+            <button
+              type="button"
+              aria-label="Sair da conta"
+              onClick={aoSair}
+              className="flex size-10 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-crimson-bg hover:text-crimson"
+            >
+              <LogOut className="size-5" aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
       </div>
     </header>
   )

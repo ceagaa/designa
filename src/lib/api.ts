@@ -12,42 +12,36 @@ export function cabecalhosPin(): Record<string, string> {
   }
 }
 
-/** Guarda o PIN de acesso neste aparelho (se o servidor exigir APP_PIN). */
-export function definirPin(pin: string): void {
-  try {
-    if (pin) localStorage.setItem(CHAVE_PIN, pin)
-    else localStorage.removeItem(CHAVE_PIN)
-  } catch (erro) {
-    console.warn('Não foi possível gravar o PIN.', erro)
-  }
-}
-
-export function pinSalvo(): string {
-  try {
-    return localStorage.getItem(CHAVE_PIN) ?? ''
-  } catch {
-    return ''
-  }
-}
-
 export interface ResultadoCarga {
   estado: Estado
   origem: OrigemEstado
 }
 
+/** Sessão expirada/não autenticada (401): a interface deve abrir o login. */
+export class Erro401 extends Error {
+  constructor() {
+    super('sessao_expirada')
+    this.name = 'Erro401'
+  }
+}
+
 /**
  * Carrega o estado mais recente: API primeiro, cache local como reserva.
  * Retorna { estado, origem } para a interface sinalizar de onde veio o dado.
+ * Lança Erro401 quando a sessão não é válida (não há o que ressalvar offline).
  */
 export async function carregarEstado(): Promise<ResultadoCarga> {
   try {
     const resposta = await fetch('/api/estado', { cache: 'no-store', headers: cabecalhosPin() })
+    if (resposta.status === 401) throw new Erro401()
+    if (resposta.status === 403) throw new Erro401()
     if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`)
     const dados = (await resposta.json()) as { estado?: unknown }
     const estado = normalizarEstado(dados.estado)
     guardarLocal(estado)
     return { estado, origem: 'nuvem' }
   } catch (erro) {
+    if (erro instanceof Erro401) throw erro
     console.warn('API indisponível, usando cache local.', erro)
   }
 
@@ -81,6 +75,7 @@ export async function salvarEstado(estado: Estado): Promise<DestinoEstado> {
     headers: { 'content-type': 'application/json', ...cabecalhosPin() },
     body: JSON.stringify({ estado }),
   })
+  if (resposta.status === 401 || resposta.status === 403) throw new Erro401()
   if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`)
   return 'nuvem'
 }

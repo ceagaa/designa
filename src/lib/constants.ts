@@ -110,15 +110,11 @@ export const MESES_ABBR = [
 ] as const
 
 export const TITULO_PADRAO = 'Programação para serviço de campo'
-export const CONGREGACAO_PADRAO = 'São João Do Paraíso - 140921'
+export const CONGREGACAO_PADRAO = 'Sua Congregação'
 export const CITACAO = 'Mas que todas as coisas ocorram com decência e ordem - 1 Cor 14:40'
 
 export function infoDia(idx: number): InfoDia {
   return DIAS_SEMANA[idx] ?? DIAS_SEMANA[0]
-}
-
-export function isFimDeSemana(idx: number): boolean {
-  return idx === 0 || idx === 6
 }
 
 export function frequenciaDe(id: string | undefined): Frequencia {

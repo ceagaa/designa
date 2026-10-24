@@ -156,6 +156,64 @@
   }
 }
 
+/*
+ * Destaque de HOJE: borda "ao vivo" (anel pulsante) nos cards da
+ * designação do dia atual — variante clara (fundo claro) e branca
+ * (sobre o hero teal).
+ */
+@keyframes anel-vivo {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(20, 128, 145, 0.8),
+      0 0 0 6px rgba(20, 128, 145, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(20, 128, 145, 1),
+      0 0 14px 3px rgba(20, 128, 145, 0.45);
+  }
+}
+
+@keyframes anel-vivo-branco {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.85),
+      0 0 0 6px rgba(255, 255, 255, 0.14);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 1),
+      0 0 16px 4px rgba(255, 255, 255, 0.4);
+  }
+}
+
+.escala-hoje {
+  animation: anel-vivo 2s ease-in-out infinite;
+}
+
+.escala-hoje-branco {
+  animation: anel-vivo-branco 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .escala-hoje,
+  .escala-hoje-branco {
+    animation: none;
+  }
+  .escala-hoje {
+    box-shadow:
+      0 0 0 2px #148091,
+      0 0 0 6px rgba(20, 128, 145, 0.12);
+  }
+  .escala-hoje-branco {
+    box-shadow:
+      0 0 0 2px #ffffff,
+      0 0 0 6px rgba(255, 255, 255, 0.14);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

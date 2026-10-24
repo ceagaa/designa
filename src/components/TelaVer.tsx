@@ -39,10 +39,13 @@ export default function TelaVer({
   payload,
   aoVoltar,
   aoAvisar,
+  linkPublico,
 }: {
   payload: string
   aoVoltar: () => void
   aoAvisar: (mensagem: string) => void
+  /** Quando presente (rota pública), mostra a barra fixa PDF + Copiar link. */
+  linkPublico?: string
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
   const dados = useMemo(() => decodificar(payload ?? ''), [payload])
@@ -155,8 +158,19 @@ export default function TelaVer({
     }
   }
 
+  async function copiarLinkPublico() {
+    if (!linkPublico) return
+    try {
+      if (!navigator.clipboard) throw new Error('sem clipboard')
+      await navigator.clipboard.writeText(linkPublico)
+      aoAvisar('Link copiado.')
+    } catch {
+      aoAvisar('Não foi possível copiar — copie a URL do navegador.')
+    }
+  }
+
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-16">
+    <div className={`mx-auto w-full max-w-2xl px-4 py-6 ${linkPublico ? 'pb-32' : 'pb-16'}`}>
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span
@@ -175,12 +189,16 @@ export default function TelaVer({
           </div>
         </div>
         <Botao variante="fantasma" className="shrink-0" onClick={aoVoltar}>
-          Voltar para o app
+          {linkPublico ? 'Ir para o app' : 'Voltar para o app'}
         </Botao>
       </header>
 
       {destaque ? (
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl">
+        <section
+          className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl ${
+            destaque.iso === HOJE_ISO ? 'escala-hoje-branco' : ''
+          }`}
+        >
           <div
             className="pointer-events-none absolute -bottom-10 -right-8 size-44 rounded-full bg-white/10 blur-2xl"
             aria-hidden="true"
@@ -191,6 +209,12 @@ export default function TelaVer({
               {rotuloDe(destaque.iso) ? (
                 <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">
                   {rotuloDe(destaque.iso)}
+                </span>
+              ) : null}
+              {destaque.iso === HOJE_ISO ? (
+                <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-teal-deep">
+                  <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
+                  HOJE
                 </span>
               ) : null}
               <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-bold tracking-wide text-white">
@@ -225,9 +249,18 @@ export default function TelaVer({
           <h2 className="px-1 text-lg font-semibold text-ink">Próximos dias</h2>
           <div className="flex flex-col gap-2">
             {restantes.map((l) => (
-              <article key={l.key} className="rounded-xl bg-card p-4 shadow-sm">
+              <article
+                key={l.key}
+                className={`rounded-xl bg-card p-4 shadow-sm ${l.iso === HOJE_ISO ? 'escala-hoje' : ''}`}
+              >
                 <p className="text-sm font-bold text-ink">{l.nome || 'Sem designação'}</p>
                 <p className="mt-1 text-[13px] text-muted">
+                  {l.iso === HOJE_ISO ? (
+                    <span className="mr-1.5 inline-flex items-center gap-1 rounded-full bg-teal px-2 py-0.5 text-[11px] font-bold text-white align-middle">
+                      <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
+                      HOJE
+                    </span>
+                  ) : null}
                   {nomeDiaCurto(l.diaSemana)}, {ddMm(l.iso)}
                   {rotuloDe(l.iso) ? (
                     <span className="ml-1.5 rounded-full bg-line px-2 py-0.5 text-[11px] font-bold text-ink-soft">
@@ -243,16 +276,18 @@ export default function TelaVer({
         </section>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        <Botao variante="primario" onClick={baixarPdfDaPagina}>
-          <FileDown className="size-4" aria-hidden="true" />
-          Baixar PDF
-        </Botao>
-        <Botao onClick={baixarImagemDaPagina}>
-          <ImageDown className="size-4" aria-hidden="true" />
-          Baixar imagem
-        </Botao>
-      </div>
+      {linkPublico ? null : (
+        <div className="mt-6 flex flex-wrap gap-2">
+          <Botao variante="primario" onClick={baixarPdfDaPagina}>
+            <FileDown className="size-4" aria-hidden="true" />
+            Baixar PDF
+          </Botao>
+          <Botao onClick={baixarImagemDaPagina}>
+            <ImageDown className="size-4" aria-hidden="true" />
+            Baixar imagem
+          </Botao>
+        </div>
+      )}
 
       <p className="mt-4 text-[13px] text-muted">
         Somente leitura: esta é a programação que foi compartilhada com você.
@@ -272,6 +307,21 @@ export default function TelaVer({
           somenteLeitura
         />
       </div>
+
+      {linkPublico ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+          <div className="mx-auto flex max-w-2xl gap-2">
+            <Botao variante="primario" className="flex-1" onClick={baixarPdfDaPagina}>
+              <FileDown className="size-4" aria-hidden="true" />
+              Baixar PDF
+            </Botao>
+            <Botao variante="secundario" className="flex-1" onClick={copiarLinkPublico}>
+              <LinkIcon className="size-4" aria-hidden="true" />
+              Copiar link
+            </Botao>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

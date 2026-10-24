@@ -2,7 +2,7 @@ import type { ConfigEscala, Dirigente, Ocorrencia, PayloadCompartilhado } from '
 import { lerChaveMes } from './datas'
 
 /** Codifica um objeto JSON em texto seguro para URL (base64url, sem padding). */
-function codificar(valor: unknown): string {
+export function codificar(valor: unknown): string {
   const bytes = new TextEncoder().encode(JSON.stringify(valor))
   let binario = ''
   for (let i = 0; i < bytes.length; i += 1) binario += String.fromCharCode(bytes[i])

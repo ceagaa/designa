@@ -1,6 +1,7 @@
-import type { Campo, Dirigente, FrequenciaId } from '../lib/dominio'
+import type { AptidaoId, Campo, Dirigente, FrequenciaId, ParticipanteTpl } from '../lib/dominio'
 import { useMemo, useState } from 'react'
 import { CalendarDays, Check, CircleAlert, Trash, UserPlus } from 'lucide-react'
+import { FUNCOES_AVI } from '../lib/dominio'
 import { FREQUENCIAS, HORARIOS_PADRAO, MESES, ORDEM_DIAS, infoDia } from '../lib/constants'
 import { Botao, Chip, Input, Modal, Rotulo, Select, Vazio } from './ui'
 
@@ -53,6 +54,14 @@ interface CadastroDirigentesProps {
   /** Designações efetivas do mês corrente (iso → id). */
   efetivas: Record<string, string>
   aoAlterar: (lista: Dirigente[]) => void
+  /** Designações AVI por irmão (cadastro unificado). Oculto quando null. */
+  aptidoes?: Record<string, AptidaoId[]> | null
+  aoAlternarAptidao?: (idIrmao: string, aptidao: AptidaoId) => void
+  /** Participantes do TPL (chave = id da ficha). Oculto quando null. */
+  participantesTpl?: ParticipanteTpl[] | null
+  aoAlternarTpl?: (dirigente: Dirigente) => void
+  /** Abre a tela Locais quando faltam dias de campo. */
+  aoConfigurar?: () => void
 }
 
 export default function CadastroDirigentes({
@@ -63,6 +72,11 @@ export default function CadastroDirigentes({
   mes,
   efetivas,
   aoAlterar,
+  aptidoes = null,
+  aoAlternarAptidao,
+  participantesTpl = null,
+  aoAlternarTpl,
+  aoConfigurar,
 }: CadastroDirigentesProps) {
   const [form, setForm] = useState<FormDirigente | null>(null)
   const [erro, setErro] = useState('')
@@ -166,7 +180,7 @@ export default function CadastroDirigentes({
       {dirigentes.length ? (
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2 px-0.5">
-            <h2 className="text-lg font-semibold text-ink">Quadro de dirigentes</h2>
+            <h2 className="text-lg font-semibold text-ink">Quadro de pessoas</h2>
             <p className="text-sm text-muted">{dirigentes.length} cadastrados</p>
           </div>
 
@@ -271,6 +285,48 @@ export default function CadastroDirigentes({
                           {nota}
                         </span>
                       </div>
+
+                      {aptidoes !== null || participantesTpl !== null ? (
+                        <div
+                          className="mt-3 border-t border-line-soft pt-3"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          {participantesTpl !== null && aoAlternarTpl ? (
+                            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-canvas/70 px-3 py-2">
+                              <span className="text-[13px] font-semibold text-ink">
+                                Participa do TPL
+                              </span>
+                              <input
+                                type="checkbox"
+                                checked={participantesTpl.some((p) => p.id === d.id && p.ativo)}
+                                onChange={() => aoAlternarTpl(d)}
+                                className="size-4 shrink-0 accent-teal"
+                                aria-label={`Participa do TPL: ${d.nome}`}
+                              />
+                            </label>
+                          ) : null}
+
+                          {aptidoes !== null && aoAlternarAptidao ? (
+                            <div className={participantesTpl !== null ? 'mt-2.5' : ''}>
+                              <p className="mb-1.5 text-[12px] font-semibold text-muted">
+                                  Designações AVI
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {FUNCOES_AVI.map((f) => (
+                                  <Chip
+                                    key={f.id}
+                                    ativo={(aptidoes[d.id] ?? []).includes(f.id)}
+                                    onClick={() => aoAlternarAptidao(d.id, f.id)}
+                                  >
+                                    {f.rotulo}
+                                  </Chip>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </article>
                   )
                 })}
@@ -279,11 +335,11 @@ export default function CadastroDirigentes({
       ) : (
         <Vazio
           icone={UserPlus}
-          titulo="Nenhum dirigente cadastrado. Comece pela ficha: nome, frequência e dias em que a pessoa pode sair ao campo."
+          titulo="Nenhuma pessoa cadastrada. Comece pela ficha: nome, frequência e dias em que a pessoa pode sair ao campo."
           acao={
             <Botao variante="primario" onClick={() => abrir()}>
               <UserPlus className="size-4" aria-hidden="true" />
-              Cadastrar primeiro dirigente
+              Cadastrar primeira pessoa
             </Botao>
           }
         />
@@ -292,14 +348,14 @@ export default function CadastroDirigentes({
       <Modal
         aberto={form !== null}
         aoFechar={fechar}
-        titulo={form?.id ? 'Editar dirigente' : 'Novo dirigente'}
-        descricao="Ficha alimenta o rodízio automático."
+        titulo={form?.id ? 'Editar pessoa' : 'Nova pessoa'}
+        descricao="Ficha alimenta o rodízio do Campo e os setores."
         largura="max-w-lg"
       >
         {form ? (
           <div className="space-y-4 px-5 py-4">
             <div>
-              <Rotulo htmlFor="dir-nome">Nome do dirigente</Rotulo>
+              <Rotulo htmlFor="dir-nome">Nome da pessoa</Rotulo>
               <Input
                 id="dir-nome"
                 value={form.nome}
@@ -310,6 +366,20 @@ export default function CadastroDirigentes({
                 spellCheck={false}
                 enterKeyHint="next"
                 autoFocus
+              />
+            </div>
+
+            <div>
+              <Rotulo htmlFor="dir-tel">Telefone (opcional)</Rotulo>
+              <Input
+                id="dir-tel"
+                type="tel"
+                inputMode="tel"
+                value={form.telefone}
+                onChange={(e) => alternar('telefone', e.target.value)}
+                placeholder="Ex.: (11) 99999-0000"
+                autoComplete="tel"
+                enterKeyHint="next"
               />
             </div>
 
@@ -402,7 +472,7 @@ export default function CadastroDirigentes({
                 className="size-4 accent-teal"
               />
               <span className="text-sm font-semibold text-ink">
-                Marcar dirigente como inativo
+                Marcar pessoa como inativa
               </span>
             </label>
 
@@ -464,10 +534,17 @@ export default function CadastroDirigentes({
       </Modal>
 
       {campos.length ? null : (
-        <p className="flex items-start gap-2 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
-          <CircleAlert className="mt-0.5 size-4 shrink-0 text-crimson" aria-hidden="true" />
-          Configure os dias de campo na aba Locais para que o rodízio comece a distribuir.
-        </p>
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+          <p className="flex min-w-0 flex-1 items-start gap-2">
+            <CircleAlert className="mt-0.5 size-4 shrink-0 text-crimson" aria-hidden="true" />
+            Configure os dias de campo na tela Locais para que o rodízio comece a distribuir.
+          </p>
+          {aoConfigurar ? (
+            <Botao variante="fantasma" className="shrink-0 text-crimson" onClick={aoConfigurar}>
+              Abrir Locais
+            </Botao>
+          ) : null}
+        </div>
       )}
 
       <button
@@ -477,7 +554,7 @@ export default function CadastroDirigentes({
         className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-30 flex h-14 items-center gap-2 rounded-full bg-teal pl-4 pr-5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(13,92,104,0.35)] transition-all hover:bg-teal-deep active:scale-95"
       >
         <UserPlus className="size-5" aria-hidden="true" />
-        Novo dirigente
+        Nova pessoa
       </button>
     </div>
   )

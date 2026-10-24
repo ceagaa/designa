@@ -2,7 +2,12 @@ import type { CSSProperties, Ref } from 'react'
 import type { ConfigEscala, Dirigente, Ocorrencia } from '../lib/dominio'
 import { Fragment, forwardRef } from 'react'
 import { CITACAO, CORES_PLANILHA, MESES, MESES_ABBR, infoDia } from '../lib/constants'
+import { isoDeHoje } from '../lib/datas'
 import { candidatosAjudantePara, candidatosPara } from '../lib/rodizio'
+import CabecalhoEscala from './CabecalhoEscala'
+
+/** Data de hoje resolvida uma vez (oxlint: sem Date instável no render). */
+const HOJE_ISO = isoDeHoje()
 
 const CORES = CORES_PLANILHA
 const borda: CSSProperties = { borderColor: CORES.linha }
@@ -179,35 +184,11 @@ const EscalaCard = forwardRef(function EscalaCard(
 
   return (
     <div ref={ref} className="escala-card mx-auto w-[760px] bg-white">
-      <div className="flex h-[43px] border-b border-l border-t" style={borda}>
-        <div className="flex w-[81.4%] items-center justify-center overflow-hidden px-3">
-          <span
-            className="truncate text-[34px] font-bold leading-none"
-            style={{ color: CORES.titulo }}
-          >
-            {config.titulo}
-          </span>
-        </div>
-        <div
-          className="flex w-[18.6%] items-center justify-center overflow-hidden"
-          style={{ backgroundColor: CORES.mes }}
-        >
-          <span className="truncate px-1 text-[34px] font-bold leading-none text-white">
-            {mesRotulo || '\u00a0'}
-          </span>
-        </div>
-      </div>
-
-      <div
-        className="flex h-[27px] items-center justify-center overflow-hidden border-b border-l px-3"
-        style={{ borderLeftColor: CORES.linha, borderBottomColor: CORES.sublinha }}
-      >
-        <span className="truncate text-[13px] font-bold" style={{ color: CORES.titulo }}>
-          {config.congregacao}
-        </span>
-      </div>
-
-      <div className="h-[4px]" style={{ backgroundColor: CORES.barra }} aria-hidden="true" />
+      <CabecalhoEscala
+        titulo={config.titulo}
+        congregacao={config.congregacao}
+        mesRotulo={mesRotulo}
+      />
 
       <table
         className="w-full table-fixed border-collapse text-center text-[19px]"
@@ -278,13 +259,21 @@ const EscalaCard = forwardRef(function EscalaCard(
                     ? ''
                     : distintos(idsAju.map(nomeDeId)).join(' · ')
                   const candidatosAju = candidatosAjudantePara(primaria, dirigentes)
+                  const ehHoje = linha.ocs.some((oc) => oc.iso === HOJE_ISO)
 
                   return (
                     <tr
                       key={chave0}
                       style={{ backgroundColor: i % 2 === 0 ? CORES.zebra : CORES.fundo }}
                     >
-                      <td className="h-[43px] px-1 font-bold">{linha.rotulo}</td>
+                      <td className="h-[43px] px-1 font-bold">
+                        {linha.rotulo}
+                        {ehHoje ? (
+                          <span className="ml-1 font-bold" style={{ color: CORES_PLANILHA.mes }}>
+                            (hoje)
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="h-[43px] px-1 font-normal">{primaria.campo.horario}</td>
                       <td className="h-[43px] px-1 font-normal">{primaria.campo.local}</td>
                       <td className="h-[43px] px-1 font-bold">

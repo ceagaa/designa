@@ -191,15 +191,26 @@ async function enviarUm(
   }
 }
 
-/** Envia uma notificação para todas as inscrições ativas (404/410 desativam o aparelho). */
-export async function enviarParaTodas(env: AmbientePush, notificacao: NotificacaoPush): Promise<ResultadoEnvio> {
+/**
+ * Envia uma notificação para as inscrições ativas da congregação (404/410
+ * desativam o aparelho). `congregacaoId` nulo/atrasado casa também com as
+ * inscrições legadas (NULL), que continuam recebendo os avisos da escala.
+ */
+export async function enviarParaTodas(
+  env: AmbientePush,
+  notificacao: NotificacaoPush,
+  congregacaoId?: string | null,
+): Promise<ResultadoEnvio> {
   const publica = env.PUSH_VAPID_PUBLICA
   const privada = env.PUSH_VAPID_PRIVADA
   if (!publica || !privada) return { configurado: false, enviadas: 0, removidas: 0, falhas: 0 }
 
   const consulta = await env.DB.prepare(
-    'SELECT endpoint, chave_p256dh, chave_auth FROM push_inscricoes WHERE ativo = 1',
-  ).all<Inscricao>()
+    `SELECT endpoint, chave_p256dh, chave_auth FROM push_inscricoes
+      WHERE ativo = 1 AND (congregacao_id = ? OR congregacao_id IS NULL)`,
+  )
+    .bind(congregacaoId ?? null)
+    .all<Inscricao>()
   const resultados = await Promise.all(
     (consulta.results ?? []).map((inscricao) => enviarUm(env, inscricao, notificacao, publica, privada)),
   )

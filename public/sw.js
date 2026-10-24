@@ -1,6 +1,6 @@
-/* Service worker do Dirigentes: shell offline + notificações push.
+/* Service worker do Designa: shell offline + notificações push.
    Em desenvolvimento (localhost) não intercepta nada — o Vite serve os módulos. */
-const CACHE = 'dirigentes-v1'
+const CACHE = 'designa-v1'
 const SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -8,6 +8,8 @@ const SHELL = [
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
+  '/img/LOGOTIPO.png',
+  '/img/favicon.png',
 ]
 
 self.addEventListener('install', (evento) => {
@@ -36,7 +38,7 @@ self.addEventListener('activate', (evento) => {
       const chaves = await caches.keys()
       await Promise.all(
         chaves
-          .filter((c) => c !== CACHE && c.startsWith('dirigentes-'))
+          .filter((c) => c !== CACHE && (c.startsWith('dirigentes-') || c.startsWith('designa-')))
           .map((c) => caches.delete(c)),
       )
       await self.clients.claim()
@@ -100,10 +102,10 @@ self.addEventListener('push', (evento) => {
       dados = { corpo: evento.data.text() }
     }
   }
-  const titulo = typeof dados.titulo === 'string' && dados.titulo ? dados.titulo : 'Dirigentes'
+  const titulo = typeof dados.titulo === 'string' && dados.titulo ? dados.titulo : 'Designa'
   const corpo = typeof dados.corpo === 'string' ? dados.corpo : ''
   const url = typeof dados.url === 'string' && dados.url ? dados.url : '/'
-  const tag = typeof dados.tag === 'string' && dados.tag ? dados.tag : 'dirigentes'
+  const tag = typeof dados.tag === 'string' && dados.tag ? dados.tag : 'designa'
   evento.waitUntil(
     self.registration.showNotification(titulo, {
       body: corpo,

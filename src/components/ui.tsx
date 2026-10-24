@@ -7,6 +7,8 @@ import { ChevronDown, Minus, Plus } from 'lucide-react'
 const VARIA: Record<VarianteBotao, string> = {
   primario: 'bg-teal text-white hover:bg-teal-deep border border-teal hover:border-teal-deep',
   vinho: 'bg-crimson text-white hover:bg-[#7d2021] border border-crimson hover:border-[#7d2021]',
+  sucesso:
+    'bg-success text-white hover:bg-success/90 border border-success hover:border-success/90',
   secundario: 'bg-paper text-ink border border-line hover:border-teal hover:text-teal',
   fantasma: 'border border-transparent text-muted hover:text-ink hover:bg-line-soft',
   perigo:

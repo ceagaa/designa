@@ -10,9 +10,9 @@ async function carregarHtml2canvas(): Promise<typeof import('html2canvas').defau
 /** Qualquer nó renderizável pelo html2canvas (div, section, canvas…). */
 export type AlvoCaptura = HTMLElement | HTMLCanvasElement
 
-function nomeArquivo(chave: string): string {
+function nomeArquivo(chave: string, prefixo = 'designacao'): string {
   const { ano, mes } = lerChaveMes(chave)
-  return `designacao-${nomeMes(mes).toLowerCase()}-${ano}`
+  return `${prefixo}-${nomeMes(mes).toLowerCase()}-${ano}`
 }
 
 /** Renderiza o card da escala exatamente como está na tela. */
@@ -43,10 +43,14 @@ function paraArquivo(canvas: HTMLCanvasElement): Promise<Blob> {
   })
 }
 
-export async function baixarImagem(alvo: AlvoCaptura | null, chave: string): Promise<HTMLCanvasElement> {
+export async function baixarImagem(
+  alvo: AlvoCaptura | null,
+  chave: string,
+  prefixo?: string,
+): Promise<HTMLCanvasElement> {
   const canvas = alvo instanceof HTMLCanvasElement ? alvo : await capturarNo(alvo)
   const blob = await paraArquivo(canvas)
-  baixar(blob, `${nomeArquivo(chave)}.png`)
+  baixar(blob, `${nomeArquivo(chave, prefixo)}.png`)
   return canvas
 }
 
@@ -55,7 +59,11 @@ export async function baixarImagem(alvo: AlvoCaptura | null, chave: string): Pro
  * página única: se a prévia for mais alta que o espaço útil, ela é reduzida
  * (largura e altura) até caber. Margens 6 mm laterais / 5 mm verticais.
  */
-export async function baixarPdf(alvo: AlvoCaptura | null, chave: string): Promise<HTMLCanvasElement> {
+export async function baixarPdf(
+  alvo: AlvoCaptura | null,
+  chave: string,
+  prefixo?: string,
+): Promise<HTMLCanvasElement> {
   const canvas = alvo instanceof HTMLCanvasElement ? alvo : await capturarNo(alvo)
   const { jsPDF } = await import('jspdf')
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
@@ -78,7 +86,7 @@ export async function baixarPdf(alvo: AlvoCaptura | null, chave: string): Promis
   const y = (alturaPag - altura) / 2
   pdf.addImage(dados, 'JPEG', x, y, largura, altura)
 
-  pdf.save(`${nomeArquivo(chave)}.pdf`)
+  pdf.save(`${nomeArquivo(chave, prefixo)}.pdf`)
   return canvas
 }
 
@@ -92,22 +100,26 @@ export async function compartilhar({
   canvas,
   chave,
   texto,
+  prefixo,
+  titulo,
 }: {
   canvas: HTMLCanvasElement
   chave: string
   texto: string
+  prefixo?: string
+  titulo?: string
 }): Promise<'arquivo' | 'texto' | 'copiado'> {
   const blob = await paraArquivo(canvas)
-  const arquivo = new File([blob], `${nomeArquivo(chave)}.png`, { type: 'image/png' })
-  const titulo = tituloDaEscala(chave)
+  const arquivo = new File([blob], `${nomeArquivo(chave, prefixo)}.png`, { type: 'image/png' })
+  const tituloFinal = titulo ?? tituloDaEscala(chave)
 
   if (navigator.canShare?.({ files: [arquivo] })) {
-    await navigator.share({ files: [arquivo], title: titulo, text: texto })
+    await navigator.share({ files: [arquivo], title: tituloFinal, text: texto })
     return 'arquivo'
   }
 
   if (navigator.share) {
-    await navigator.share({ title: titulo, text: texto })
+    await navigator.share({ title: tituloFinal, text: texto })
     return 'texto'
   }
 

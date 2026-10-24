@@ -67,13 +67,3 @@ export function ocorrenciasDoMes(
     return String(a.campo.horario).localeCompare(String(b.campo.horario))
   })
 }
-
-export function rotuloData(ocorrencia: Ocorrencia): string {
-  return `Dia ${ocorrencia.dia}`
-}
-
-export function dataExtenso(iso: string): string {
-  const [ano, mes, dia] = iso.split('-').map(Number)
-  const d = new Date(ano, mes - 1, dia)
-  return `${d.getDate()} de ${nomeMes(d.getMonth()).toLowerCase()}`
-}

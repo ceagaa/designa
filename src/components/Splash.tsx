@@ -1,5 +1,3 @@
-import { MapPin } from 'lucide-react'
-
 export default function Splash({ congregacao, saindo }: { congregacao: string; saindo: boolean }) {
   return (
     <div
@@ -7,16 +5,15 @@ export default function Splash({ congregacao, saindo }: { congregacao: string; s
         saindo ? 'splash-saindo' : ''
       }`}
     >
-      <span
-        className="flex size-16 items-center justify-center border-2 border-white/50"
-        aria-hidden="true"
-      >
-        <MapPin className="size-8" strokeWidth={1.75} />
-      </span>
-      <h1 className="mt-6 font-display text-4xl font-bold tracking-tight sm:text-5xl">
-        Dirigentes
+      <h1 className="rounded-2xl bg-white px-6 py-4 shadow-xl">
+        <img
+          src="/img/LOGOTIPO.png"
+          alt="Designa"
+          className="h-10 w-auto sm:h-12"
+          draggable={false}
+        />
       </h1>
-      <p className="mt-3 max-w-sm text-sm font-semibold text-white/85">{congregacao}</p>
+      <p className="mt-5 max-w-sm text-sm font-semibold text-white/85">{congregacao}</p>
     </div>
   )
 }
