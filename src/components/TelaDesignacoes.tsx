@@ -1,7 +1,7 @@
 import type { Estado, SetorId, Usuario } from '../lib/dominio'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { ChevronRight, MapPin, Radio, ShoppingCart } from 'lucide-react'
+import { BookOpen, ChevronRight, MapPin, Radio } from 'lucide-react'
 import { FUNCOES_AVI, MINIMO_DUPLA, ROTULO_SETOR } from '../lib/dominio'
 import { chaveMes, nomeMes, ocorrenciasDoMes } from '../lib/datas'
 import { registroDe } from '../lib/estadoInicial'
@@ -26,7 +26,7 @@ interface CardSetor {
 const CARDS: Record<SetorId, CardSetor> = {
   CAMPO: { setor: 'CAMPO', icone: MapPin, cor: 'bg-teal text-white' },
   AUDIO_VIDEO: { setor: 'AUDIO_VIDEO', icone: Radio, cor: 'bg-petrol text-white' },
-  TPL: { setor: 'TPL', icone: ShoppingCart, cor: 'bg-wine text-white' },
+  TPL: { setor: 'TPL', icone: BookOpen, cor: 'bg-wine text-white' },
 }
 
 const ROTULO_STATUS: Record<StatusSetor, string> = {
