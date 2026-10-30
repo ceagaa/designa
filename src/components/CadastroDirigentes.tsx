@@ -169,6 +169,9 @@ export default function CadastroDirigentes({
 
   const resumoMes = `${MESES[mes].slice(0, 3)}/${String(ano).slice(2)}`
   const temCampo = dirigentes.some((d) => departamentoDe(d, aptidoes) === 'CAMPO')
+  /** Departamento escolhido na etapa inicial (ou o atual, ao editar). */
+  const DepartamentoAtual =
+    DEPARTAMENTOS.find((dep) => dep.id === form?.departamento) ?? DEPARTAMENTOS[0]
 
   function abrir(novo: Dirigente | null = null) {
     setErro('')
@@ -526,22 +529,30 @@ export default function CadastroDirigentes({
             </div>
           ) : (
           <div className="space-y-4 px-5 py-4">
-            <fieldset>
-              <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                Departamento
-              </legend>
-              <div className="grid grid-cols-3 gap-1.5">
-                {DEPARTAMENTOS.map((dep) => (
-                  <Chip
-                    key={dep.id}
-                    ativo={form.departamento === dep.id}
-                    onClick={() => alternar('departamento', dep.id)}
-                  >
-                    {dep.rotulo}
-                  </Chip>
-                ))}
-              </div>
-            </fieldset>
+            {/* O departamento foi escolhido na etapa anterior: aqui só confirmamos. */}
+            <div className="flex items-center gap-3 rounded-xl bg-teal-tint px-3 py-2.5">
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-teal"
+                aria-hidden="true"
+              >
+                <DepartamentoAtual.Icone className="size-5" />
+              </span>
+              <p className="min-w-0 flex-1">
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-teal-deep/70">
+                  Departamento
+                </span>
+                <span className="block truncate text-sm font-bold text-teal-deep">
+                  {DepartamentoAtual.rotulo}
+                </span>
+              </p>
+              <Botao
+                variante="fantasma"
+                className="shrink-0 text-teal-deep"
+                onClick={() => setEtapa('departamento')}
+              >
+                Trocar
+              </Botao>
+            </div>
 
             <div>
               <Rotulo htmlFor="dir-nome">Nome</Rotulo>
