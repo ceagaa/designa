@@ -141,6 +141,8 @@ try {
       await page.locator('[role=dialog] label:has-text("Marcar como ajudante")').click()
     }
     await page.click('button:has-text("Salvar voluntário")')
+    // Modal só fecha quando a ficha persiste; o artigo pode aparecer antes.
+    await page.waitForSelector('[role=dialog]', { state: 'detached', timeout: 20000 })
     await page.waitForSelector(`article:has-text("${nome}")`, { timeout: 15000 })
   }
   await novaPessoa('Carlos Teste', false)
@@ -322,12 +324,15 @@ try {
   // ---------- 11) AVI: resumo + ajustar + gerar + PDF ----------
   await page.click('button:has-text("Áudio, Vídeo & Indicadores")')
   await page.waitForSelector('button:has-text("Ajustar escala")', { timeout: 15000 })
+  // A tela abre na hora; espere o setor terminar de carregar (skeleton sumir) antes
+  // de decidir trocar de mês — senão a ação é ignorada em silêncio.
+  await page.waitForSelector('section.h-\\[15rem\\]', { state: 'hidden', timeout: 20000 })
   let temHeroAvi =
     (await page.locator('text=/Quem serve hoje|Próxima reunião|Primeira reunião/').count()) > 0
   if (!temHeroAvi) {
     // Sem reuniões restantes no mês corrente: o mês seguinte sempre tem destaque.
     await page.click('button[aria-label="Próximo mês"]')
-    await page.waitForTimeout(400)
+    await page.waitForSelector('section.h-\\[15rem\\]', { state: 'hidden', timeout: 20000 })
     temHeroAvi =
       (await page.locator('text=/Quem serve hoje|Próxima reunião|Primeira reunião/').count()) > 0
   }
@@ -356,6 +361,8 @@ try {
     await page.waitForSelector('#dir-nome', { timeout: 10000 })
     await page.fill('#dir-nome', nome)
     await page.click('button:has-text("Salvar voluntário")')
+    // O modal só fecha quando a ficha persiste — o artigo pode aparecer antes disso.
+    await page.waitForSelector('[role=dialog]', { state: 'detached', timeout: 20000 })
     await page.waitForSelector(`article:has-text("${nome}")`, { timeout: 15000 })
   }
   await novoVoluntarioTpl('Ana TPL')
@@ -374,7 +381,16 @@ try {
   await page.locator('section:has(h3:text-is("Pontos de apoio")) button:has-text("Adicionar ponto de apoio")').click()
   await page.fill('#tpl-ponto-nome', 'Praça UX')
   await page.locator('[role=dialog] button:has-text("Salvar")').click()
-  await page.waitForSelector('li:has-text("Praça UX")', { timeout: 10000 })
+  // O modal só fecha após a persistência; o item e o botão de período dependem
+  // do ponto já salvo — aguarde o estado real, não o texto do placeholder.
+  await page.waitForSelector('[role=dialog]', { state: 'detached', timeout: 20000 })
+  await page.waitForSelector('section:has(h3:text-is("Pontos de apoio")) li:has-text("Praça UX")', {
+    timeout: 15000,
+  })
+  await page.waitForSelector(
+    'section:has(h3:text-is("Períodos e dias")) button:has-text("Adicionar período"):not([disabled])',
+    { timeout: 15000 },
+  )
 
   await page.locator('section:has(h3:text-is("Períodos e dias")) button:has-text("Adicionar período")').click()
   await page.waitForSelector('#tpl-periodo-inicio', { timeout: 10000 })
@@ -382,18 +398,25 @@ try {
   await page.fill('#tpl-periodo-inicio', '09:00')
   await page.fill('#tpl-periodo-fim', '12:00')
   await page.locator('[role=dialog] button:has-text("Salvar")').click()
-  await page.waitForSelector('li:has-text("Sexta-Feira")', { timeout: 10000 })
+  // Assim como no ponto: o modal só some quando o período persiste.
+  await page.waitForSelector('[role=dialog]', { state: 'detached', timeout: 20000 })
+  await page.waitForSelector(
+    'section:has(h3:text-is("Períodos e dias")) li:has-text("Sexta-Feira")',
+    { timeout: 15000 },
+  )
   await shot('13-tpl-estrutura')
 
   await page.getByRole('button', { name: 'Designações', exact: true }).click()
   await page.click('button:has-text("Testemunho Público Local")')
   await page.waitForSelector('button:has-text("Ajustar escala")', { timeout: 15000 })
+  // Mesma espera ativa do AVI: não troque de mês com o setor ainda carregando.
+  await page.waitForSelector('section.h-\\[15rem\\]', { state: 'hidden', timeout: 20000 })
   let temHeroTpl =
     (await page.locator('text=/Quem trabalha hoje|Próxima saída|Primeira saída/').count()) > 0
   if (!temHeroTpl) {
     // Sem saídas restantes no mês corrente: o mês seguinte sempre tem destaque.
     await page.click('button[aria-label="Próximo mês"]')
-    await page.waitForTimeout(400)
+    await page.waitForSelector('section.h-\\[15rem\\]', { state: 'hidden', timeout: 20000 })
     temHeroTpl =
       (await page.locator('text=/Quem trabalha hoje|Próxima saída|Primeira saída/').count()) > 0
   }

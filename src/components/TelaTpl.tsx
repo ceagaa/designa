@@ -513,30 +513,25 @@ export default function TelaTpl({
     aoAvisar('Item excluído.')
   }
 
-  if (!carregado) {
-    return (
-      <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
-        <RefreshCcw className="size-4 animate-spin text-teal" aria-hidden="true" />
-        Carregando setor…
-      </p>
-    )
-  }
-
-  const status: StatusDesignacao = !ocorrencias.length
-    ? { rotulo: 'Sem períodos neste mês', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
-    : completas === ocorrencias.length
-      ? { rotulo: 'Designação pronta', estilo: 'bg-success-bg text-success', ponto: 'bg-success' }
-      : temRegistro
-        ? {
-            rotulo: `Pendente · ${completas}/${ocorrencias.length} duplas`,
-            estilo: 'bg-crimson-bg text-crimson',
-            ponto: 'bg-crimson',
-          }
-        : {
-            rotulo: 'Pendente de montar',
-            estilo: 'bg-crimson-bg text-crimson',
-            ponto: 'bg-crimson animate-pulse',
-          }
+  // A tela abre na hora: enquanto o setor carrega, chip neutro e um bloco
+  // neutro no lugar do destaque (sem avisos falsos de "sem estrutura").
+  const status: StatusDesignacao = !carregado
+    ? { rotulo: '…', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
+    : !ocorrencias.length
+      ? { rotulo: 'Sem períodos neste mês', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
+      : completas === ocorrencias.length
+        ? { rotulo: 'Designação pronta', estilo: 'bg-success-bg text-success', ponto: 'bg-success' }
+        : temRegistro
+          ? {
+              rotulo: `Pendente · ${completas}/${ocorrencias.length} duplas`,
+              estilo: 'bg-crimson-bg text-crimson',
+              ponto: 'bg-crimson',
+            }
+          : {
+              rotulo: 'Pendente de montar',
+              estilo: 'bg-crimson-bg text-crimson',
+              ponto: 'bg-crimson animate-pulse',
+            }
 
   const proximo = mes === 11 ? { ano: ano + 1, mes: 0 } : { ano, mes: mes + 1 }
   const proximoNome = nomeMes(proximo.mes)
@@ -625,7 +620,7 @@ export default function TelaTpl({
             </p>
           ) : null}
 
-          {semEstrutura ? (
+          {carregado && semEstrutura ? (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               <p className="min-w-0 flex-1">
                 Cadastre pontos de apoio e períodos na configuração antes de montar a
@@ -639,7 +634,7 @@ export default function TelaTpl({
                 Abrir configuração
               </Botao>
             </div>
-          ) : semParticipantes ? (
+          ) : carregado && semParticipantes ? (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               <p className="min-w-0 flex-1">
                 Nenhum voluntário do TPL ativo. Cadastre em Voluntários para montar as
@@ -815,7 +810,7 @@ export default function TelaTpl({
               </p>
             ) : null}
 
-            {semEstrutura ? (
+            {carregado && semEstrutura ? (
               <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
                 <p className="min-w-0 flex-1">
                   Cadastre pontos de apoio e períodos na configuração antes de montar a
@@ -829,7 +824,7 @@ export default function TelaTpl({
                   Abrir configuração
                 </Botao>
               </div>
-            ) : semParticipantes ? (
+            ) : carregado && semParticipantes ? (
               <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
                 <p className="min-w-0 flex-1">
                   Nenhum voluntário do TPL ativo. Cadastre em Voluntários para montar as
@@ -847,7 +842,12 @@ export default function TelaTpl({
               </div>
             ) : null}
 
-            {!ocorrencias.length ? (
+            {!carregado ? (
+              <section
+                className="h-[15rem] animate-pulse rounded-2xl bg-card"
+                aria-hidden="true"
+              />
+            ) : !ocorrencias.length ? (
               <Vazio
                 icone={ListPlus}
                 titulo={

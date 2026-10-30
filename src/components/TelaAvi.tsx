@@ -284,21 +284,24 @@ export default function TelaAvi({
   const proximoPronto = Boolean(registroAviDe(dados, proximoChave).geradoEm)
   const proximoNome = nomeMes(proximo.mes)
 
-  const status: StatusDesignacao = !ocorrencias.length
-    ? { rotulo: 'Mês sem reuniões', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
-    : pronta
-      ? { rotulo: 'Designação pronta', estilo: 'bg-success-bg text-success', ponto: 'bg-success' }
-      : gerado
-        ? {
-            rotulo: `Gerada · ${preenchidos}/${totalSlots} designações`,
-            estilo: 'bg-crimson-bg text-crimson',
-            ponto: 'bg-crimson',
-          }
-        : {
-            rotulo: 'Pendente de gerar',
-            estilo: 'bg-crimson-bg text-crimson',
-            ponto: 'bg-crimson animate-pulse',
-          }
+  // Enquanto o setor carrega, a tela já abre: chip neutro e conteúdo por extensão.
+  const status: StatusDesignacao = !carregado
+    ? { rotulo: '…', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
+    : !ocorrencias.length
+      ? { rotulo: 'Mês sem reuniões', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
+      : pronta
+        ? { rotulo: 'Designação pronta', estilo: 'bg-success-bg text-success', ponto: 'bg-success' }
+        : gerado
+          ? {
+              rotulo: `Gerada · ${preenchidos}/${totalSlots} designações`,
+              estilo: 'bg-crimson-bg text-crimson',
+              ponto: 'bg-crimson',
+            }
+          : {
+              rotulo: 'Pendente de gerar',
+              estilo: 'bg-crimson-bg text-crimson',
+              ponto: 'bg-crimson animate-pulse',
+            }
 
   const acoesMenu: AcaoMenu[] = [
     {
@@ -508,15 +511,6 @@ export default function TelaAvi({
     setAjustando(false)
   }
 
-  if (!carregado && !modoConfiguracao) {
-    return (
-      <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
-        <RefreshCcw className="size-4 animate-spin text-teal" aria-hidden="true" />
-        Carregando setor…
-      </p>
-    )
-  }
-
   if (modoConfiguracao) {
     return (
       <div className="space-y-5">
@@ -666,7 +660,7 @@ export default function TelaAvi({
       {ajustando ? (
         <>
 
-          {funcoesSemApto.length ? (
+          {carregado && funcoesSemApto.length ? (
             <p className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               Nenhum irmão apto para: {funcoesSemApto.map((f) => f.rotulo).join(', ')}. Marque as
               designações em Voluntários.
@@ -773,7 +767,12 @@ export default function TelaAvi({
         </>
       ) : (
         <>
-          {destaque ? (
+          {!carregado ? (
+            <section
+              className="h-[15rem] animate-pulse rounded-2xl bg-card"
+              aria-hidden="true"
+            />
+          ) : destaque ? (
             <CardHeroAvi
               rotulo={rotuloDestaque}
               dia={diaDestaque}
