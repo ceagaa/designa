@@ -29,7 +29,7 @@ const [HOJE_ANO, HOJE_MES] = HOJE_ISO.split('-').map(Number)
 
 /**
  * Rota pública /escala/:slug/AVI — mesma visão do administrador: cabeçalho do
- * setor, card "Próxima reunião" e a lista de "Próximos dias". Sem botões de
+ * setor, card "Próxima reunião" e a lista de "Designações futuras". Sem botões de
  * PDF/link: aqui só se consulta a escala.
  */
 export default function TelaAviPublica({ slug }: { slug: string }) {
@@ -105,6 +105,24 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
   const destaque = proximas[0] ?? null
   const ehHoje = Boolean(destaque && destaque.iso === HOJE_ISO)
   const posteriores = destaque ? proximas.filter((o) => o.iso > destaque.iso) : []
+  /** A reunião seguinte ganha um card próprio logo abaixo do destaque. */
+  const seguinte = posteriores[0] ?? null
+  const futuras = posteriores.slice(1)
+
+  function itemAvi(oc: { iso: string; diaSemana: number }) {
+    const linhas = designacoesDe(oc.iso, efetivas, porId)
+    return {
+      key: oc.iso,
+      iso: oc.iso,
+      diaSemana: oc.diaSemana,
+      resumo: linhas
+        .filter((l) => l.nome)
+        .map((l) => `${l.rotulo}: ${l.nome}`)
+        .join(' · '),
+      designadas: linhas.filter((l) => l.nome).length,
+      total: FUNCOES_AVI.length,
+    }
+  }
 
   const linhasDestaque = destaque ? designacoesDe(destaque.iso, efetivas, porId) : []
   const designadasDestaque = linhasDestaque.filter((l) => l.nome).length
@@ -204,35 +222,21 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
             </section>
           )}
 
-          {posteriores.length ? (
+          {seguinte ? <LinhaAvi item={itemAvi(seguinte)} /> : null}
+
+          {futuras.length ? (
             <section className="space-y-3">
               <div className="flex items-end justify-between gap-2 px-1">
-                <h2 className="text-lg font-semibold text-ink">Próximos dias</h2>
+                <h2 className="text-lg font-semibold text-ink">Designações futuras</h2>
                 <p className="text-[13px] text-muted">
-                  {posteriores.length} próxima{posteriores.length === 1 ? '' : 's'} reunião
-                  {posteriores.length === 1 ? '' : 'ões'}
+                  {futuras.length} próxima{futuras.length === 1 ? '' : 's'} reunião
+                  {futuras.length === 1 ? '' : 'ões'}
                 </p>
               </div>
               <div className="flex flex-col gap-2">
-                {posteriores.map((oc) => {
-                  const linhas = designacoesDe(oc.iso, efetivas, porId)
-                  return (
-                    <LinhaAvi
-                      key={oc.iso}
-                      item={{
-                        key: oc.iso,
-                        iso: oc.iso,
-                        diaSemana: oc.diaSemana,
-                        resumo: linhas
-                          .filter((l) => l.nome)
-                          .map((l) => `${l.rotulo}: ${l.nome}`)
-                          .join(' · '),
-                        designadas: linhas.filter((l) => l.nome).length,
-                        total: FUNCOES_AVI.length,
-                      }}
-                    />
-                  )
-                })}
+                {futuras.map((oc) => (
+                  <LinhaAvi key={oc.iso} item={itemAvi(oc)} />
+                ))}
               </div>
             </section>
           ) : null}

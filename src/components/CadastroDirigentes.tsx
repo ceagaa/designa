@@ -121,6 +121,33 @@ function formularioVazio(frequenciaPadrao?: string): FormDirigente {
   }
 }
 
+/** Cabeçalho de um card de departamento na ficha do voluntário. */
+function CabecalhoDepartamento({
+  id,
+  descricao,
+}: {
+  id: SetorId
+  descricao: string
+}) {
+  const dep = DEPARTAMENTOS.find((d) => d.id === id)
+  if (!dep) return null
+  const Icone = dep.Icone
+  return (
+    <div className="flex items-center gap-2.5">
+      <span
+        className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-teal-tint text-teal"
+        aria-hidden="true"
+      >
+        <Icone className="size-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-ink">{dep.rotulo}</p>
+        <p className="text-[12px] text-muted">{descricao}</p>
+      </div>
+    </div>
+  )
+}
+
 function iniciais(nome: string): string {
   return (
     nome
@@ -473,107 +500,103 @@ export default function CadastroDirigentes({
               </div>
             </section>
 
+            {incluiCampo ? (
+              <section
+                data-departamento="CAMPO"
+                className="space-y-4 rounded-2xl bg-card p-4 shadow-sm"
+              >
+                <CabecalhoDepartamento id="CAMPO" descricao="Dias e horários" />
+
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                    Dias disponíveis
+                  </legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ORDEM_DIAS.map((idx) => (
+                      <Chip
+                        key={idx}
+                        ativo={form.dias.includes(idx)}
+                        onClick={() => alternarNaLista('dias', idx)}
+                      >
+                        {infoDia(idx).curto}
+                      </Chip>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                    Horários disponíveis
+                  </legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    {horarios.map((h) => (
+                      <Chip
+                        key={h}
+                        ativo={form.horarios.includes(h)}
+                        onClick={() => alternarNaLista('horarios', h)}
+                      >
+                        {h}
+                      </Chip>
+                    ))}
+                  </div>
+                </fieldset>
+              </section>
+            ) : null}
+
+            {incluiAvi ? (
+              <section
+                data-departamento="AUDIO_VIDEO"
+                className="space-y-4 rounded-2xl bg-card p-4 shadow-sm"
+              >
+                <CabecalhoDepartamento id="AUDIO_VIDEO" descricao="Funções e reuniões" />
+
+                <div>
+                  <p className="mb-1.5 text-[13px] font-semibold text-ink">
+                    Designações AVI
+                  </p>
+                  {aoDefinirAptidoes ? (
+                    <>
+                      <div className="flex flex-wrap gap-1.5">
+                        {FUNCOES_AVI.map((f) => (
+                          <Chip
+                            key={f.id}
+                            ativo={aptidoesForm.includes(f.id)}
+                            onClick={() => alternarAptidaoForm(f.id)}
+                          >
+                            {f.rotulo}
+                          </Chip>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[13px] text-muted">
+                        Marque as funções em que o voluntário pode servir.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-teal-deep">
+                      As designações AVI são definidas pelo administrador.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="mb-1.5 text-[13px] font-semibold text-ink">Reuniões</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {REUNIOES_AVI.map((op) => (
+                      <Chip
+                        key={op.valor}
+                        ativo={(form.reunioes ?? 'ambos') === op.valor}
+                        onClick={() => alternar('reunioes', op.valor)}
+                      >
+                        {op.rotulo}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
             {incluiCampo || incluiAvi ? (
               <>
-                <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm">
-                  {incluiCampo && incluiAvi ? (
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
-                      Campo
-                    </p>
-                  ) : null}
-
-                  {incluiCampo ? (
-                    <>
-                      <fieldset>
-                        <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                          Dias disponíveis
-                        </legend>
-                        <div className="flex flex-wrap gap-1.5">
-                          {ORDEM_DIAS.map((idx) => (
-                            <Chip
-                              key={idx}
-                              ativo={form.dias.includes(idx)}
-                              onClick={() => alternarNaLista('dias', idx)}
-                            >
-                              {infoDia(idx).curto}
-                            </Chip>
-                          ))}
-                        </div>
-                      </fieldset>
-
-                      <fieldset>
-                        <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                          Horários disponíveis
-                        </legend>
-                        <div className="flex flex-wrap gap-1.5">
-                          {horarios.map((h) => (
-                            <Chip
-                              key={h}
-                              ativo={form.horarios.includes(h)}
-                              onClick={() => alternarNaLista('horarios', h)}
-                            >
-                              {h}
-                            </Chip>
-                          ))}
-                        </div>
-                      </fieldset>
-                    </>
-                  ) : null}
-
-                  {incluiAvi && incluiCampo ? (
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
-                      AVI
-                    </p>
-                  ) : null}
-
-                  {incluiAvi ? (
-                    <>
-                      <div>
-                        <p className="mb-1.5 text-[13px] font-semibold text-ink">
-                          Designações AVI
-                        </p>
-                        {aoDefinirAptidoes ? (
-                          <>
-                            <div className="flex flex-wrap gap-1.5">
-                              {FUNCOES_AVI.map((f) => (
-                                <Chip
-                                  key={f.id}
-                                  ativo={aptidoesForm.includes(f.id)}
-                                  onClick={() => alternarAptidaoForm(f.id)}
-                                >
-                                  {f.rotulo}
-                                </Chip>
-                              ))}
-                            </div>
-                            <p className="mt-1.5 text-[13px] text-muted">
-                              Marque as funções em que o voluntário pode servir.
-                            </p>
-                          </>
-                        ) : (
-                          <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-teal-deep">
-                            As designações AVI são definidas pelo administrador.
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <p className="mb-1.5 text-[13px] font-semibold text-ink">Reuniões</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {REUNIOES_AVI.map((op) => (
-                            <Chip
-                              key={op.valor}
-                              ativo={(form.reunioes ?? 'ambos') === op.valor}
-                              onClick={() => alternar('reunioes', op.valor)}
-                            >
-                              {op.rotulo}
-                            </Chip>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  ) : null}
-                </section>
-
                 <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm">
                   <div>
                     <p className="mb-1.5 text-[13px] font-semibold text-ink">

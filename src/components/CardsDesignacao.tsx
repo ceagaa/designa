@@ -232,7 +232,7 @@ export function CardHeroAvi({
         <p className="text-[34px] font-extrabold leading-tight sm:text-4xl">{dia}</p>
         <p className="mt-1 text-sm text-white/75">
           {faltam
-            ? `${faltam} função${faltam === 1 ? '' : 'ões'} ainda sem designação.`
+            ? `${faltam} funç${faltam === 1 ? 'ão' : 'ões'} ainda sem designação.`
             : 'Todas as funções estão designadas para esta reunião.'}
         </p>
       </div>
@@ -240,18 +240,14 @@ export function CardHeroAvi({
         {linhas.map((linha) => (
           <div
             key={linha.id}
-            className="rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm"
+            className="rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur-sm"
           >
-            <p className="text-[10px] font-bold uppercase tracking-wide text-white/60">
-              Designação
-            </p>
-            <p className="mt-0.5 truncate text-sm font-semibold">{linha.rotulo}</p>
-            <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wide text-white/60">
-              Voluntários
+            <p className="truncate text-[13px] font-semibold text-white/75">
+              {linha.rotulo}
             </p>
             <p
-              className={`mt-0.5 truncate text-sm ${
-                linha.nome ? 'font-semibold' : 'font-medium text-white/60'
+              className={`mt-0.5 truncate text-base font-bold ${
+                linha.nome ? '' : 'text-white/60'
               }`}
             >
               {linha.nome ?? '—'}
@@ -272,7 +268,7 @@ export interface ItemListaAvi {
   total: number
 }
 
-/** Linha de "Próximos dias" do AVI (idêntica no admin e na página pública). */
+/** Linha de "Designações futuras" do AVI (idêntica no admin e na página pública). */
 export function LinhaAvi({ item }: { item: ItemListaAvi }) {
   const ehHoje = item.iso === HOJE_ISO
   const completo = item.designadas === item.total

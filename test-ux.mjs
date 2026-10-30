@@ -238,6 +238,11 @@ try {
     'voluntários: ficha multi mostra os dois departamentos',
     (await page.getByText('Campo · AVI').count()) > 0,
   )
+  ck(
+    'voluntários: cards separados por departamento',
+    (await page.locator('[data-departamento="CAMPO"]').count()) === 1 &&
+      (await page.locator('[data-departamento="AUDIO_VIDEO"]').count()) === 1,
+  )
   await page.locator('button[aria-label="Voltar para voluntários"]').click()
   await page.waitForSelector('h2:has-text("Quadro de voluntários")', { timeout: 10000 })
 
@@ -300,6 +305,12 @@ try {
   await page.getByRole('button', { name: /Saídas de Campo/ }).click()
   await page.waitForSelector('text=Configurações do setor Campo', { timeout: 10000 })
   ck('ajustes: card Campo abre configuracao do setor', true)
+  ck(
+    'ajustes: campo sem compartilhamento',
+    (await page.getByText('Compartilhamento', { exact: true }).count()) === 0 &&
+      (await page.getByText('Aviso por WhatsApp', { exact: true }).count()) === 0 &&
+      (await page.getByText('Gerar PDF da Escala Mensal', { exact: true }).count()) === 0,
+  )
 
   // ---------- 7) Campo com HOJE destacado ----------
   await page.getByRole('button', { name: 'Designações', exact: true }).click()
@@ -453,6 +464,23 @@ try {
       (await page.locator('text=/Próxima reunião|Primeira reunião/').count()) > 0
   }
   ck('avi: resumo com hero de reunião', temHeroAvi)
+  if ((await page.locator('h2:has-text("Designações futuras")').count()) === 0) {
+    await page.click('button[aria-label="Próximo mês"]')
+    await page.waitForSelector('section.h-\\[15rem\\]', { state: 'hidden', timeout: 20000 })
+  }
+  const heroAvi = page
+    .locator('section')
+    .filter({ hasText: /Próxima reunião|Primeira reunião/ })
+    .first()
+  ck(
+    'avi: hero sem rótulos Designação/Voluntários',
+    (await heroAvi.getByText('Designação', { exact: true }).count()) === 0 &&
+      (await heroAvi.getByText('Voluntários', { exact: true }).count()) === 0,
+  )
+  ck(
+    'avi: seção Designações futuras',
+    (await page.locator('h2:has-text("Designações futuras")').count()) > 0,
+  )
   ck('avi: sem faixas FDS/meio de semana no resumo', (await page.locator('text=Meio de semana').count()) === 0)
   ck(
     'avi: rodapé fixo Gerar/PDF/Link',

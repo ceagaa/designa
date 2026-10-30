@@ -186,8 +186,26 @@ export default function TelaAvi({
   const ehHoje = Boolean(destaque && destaque.iso === HOJE_ISO)
   /** Próximas reuniões depois do card de destaque (sem repetir o que já aparece). */
   const posteriores = destaque ? proximas.filter((o) => o.iso > destaque.iso) : []
-  const lista = posteriores.slice(0, 8)
-  const restam = posteriores.length - lista.length
+  /** A reunião seguinte ganha um card próprio logo abaixo do destaque. */
+  const seguinte = posteriores[0] ?? null
+  const futuras = posteriores.slice(1)
+  const lista = futuras.slice(0, 8)
+  const restam = futuras.length - lista.length
+
+  function itemAvi(oc: { iso: string; diaSemana: number }) {
+    const linhas = designacoesDe(oc.iso, efetivas, porId)
+    return {
+      key: oc.iso,
+      iso: oc.iso,
+      diaSemana: oc.diaSemana,
+      resumo: linhas
+        .filter((l) => l.nome)
+        .map((l) => `${l.rotulo}: ${l.nome}`)
+        .join(' · '),
+      designadas: linhas.filter((l) => l.nome).length,
+      total: FUNCOES_AVI.length,
+    }
+  }
 
   const linhasDestaque = destaque ? designacoesDe(destaque.iso, efetivas, porId) : []
   const designadasDestaque = linhasDestaque.filter((l) => l.nome).length
@@ -740,35 +758,21 @@ export default function TelaAvi({
             </section>
           )}
 
+          {seguinte ? <LinhaAvi item={itemAvi(seguinte)} /> : null}
+
           {lista.length ? (
             <section className="space-y-3">
               <div className="flex items-center justify-between gap-2 px-1">
-                <h2 className="text-lg font-semibold text-ink">Próximos dias</h2>
+                <h2 className="text-lg font-semibold text-ink">Designações futuras</h2>
                 <p className="shrink-0 text-sm text-muted">
                   {preenchidos}/{totalSlots} designações
                 </p>
               </div>
 
               <div className="flex flex-col gap-2">
-                {lista.map((oc) => {
-                  const linhas = designacoesDe(oc.iso, efetivas, porId)
-                  return (
-                    <LinhaAvi
-                      key={oc.iso}
-                      item={{
-                        key: oc.iso,
-                        iso: oc.iso,
-                        diaSemana: oc.diaSemana,
-                        resumo: linhas
-                          .filter((l) => l.nome)
-                          .map((l) => `${l.rotulo}: ${l.nome}`)
-                          .join(' · '),
-                        designadas: linhas.filter((l) => l.nome).length,
-                        total: FUNCOES_AVI.length,
-                      }}
-                    />
-                  )
-                })}
+                {lista.map((oc) => (
+                  <LinhaAvi key={oc.iso} item={itemAvi(oc)} />
+                ))}
               </div>
               {restam > 0 ? (
                 <p className="px-1 text-[13px] text-muted">

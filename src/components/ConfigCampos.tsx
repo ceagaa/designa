@@ -133,55 +133,6 @@ function TituloSecao({
   )
 }
 
-interface CompartilharProps {
-  icone: React.ReactNode
-  caixa: string
-  titulo: string
-  descricao: string
-  onClick?: () => void
-  desabilitado?: boolean
-}
-
-function ItemCompartilhar({
-  icone,
-  caixa,
-  titulo,
-  descricao,
-  onClick,
-  desabilitado,
-}: CompartilharProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={desabilitado}
-      className={`flex w-full items-center justify-between gap-3 rounded-xl bg-card p-4 text-left shadow-sm transition-colors ${
-        desabilitado ? 'cursor-not-allowed opacity-70' : 'active:bg-canvas'
-      }`}
-    >
-      <span className="flex min-w-0 items-center gap-3.5">
-        <span
-          className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${caixa}`}
-          aria-hidden="true"
-        >
-          {icone}
-        </span>
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-semibold text-ink">{titulo}</span>
-          <span className="truncate text-[13px] text-muted">{descricao}</span>
-        </span>
-      </span>
-      {desabilitado ? (
-        <span className="shrink-0 rounded-full bg-line px-2 py-0.5 text-[11px] font-bold text-ink-soft">
-          Em breve
-        </span>
-      ) : (
-        <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden="true" />
-      )}
-    </button>
-  )
-}
-
 interface ConfigCamposProps {
   config: ConfigEscala
   campos: Campo[]
@@ -195,8 +146,6 @@ interface ConfigCamposProps {
   aoIrParaPessoas?: () => void
   aoSalvarCongregacao?: (nome: string, numero: string) => Promise<void>
   aoAlterarConfig: (patch: Partial<ConfigEscala>) => void
-  aoExportar: () => void
-  aoCopiarLink: () => void
   /** Abre a tela Locais (dias e horários de campo). */
   aoIrParaLocais?: () => void
   /** Mensagem efêmera (toast) do App. */
@@ -234,8 +183,6 @@ export default function ConfigCampos({
   aoIrParaPessoas,
   aoSalvarCongregacao,
   aoAlterarConfig,
-  aoExportar,
-  aoCopiarLink,
   aoIrParaLocais,
   aoAvisar,
 }: ConfigCamposProps) {
@@ -687,29 +634,6 @@ export default function ConfigCampos({
               }
             />
           ) : null}
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <TituloSecao
-          titulo="Compartilhamento"
-          descricao="Distribuição oficial da escala para o grupo"
-        />
-        <div className="flex flex-col gap-2">
-          <ItemCompartilhar
-            icone={<FileText className="size-6" />}
-            caixa="bg-teal-tint text-teal"
-            titulo="Gerar PDF da Escala Mensal"
-            descricao="Quadro de avisos em formato A4"
-            onClick={aoExportar}
-          />
-          <ItemCompartilhar
-            icone={<Send className="size-6" />}
-            caixa="bg-success-bg text-success"
-            titulo="Aviso por WhatsApp"
-            descricao="Abra o compartilhamento nativo com o link da escala"
-            onClick={aoCopiarLink}
-          />
         </div>
       </section>
 

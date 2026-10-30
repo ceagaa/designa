@@ -520,40 +520,6 @@ export default function App() {
     setAviso('Ajustes manuais removidos: a escala voltou ao rodízio automático.')
   }
 
-  function exportar() {
-    if (tabelaAberta && !cardRef.current) {
-      setAviso('Gere a designação antes de exportar.')
-      return
-    }
-    setModalAberto(true)
-  }
-
-  async function copiarLink() {
-    try {
-      const payload = montarPayload({
-        config,
-        chave,
-        ocorrencias,
-        designacoes: efetivas,
-        designacoesAjudante: efetivasAjudante,
-        dirigentes: voluntariosCampo,
-      })
-      if (!payload.r.length) {
-        setAviso('Gere a designação antes de compartilhar o link.')
-        return
-      }
-      const resultado = await compartilharPagina(
-        linkDe(payload),
-        `Escala de ${nomeMes(mes)} de ${ano}`,
-        'Confira a designação do serviço de campo.',
-      )
-      if (resultado === 'copiado') setAviso('Link da escala copiado.')
-      else if (resultado === 'falhou') setAviso('Não foi possível compartilhar o link.')
-    } catch {
-      setAviso('Não foi possível compartilhar o link.')
-    }
-  }
-
   async function compartilharLink() {
     try {
       const payload = montarPayload({
@@ -913,8 +879,6 @@ export default function App() {
                 escalas: { ...e.escalas, _config: { ...e.escalas._config, ...patch } },
               }))
             }
-            aoExportar={exportar}
-            aoCopiarLink={copiarLink}
             aoIrParaLocais={() => {
               setVoltaLocais('ajustesCampo')
               setTela('locais')
