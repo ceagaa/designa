@@ -23,6 +23,7 @@ import { chaveMes, isoDeHoje, nomeMes } from '../lib/datas'
 import {
   TITULO_AVI,
   aptidoesDe,
+  designacoesDe,
   efetivasAvi,
   gerarAviDoMes,
   normalizarDadosAvi,
@@ -33,9 +34,11 @@ import {
 import { carregarSetorExtenso, ErroAuth, salvarDadosSetor } from '../lib/authApi'
 import { baixarImagem, baixarPdf, capturarNo, compartilhar } from '../lib/export'
 import AviCard from './AviCard'
-import { Botao, Chip, Kicker, Modal, Select, Toggle, Vazio } from './ui'
+import { Botao, Chip, Modal, Select, Toggle, Vazio } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
 import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
+import { CardHeroAvi, LinhaAvi } from './CardsDesignacao'
+import { compartilharPagina } from '../lib/compartilhamento'
 
 /** Data de hoje resolvida uma vez (oxlint: sem Date instável no render). */
 const HOJE_ISO = isoDeHoje()
@@ -81,88 +84,6 @@ const HORARIOS_DISPARO = Array.from(
   { length: 48 },
   (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 === 0 ? '00' : '30'}`,
 )
-
-/** Nomes designados de uma reunião, na ordem das funções da planilha. */
-function designacoesDe(
-  iso: string,
-  efetivas: Record<string, string>,
-  porId: Map<string, { nome: string }>,
-) {
-  return FUNCOES_AVI.map((f) => {
-    const id = efetivas[slotAvi(iso, f.id)]
-    return { id: f.id, rotulo: f.coluna, nome: id ? (porId.get(id)?.nome ?? null) : null }
-  })
-}
-
-/** Card de destaque do AVI: a reunião atual e quem serve em cada função. */
-function CardHeroAvi({
-  rotulo,
-  dia,
-  ehHoje,
-  linhas,
-  designadas,
-  total,
-}: {
-  rotulo: string
-  dia: string
-  ehHoje: boolean
-  linhas: Array<{ id: string; rotulo: string; nome: string | null }>
-  designadas: number
-  total: number
-}) {
-  const faltam = total - designadas
-  return (
-    <section
-      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl ${
-        ehHoje ? 'escala-hoje-branco' : ''
-      }`}
-    >
-      <div
-        className="pointer-events-none absolute -bottom-10 -right-8 size-44 rounded-full bg-white/10 blur-2xl"
-        aria-hidden="true"
-      />
-      <div className="relative z-10 flex items-center justify-between gap-3">
-        <Kicker className="text-white/80">{rotulo}</Kicker>
-        <span className="flex shrink-0 items-center gap-2">
-          {ehHoje ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-teal-deep">
-              <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
-              HOJE
-            </span>
-          ) : null}
-          <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-bold tracking-wide text-white">
-            {designadas}/{total}
-          </span>
-        </span>
-      </div>
-      <p className="relative z-10 mt-3 text-[34px] font-extrabold leading-tight sm:text-4xl">
-        {dia}
-      </p>
-      <p className="relative z-10 mt-1 text-sm text-white/80">
-        {faltam
-          ? `${faltam} função${faltam === 1 ? '' : 'ões'} ainda sem designação.`
-          : 'Todas as funções estão designadas para esta reunião.'}
-      </p>
-      <div className="relative z-10 mt-4 grid grid-cols-1 gap-2">
-        {linhas.map((linha) => (
-          <span
-            key={linha.id}
-            className="flex min-w-0 items-center gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm"
-          >
-            <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-white/60">
-              {linha.rotulo}
-            </span>
-            <span
-              className={`truncate text-sm ${linha.nome ? 'font-semibold' : 'font-medium text-white/60'}`}
-            >
-              {linha.nome ?? '—'}
-            </span>
-          </span>
-        ))}
-      </div>
-    </section>
-  )
-}
 
 /** Tela do setor AVI: escala mensal por designação, cadastro unificado e exportação. */
 export default function TelaAvi({
@@ -270,11 +191,7 @@ export default function TelaAvi({
 
   const linhasDestaque = destaque ? designacoesDe(destaque.iso, efetivas, porId) : []
   const designadasDestaque = linhasDestaque.filter((l) => l.nome).length
-  const rotuloDestaque = ehHoje
-    ? 'Quem serve hoje'
-    : ehMesAtual
-      ? 'Próxima reunião'
-      : 'Primeira reunião'
+  const rotuloDestaque = ehMesAtual ? 'Próxima reunião' : 'Primeira reunião'
   const diaDestaque = destaque
     ? `${nomeDiaCurto(destaque.diaSemana)}, ${destaque.iso.slice(8, 10)}/${destaque.iso.slice(5, 7)}`
     : ''
@@ -357,19 +274,43 @@ export default function TelaAvi({
     }
   }
 
+  /**
+   * Estado mais recente do setor, direto da nuvem. Evita a corrida em que a
+   * tela gera a escala com aptidões recém-salvas (voluntário criado em outra
+   * tela) que ainda não estavam em memória — a geração sairia vazia.
+   */
+  async function dadosAtualizados(): Promise<{ dados: DadosAvi; irmoes: typeof irmoes }> {
+    try {
+      const resposta = await carregarSetorExtenso('AUDIO_VIDEO')
+      setDadosBrutos(resposta.dados)
+      setIrmoes(resposta.dirigentes ?? [])
+      return {
+        dados: normalizarDadosAvi(resposta.dados),
+        irmoes: resposta.dirigentes ?? [],
+      }
+    } catch {
+      // Sem rede/sessão: gera com o que já está em memória.
+      return { dados, irmoes }
+    }
+  }
+
   function executarGeracao() {
     if (!carregado || ocupado) return
     setOcupado(true)
-    const geradoNovo = gerarAviDoMes(dados, irmoes, chave, { forcar: true })
-    void persistir(geradoNovo).then(() => {
-      setOcupado(false)
-      aoAvisar(
-        ocorrencias.length
-          ? `Escala AVI de ${nomeMes(mes)} de ${ano} gerada.`
-          : 'Nenhuma reunião AVI neste mês.',
-      )
-    })
     setConfirmando(null)
+    void dadosAtualizados().then((estado) => {
+      const geradoNovo = gerarAviDoMes(estado.dados, estado.irmoes, chave, {
+        forcar: true,
+      })
+      return persistir(geradoNovo).then(() => {
+        setOcupado(false)
+        aoAvisar(
+          ocorrencias.length
+            ? `Escala AVI de ${nomeMes(mes)} de ${ano} gerada.`
+            : 'Nenhuma reunião AVI neste mês.',
+        )
+      })
+    })
   }
 
   function pedirGeracao() {
@@ -380,12 +321,16 @@ export default function TelaAvi({
   function adiantarProximoMes() {
     if (ocupado) return
     setOcupado(true)
-    const geradoNovo = gerarAviDoMes(dados, irmoes, proximoChave, { forcar: true })
-    void persistir(geradoNovo).then(() => {
-      setOcupado(false)
-      aoAvisar(`Escala AVI de ${proximoNome} de ${proximo.ano} gerada.`)
-    })
     setConfirmando(null)
+    void dadosAtualizados().then((estado) => {
+      const geradoNovo = gerarAviDoMes(estado.dados, estado.irmoes, proximoChave, {
+        forcar: true,
+      })
+      return persistir(geradoNovo).then(() => {
+        setOcupado(false)
+        aoAvisar(`Escala AVI de ${proximoNome} de ${proximo.ano} gerada.`)
+      })
+    })
   }
 
   function alterarSlot(slot: string, idIrmao: string) {
@@ -449,14 +394,14 @@ export default function TelaAvi({
       aoAvisar('Não foi possível identificar o link público deste setor.')
       return
     }
-    try {
-      await navigator.clipboard.writeText(
-        `${window.location.origin}/escala/${encodeURIComponent(slug)}/AVI`,
-      )
-      aoAvisar('Link público do AVI copiado.')
-    } catch {
-      aoAvisar('Não foi possível copiar o link.')
-    }
+    const url = `${window.location.origin}/escala/${encodeURIComponent(slug)}/AVI`
+    const resultado = await compartilharPagina(
+      url,
+      TITULO_AVI,
+      `Escala de ${TITULO_AVI} — ${nomeMes(mes)} de ${ano}`,
+    )
+    if (resultado === 'copiado') aoAvisar('Link público do AVI copiado.')
+    else if (resultado === 'falhou') aoAvisar('Não foi possível compartilhar o link.')
   }
 
   function textoCompartilhado(): string {
@@ -798,7 +743,7 @@ export default function TelaAvi({
           {lista.length ? (
             <section className="space-y-3">
               <div className="flex items-center justify-between gap-2 px-1">
-                <h2 className="text-lg font-semibold text-ink">Próximas reuniões</h2>
+                <h2 className="text-lg font-semibold text-ink">Próximos dias</h2>
                 <p className="shrink-0 text-sm text-muted">
                   {preenchidos}/{totalSlots} designações
                 </p>
@@ -807,54 +752,21 @@ export default function TelaAvi({
               <div className="flex flex-col gap-2">
                 {lista.map((oc) => {
                   const linhas = designacoesDe(oc.iso, efetivas, porId)
-                  const designadas = linhas.filter((l) => l.nome).length
-                  const doDia = oc.iso === HOJE_ISO
-                  const resumo = linhas
-                    .filter((l) => l.nome)
-                    .map((l) => `${l.rotulo}: ${l.nome}`)
-                    .join(' · ')
                   return (
-                    <article
+                    <LinhaAvi
                       key={oc.iso}
-                      className={`flex w-full items-start gap-3 rounded-xl bg-card p-4 shadow-sm ${
-                        doDia ? 'escala-hoje' : ''
-                      }`}
-                    >
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
-                        <CalendarDays className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                          {doDia ? (
-                            <span className="flex items-center gap-1 rounded-full bg-teal px-2 py-0.5 text-[11px] font-bold text-white">
-                              <span
-                                className="size-1.5 animate-pulse rounded-full bg-crimson"
-                                aria-hidden="true"
-                              />
-                              HOJE
-                            </span>
-                          ) : null}
-                          <span className="font-semibold text-ink">
-                            {nomeDiaCurto(oc.diaSemana)}, {oc.iso.slice(8, 10)}/
-                            {oc.iso.slice(5, 7)}
-                          </span>
-                          <span
-                            className={`ml-auto shrink-0 text-[12px] font-bold ${
-                              designadas === FUNCOES_AVI.length ? 'text-success' : 'text-crimson'
-                            }`}
-                          >
-                            {designadas}/{FUNCOES_AVI.length}
-                          </span>
-                        </span>
-                        <span
-                          className={`mt-1 block break-words text-[13px] leading-snug ${
-                            resumo ? 'text-muted' : 'text-crimson'
-                          }`}
-                        >
-                          {resumo || 'Sem designação'}
-                        </span>
-                      </span>
-                    </article>
+                      item={{
+                        key: oc.iso,
+                        iso: oc.iso,
+                        diaSemana: oc.diaSemana,
+                        resumo: linhas
+                          .filter((l) => l.nome)
+                          .map((l) => `${l.rotulo}: ${l.nome}`)
+                          .join(' · '),
+                        designadas: linhas.filter((l) => l.nome).length,
+                        total: FUNCOES_AVI.length,
+                      }}
+                    />
                   )
                 })}
               </div>

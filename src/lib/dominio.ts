@@ -20,9 +20,11 @@ export interface Dirigente {
   /** Dias em que pode ser ajudante (quando `ajudante`). */
   diasAjudante?: number[]
   /**
-   * Departamento do voluntário. Registros antigos sem este campo continuam
-   * valendo como Campo.
+   * Departamentos do voluntário (um ou mais). Fichas novas gravam aqui;
+   * `departamento` continua valendo para registros antigos.
    */
+  departamentos?: SetorId[]
+  /** Departamento principal — compatibilidade com fichas antigas. */
   departamento?: SetorId
   /** Reuniões em que o voluntário do AVI pode atuar. */
   reunioes?: ReuniaoAvi
@@ -160,6 +162,32 @@ export const ROTULO_SETOR: Record<SetorId, string> = {
   CAMPO: 'Saídas de Campo',
   AUDIO_VIDEO: 'Áudio, Vídeo & Indicadores',
   TPL: 'Testemunho Público Local',
+}
+
+/**
+ * Departamentos explícitos de um voluntário, sem duplicatas. Fichas antigas
+ * (só `departamento`) devolvem uma lista de um item; sem nenhum, lista vazia.
+ */
+export function departamentosDe(d: {
+  departamento?: SetorId
+  departamentos?: SetorId[]
+}): SetorId[] {
+  const lista = (d.departamentos ?? []).filter((s) => SETORES.includes(s))
+  if (lista.length) return [...new Set(lista)]
+  return d.departamento ? [d.departamento] : []
+}
+
+/**
+ * O voluntário atua neste setor? Fichas antigas sem departamento continuam
+ * valendo como Campo (comportamento legado).
+ */
+export function pertenceAoSetor(
+  d: { departamento?: SetorId; departamentos?: SetorId[] },
+  setor: SetorId,
+): boolean {
+  const deps = departamentosDe(d)
+  if (deps.length) return deps.includes(setor)
+  return setor === 'CAMPO'
 }
 
 /** Usuário autenticado (sessão) com a congregação dele. */

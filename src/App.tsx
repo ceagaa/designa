@@ -1,4 +1,5 @@
 import type { AbaNav, Estado, RegistroMes, Tela, Usuario } from './lib/dominio'
+import { pertenceAoSetor } from './lib/dominio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppHeader from './components/AppHeader'
 import type { Notificacao } from './components/SinoNotificacoes'
@@ -20,7 +21,7 @@ import TelaPessoas from './components/TelaPessoas'
 import TelaTpl from './components/TelaTpl'
 import TelaTplPublica from './components/TelaTplPublica'
 import TelaVer from './components/TelaVer'
-import { lerHashVer, linkDe, montarPayload } from './lib/compartilhamento'
+import { compartilharPagina, lerHashVer, linkDe, montarPayload } from './lib/compartilhamento'
 import { chaveMes, ocorrenciasDoMes, nomeMes } from './lib/datas'
 import { estadoInicial, registroDe } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
@@ -122,7 +123,7 @@ export default function App() {
   const podeGerenciarCampo = permiteCampo(usuario)
   /** A escala do Campo só enxerga quem trabalha no Campo. */
   const voluntariosCampo = useMemo(
-    () => dirigentes.filter((d) => (d.departamento ?? 'CAMPO') === 'CAMPO'),
+    () => dirigentes.filter((d) => pertenceAoSetor(d, 'CAMPO')),
     [dirigentes],
   )
 
@@ -527,7 +528,7 @@ export default function App() {
     setModalAberto(true)
   }
 
-  function copiarLink() {
+  async function copiarLink() {
     try {
       const payload = montarPayload({
         config,
@@ -538,15 +539,18 @@ export default function App() {
         dirigentes: voluntariosCampo,
       })
       if (!payload.r.length) {
-        setAviso('Gere a designação antes de copiar o link.')
+        setAviso('Gere a designação antes de compartilhar o link.')
         return
       }
-      navigator.clipboard
-        ?.writeText(linkDe(payload))
-        .then(() => setAviso('Link da designação copiado.'))
-        .catch(() => setAviso('Não foi possível copiar o link.'))
+      const resultado = await compartilharPagina(
+        linkDe(payload),
+        `Escala de ${nomeMes(mes)} de ${ano}`,
+        'Confira a designação do serviço de campo.',
+      )
+      if (resultado === 'copiado') setAviso('Link da escala copiado.')
+      else if (resultado === 'falhou') setAviso('Não foi possível compartilhar o link.')
     } catch {
-      setAviso('Não foi possível copiar o link.')
+      setAviso('Não foi possível compartilhar o link.')
     }
   }
 
@@ -564,20 +568,15 @@ export default function App() {
         setAviso('Designe pelo menos um voluntário antes de compartilhar o link.')
         return
       }
-      const url = linkDe(payload)
-      if (navigator.share) {
-        await navigator.share({
-          title: `Escala de ${nomeMes(mes)} de ${ano}`,
-          text: 'Compartilhar escala de campo',
-          url,
-        })
-        setAviso('Escala compartilhada.')
-        return
-      }
-      await navigator.clipboard.writeText(url)
-      setAviso('Link da escala copiado.')
-    } catch (falha) {
-      if (falha instanceof DOMException && falha.name === 'AbortError') return
+      const resultado = await compartilharPagina(
+        linkDe(payload),
+        `Escala de ${nomeMes(mes)} de ${ano}`,
+        'Compartilhar escala de campo',
+      )
+      if (resultado === 'compartilhado') setAviso('Escala compartilhada.')
+      else if (resultado === 'copiado') setAviso('Link da escala copiado.')
+      else if (resultado === 'falhou') setAviso('Não foi possível compartilhar o link.')
+    } catch {
       setAviso('Não foi possível compartilhar o link.')
     }
   }
@@ -658,7 +657,7 @@ export default function App() {
   if (payloadVer) {
     return (
       <div className="min-h-svh">
-        <TelaVer payload={payloadVer} aoAvisar={setAviso} />
+        <TelaVer payload={payloadVer} />
         {aviso ? (
           <div
             role="status"
@@ -692,7 +691,7 @@ export default function App() {
   if (rota?.tipo === 'tpl') {
     return (
       <div className="min-h-svh">
-        <TelaTplPublica slug={rota.slug} aoAvisar={setAviso} />
+        <TelaTplPublica slug={rota.slug} />
         {aviso ? (
           <div
             role="status"
@@ -710,9 +709,9 @@ export default function App() {
     return (
       <div className="min-h-svh">
         {rota.setor === 'CAMPO' ? (
-          <TelaEscalaPublica slug={rota.slug} aoAvisar={setAviso} />
+          <TelaEscalaPublica slug={rota.slug} />
         ) : (
-          <TelaAviPublica slug={rota.slug} aoAvisar={setAviso} />
+          <TelaAviPublica slug={rota.slug} />
         )}
         {aviso ? (
           <div

@@ -12,6 +12,11 @@ export function isoDeHoje(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** Data ISO no formato curto "dd/mm". */
+export function ddMm(iso: string): string {
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+}
+
 export function lerChaveMes(chave: string): { ano: number; mes: number } {
   const [ano, mes] = String(chave).split('-').map(Number)
   return { ano, mes: (mes || 1) - 1 }

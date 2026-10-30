@@ -7,15 +7,9 @@ type Estado = 'carregando' | 'pronto' | 'erro'
 
 /**
  * Rota pública /escala/:slug/CAMPO — visão somente leitura da programação,
- * com "Próximos dias" e copiar link.
+ * com "Próximos dias" (mesmos cards do administrador).
  */
-export default function TelaEscalaPublica({
-  slug,
-  aoAvisar,
-}: {
-  slug: string
-  aoAvisar: (texto: string) => void
-}) {
+export default function TelaEscalaPublica({ slug }: { slug: string }) {
   const [estado, setEstado] = useState<Estado>('carregando')
   const [payload, setPayload] = useState<string | null>(null)
   const [tentativa, setTentativa] = useState(0)
@@ -46,13 +40,7 @@ export default function TelaEscalaPublica({
   }, [slug, tentativa])
 
   if (estado === 'pronto' && payload) {
-    return (
-      <TelaVer
-        payload={payload}
-        linkPublico={window.location.href}
-        aoAvisar={aoAvisar}
-      />
-    )
+    return <TelaVer payload={payload} />
   }
 
   if (estado === 'erro') {

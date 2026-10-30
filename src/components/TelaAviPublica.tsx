@@ -1,11 +1,19 @@
 import type { DadosAvi } from '../lib/dominio'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileDown, Link2, Loader2, Radio, RefreshCcw } from 'lucide-react'
-import { TITULO_AVI, normalizarDadosAvi } from '../lib/avi'
-import { lerChaveMes, nomeMes } from '../lib/datas'
-import { baixarPdf } from '../lib/export'
-import AviCard from './AviCard'
-import { Botao, Kicker, Select } from './ui'
+import { useEffect, useMemo, useState } from 'react'
+import { Loader2, Radio, RefreshCcw } from 'lucide-react'
+import { FUNCOES_AVI } from '../lib/dominio'
+import {
+  TITULO_AVI,
+  designacoesDe,
+  efetivasAvi,
+  normalizarDadosAvi,
+  ocorrenciasAvi,
+  registroAviDe,
+} from '../lib/avi'
+import { isoDeHoje, lerChaveMes, nomeMes } from '../lib/datas'
+import { nomeDiaCurto } from '../lib/constants'
+import { Botao, Select } from './ui'
+import { CardHeroAvi, LinhaAvi } from './CardsDesignacao'
 
 type Estado = 'carregando' | 'pronto' | 'vazio' | 'erro'
 
@@ -15,34 +23,22 @@ interface IrmaoPublico {
   ativo: boolean
 }
 
-async function copiarLinkPublico(aoAvisar: (t: string) => void) {
-  try {
-    if (!navigator.clipboard) throw new Error('sem clipboard')
-    await navigator.clipboard.writeText(window.location.href)
-    aoAvisar('Link copiado.')
-  } catch {
-    aoAvisar('Não foi possível copiar — copie a URL do navegador.')
-  }
-}
+/** Data de hoje resolvida uma vez (evita Date instável no render). */
+const HOJE_ISO = isoDeHoje()
+const [HOJE_ANO, HOJE_MES] = HOJE_ISO.split('-').map(Number)
 
 /**
- * Rota pública /escala/:slug/AUDIO_VIDEO — escala do AVI visível (cartão em
- * faixa horizontal) com barra fixa de Baixar PDF e Copiar link.
+ * Rota pública /escala/:slug/AVI — mesma visão do administrador: cabeçalho do
+ * setor, card "Próxima reunião" e a lista de "Próximos dias". Sem botões de
+ * PDF/link: aqui só se consulta a escala.
  */
-export default function TelaAviPublica({
-  slug,
-  aoAvisar,
-}: {
-  slug: string
-  aoAvisar: (texto: string) => void
-}) {
+export default function TelaAviPublica({ slug }: { slug: string }) {
   const [estado, setEstado] = useState<Estado>('carregando')
   const [dadosBrutos, setDadosBrutos] = useState<unknown>(null)
   const [irmoes, setIrmoes] = useState<IrmaoPublico[]>([])
   const [congregacao, setCongregacao] = useState('')
   const [mesAtivo, setMesAtivo] = useState<string | null>(null)
   const [tentativa, setTentativa] = useState(0)
-  const cardRef = useRef<HTMLDivElement>(null)
 
   const dados: DadosAvi = useMemo(() => normalizarDadosAvi(dadosBrutos), [dadosBrutos])
 
@@ -93,38 +89,57 @@ export default function TelaAviPublica({
     [dados.escalas],
   )
 
-  async function aoPdf() {
-    if (!mesAtivo) return
-    try {
-      await baixarPdf(cardRef.current, mesAtivo, 'avi')
-    } catch {
-      aoAvisar('Não foi possível gerar o PDF.')
-    }
-  }
+  const porId = useMemo(() => new Map(irmoes.map((i) => [i.id, i])), [irmoes])
+
+  const ocorrencias = useMemo(
+    () => (mesAtivo ? ocorrenciasAvi(ano, mes, dados.diasReuniao) : []),
+    [mesAtivo, ano, mes, dados.diasReuniao],
+  )
+  const efetivas = useMemo(() => {
+    if (!mesAtivo) return {}
+    return efetivasAvi(registroAviDe(dados, mesAtivo))
+  }, [dados, mesAtivo])
+
+  const ehMesAtual = ano === HOJE_ANO && mes === HOJE_MES - 1
+  const proximas = ehMesAtual ? ocorrencias.filter((o) => o.iso >= HOJE_ISO) : ocorrencias
+  const destaque = proximas[0] ?? null
+  const ehHoje = Boolean(destaque && destaque.iso === HOJE_ISO)
+  const posteriores = destaque ? proximas.filter((o) => o.iso > destaque.iso) : []
+
+  const linhasDestaque = destaque ? designacoesDe(destaque.iso, efetivas, porId) : []
+  const designadasDestaque = linhasDestaque.filter((l) => l.nome).length
+  const rotuloDestaque = ehMesAtual ? 'Próxima reunião' : 'Primeira reunião'
+  const diaDestaque = destaque
+    ? `${nomeDiaCurto(destaque.diaSemana)}, ${destaque.iso.slice(8, 10)}/${destaque.iso.slice(5, 7)}`
+    : ''
 
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-md flex-col px-5 py-8 pb-28">
-      <header className="text-center">
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-16">
+      <header className="mb-5 flex items-start gap-3">
         <span
-          className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-petrol text-white shadow-lg"
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal text-white shadow-sm"
           aria-hidden="true"
         >
-          <Radio className="size-7" />
+          <Radio className="size-5" />
         </span>
-        <Kicker className="mt-4 text-muted">Áudio, Vídeo e Indicadores</Kicker>
-        <h1 className="mt-1 text-[22px] font-bold leading-snug tracking-tight text-ink">
-          {TITULO_AVI}
-        </h1>
-        <p className="mt-1 break-all text-sm text-muted">{congregacao || slug}</p>
+        <div className="min-w-0">
+          <h1 className="text-base font-bold leading-snug tracking-tight text-ink">
+            {TITULO_AVI}
+            {congregacao ? ` - ${congregacao}` : ''}
+          </h1>
+          <p className="mt-0.5 text-xs text-muted">
+            {mesAtivo ? `${nomeMes(mes)} de ${ano}` : 'Escala do setor'}
+          </p>
+        </div>
       </header>
 
       {estado === 'carregando' ? (
-        <p className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-card p-5 text-sm text-muted shadow-sm">
+        <p className="flex items-center justify-center gap-2 rounded-xl bg-card p-5 text-sm text-muted shadow-sm">
           <Loader2 className="size-4 animate-spin text-teal" aria-hidden="true" />
           Carregando escala…
         </p>
       ) : estado === 'erro' ? (
-        <div className="mt-6 rounded-xl bg-card p-5 text-center shadow-sm">
+        <div className="rounded-xl bg-card p-5 text-center shadow-sm">
           <p className="text-sm text-muted">
             Não foi possível carregar esta escala. Verifique o link.
           </p>
@@ -142,11 +157,11 @@ export default function TelaAviPublica({
           </div>
         </div>
       ) : estado === 'vazio' ? (
-        <div className="mt-6 rounded-xl bg-card p-5 text-center shadow-sm">
+        <div className="rounded-xl bg-card p-5 text-center shadow-sm">
           <p className="text-sm text-muted">Nenhuma escala publicada neste link ainda.</p>
         </div>
       ) : (
-        <div className="mt-6 space-y-4">
+        <div className="space-y-5">
           {mesesGerados.length > 1 ? (
             <div>
               <label
@@ -172,45 +187,57 @@ export default function TelaAviPublica({
             </div>
           ) : null}
 
-          <div className="-mx-5 overflow-x-auto px-5 pb-2">
-            <div ref={cardRef} className="w-[760px] shrink-0">
-              <AviCard
-                congregacao={congregacao}
-                ano={ano}
-                mes={mes}
-                dados={dados}
-                irmoes={irmoes}
-              />
-            </div>
-          </div>
-          <p className="text-center text-[13px] text-muted">
-            Arraste o cartão para o lado para ver todas as funções.
-          </p>
+          {destaque ? (
+            <CardHeroAvi
+              rotulo={rotuloDestaque}
+              dia={diaDestaque}
+              ehHoje={ehHoje}
+              linhas={linhasDestaque}
+              designadas={designadasDestaque}
+              total={FUNCOES_AVI.length}
+            />
+          ) : (
+            <section className="rounded-2xl border border-dashed border-line bg-card px-6 py-9 text-center">
+              <p className="mx-auto max-w-sm text-sm text-muted">
+                Não há mais reuniões AVI a partir de hoje neste mês.
+              </p>
+            </section>
+          )}
+
+          {posteriores.length ? (
+            <section className="space-y-3">
+              <div className="flex items-end justify-between gap-2 px-1">
+                <h2 className="text-lg font-semibold text-ink">Próximos dias</h2>
+                <p className="text-[13px] text-muted">
+                  {posteriores.length} próxima{posteriores.length === 1 ? '' : 's'} reunião
+                  {posteriores.length === 1 ? '' : 'ões'}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                {posteriores.map((oc) => {
+                  const linhas = designacoesDe(oc.iso, efetivas, porId)
+                  return (
+                    <LinhaAvi
+                      key={oc.iso}
+                      item={{
+                        key: oc.iso,
+                        iso: oc.iso,
+                        diaSemana: oc.diaSemana,
+                        resumo: linhas
+                          .filter((l) => l.nome)
+                          .map((l) => `${l.rotulo}: ${l.nome}`)
+                          .join(' · '),
+                        designadas: linhas.filter((l) => l.nome).length,
+                        total: FUNCOES_AVI.length,
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </section>
+          ) : null}
         </div>
       )}
-
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-        <div className="mx-auto flex max-w-md gap-2">
-          <Botao
-            variante="primario"
-            className="flex-1"
-            disabled={estado !== 'pronto'}
-            onClick={aoPdf}
-          >
-            <FileDown className="size-4" aria-hidden="true" />
-            Baixar PDF
-          </Botao>
-          <Botao
-            variante="secundario"
-            className="flex-1"
-            disabled={estado !== 'pronto'}
-            onClick={() => copiarLinkPublico(aoAvisar)}
-          >
-            <Link2 className="size-4" aria-hidden="true" />
-            Copiar link
-          </Botao>
-        </div>
-      </div>
     </div>
   )
 }

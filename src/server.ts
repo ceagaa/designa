@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { Dirigente, Estado } from './lib/dominio'
+import { departamentosDe, pertenceAoSetor } from './lib/dominio'
 import { estadoVazio, normalizarEstado, registroDe } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
 import { chaveMes, lerChaveMes, ocorrenciasDoMes } from './lib/datas'
@@ -46,6 +47,8 @@ interface D1Database {
 
 interface Env {
   DB: D1Database
+  /** Assets da SPA (wrangler.jsonc): entrega o index.html nas rotas públicas. */
+  ASSETS: { fetch(request: Request): Promise<Response> }
   /** Opcional: protege a API. Configure com `wrangler secret put APP_PIN`. */
   APP_PIN?: string
   /** Chave pública VAPID (base64url) do push. Configure com `wrangler secret put PUSH_VAPID_PUBLICA`. */
@@ -555,8 +558,9 @@ app.post('/api/escala/gerar', async (c) => {
 /* ------------------------ Estado dos setores AVI e TPL ------------------------ */
 
 /**
- * Voluntários que pertencem a um setor. Registros antigos (sem `departamento`)
- * continuam aparecendo no AVI/TPL quando já tinham aptidão ou participação.
+ * Voluntários que pertencem a um setor. Um voluntário pode estar em vários
+ * departamentos; fichas antigas (sem `departamentos`) continuam aparecendo no
+ * AVI/TPL quando já tinham aptidão ou participação.
  */
 function voluntariosDoSetor(
   estado: Estado,
@@ -564,17 +568,15 @@ function voluntariosDoSetor(
   dados: Record<string, unknown>,
 ): Dirigente[] {
   return estado.dirigentes.filter((d) => {
-    if (setor === 'CAMPO') return (d.departamento ?? 'CAMPO') === 'CAMPO'
+    const deps = departamentosDe(d)
+    if (deps.length) return deps.includes(setor)
+    // Sem departamento explícito: Campo por padrão; AVI/TPL se já participavam.
+    if (setor === 'CAMPO') return true
     if (setor === 'AUDIO_VIDEO') {
-      if (d.departamento === 'AUDIO_VIDEO') return true
-      // Sem departamento explícito, a ficha antiga continua no AVI se tinha aptidão.
-      if (d.departamento != null) return false
       const aptidoes = dados.aptidoes as Record<string, unknown> | undefined
       const lista = aptidoes?.[d.id]
       return Array.isArray(lista) && lista.length > 0
     }
-    if (d.departamento === 'TPL') return true
-    if (d.departamento != null) return false
     const participantes = dados.participantes as Array<{ id?: string }> | undefined
     return Boolean(participantes?.some((p) => p.id === d.id))
   })
@@ -585,7 +587,7 @@ function projetarIrmao(d: Dirigente) {
     id: d.id,
     nome: d.nome,
     ativo: d.ativo !== false,
-    departamento: d.departamento ?? 'CAMPO',
+    departamento: departamentosDe(d)[0] ?? 'CAMPO',
     reunioes: d.reunioes ?? 'ambos',
     frequencia: d.frequencia,
     limiteMensal: d.limiteMensal ?? 1,
@@ -766,9 +768,7 @@ async function publicoPorSlug(
     designacoes: efetivas,
     designacoesAjudante: efetivasAjudante,
     // A rota pública do Campo não precisa expor nomes de outros setores.
-    dirigentes: estado.dirigentes.filter(
-      (d) => (d.departamento ?? 'CAMPO') === 'CAMPO',
-    ),
+    dirigentes: estado.dirigentes.filter((d) => pertenceAoSetor(d, 'CAMPO')),
   })
   return {
     status: 200,
@@ -804,6 +804,133 @@ app.get('/api/escala/publico/:slug/:setor', async (c) => {
     return c.json({ erro: 'falha_leitura' }, 500)
   }
 })
+
+/* --------------------- Metatags públicas (prévia WhatsApp) --------------------- */
+
+/** Textos e og:image próprios de cada rota pública de setor. */
+const OG_POR_SETOR: Record<
+  SetorPublico,
+  { titulo: string; descricao: string; imagem: string; tema: string }
+> = {
+  CAMPO: {
+    titulo: 'Designação para o serviço de campo',
+    descricao: 'Escala publicada — consulte as próximas designações do serviço de campo.',
+    imagem: '/img/og-campo.png',
+    tema: '#0D5C68',
+  },
+  AUDIO_VIDEO: {
+    titulo: 'Designação para Áudio, Vídeo e Indicadores',
+    descricao: 'Escala publicada — consulte as próximas designações do AVI.',
+    imagem: '/img/og-avi.png',
+    tema: '#045A6C',
+  },
+  TPL: {
+    titulo: 'Designação para TPL',
+    descricao: 'Escala publicada — consulte as próximas designações do TPL.',
+    imagem: '/img/og-tpl.png',
+    tema: '#7E0024',
+  },
+}
+
+/** Escapa texto para uso dentro de atributo HTML. */
+function escaparAtributo(texto: string): string {
+  return texto
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+}
+
+/** Remove as og:tags herdadas do index.html para o roboto não ler a primeira (genérica). */
+function limparMetatagsLegadas(html: string): string {
+  return html
+    .replace(/<meta\b[^>]*(?:og:|twitter:|theme-color)[^>]*>/gi, '')
+    .replace(/\n\s*\n/g, '\n')
+}
+
+/** Nome da congregação pelo slug (null quando não existe ou o banco falha). */
+async function nomeDaCongregacao(env: Env, slug: string): Promise<string | null> {
+  try {
+    const linha = await env.DB.prepare('SELECT nome FROM congregacoes WHERE slug = ?')
+      .bind(slug)
+      .first<{ nome: string }>()
+    return linha?.nome ?? null
+  } catch {
+    return null
+  }
+}
+
+/** Monta o bloco og/twitter da rota pública, com URL absoluta para o roboto. */
+function metatagsPublicas(
+  url: URL,
+  setor: SetorPublico,
+  congregacao: string | null,
+): string {
+  const info = OG_POR_SETOR[setor]
+  const titulo = congregacao ? `${info.titulo} — ${congregacao}` : info.titulo
+  const imagem = new URL(info.imagem, url).toString()
+  return [
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="Designa" />`,
+    `<meta property="og:title" content="${escaparAtributo(titulo)}" />`,
+    `<meta property="og:description" content="${escaparAtributo(info.descricao)}" />`,
+    `<meta property="og:url" content="${escaparAtributo(url.toString())}" />`,
+    `<meta property="og:image" content="${escaparAtributo(imagem)}" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:title" content="${escaparAtributo(titulo)}" />`,
+    `<meta name="twitter:description" content="${escaparAtributo(info.descricao)}" />`,
+    `<meta name="twitter:image" content="${escaparAtributo(imagem)}" />`,
+    `<meta name="theme-color" content="${info.tema}" />`,
+  ].join('\n    ')
+}
+
+/**
+ * Rotas públicas da SPA (/escala/:slug/:setor e /tpl/:slug): o Worker devolve o
+ * index.html (via ASSETS) com as og:tags do setor, para a prévia do WhatsApp.
+ * Setor desconhecido ou erro de banco segue com as tags padrão do index.html.
+ */
+async function paginaPublicaComOg(c: {
+  env: Env
+  req: { raw: Request }
+  json: (data: unknown, status?: number) => Response
+}): Promise<Response> {
+  const url = new URL(c.req.raw.url)
+  const partes = url.pathname.split('/').filter(Boolean) // ex.: ['escala', 'slug', 'AVI']
+  let setor: SetorPublico | null = null
+  let slug = ''
+  if (partes[0] === 'escala' && partes.length === 3) {
+    slug = decodeURIComponent(partes[1] ?? '')
+    setor = setorPublico(partes[2] ?? '')
+  } else if (partes[0] === 'tpl' && partes.length === 2) {
+    slug = decodeURIComponent(partes[1] ?? '')
+    setor = 'TPL'
+  }
+
+  let resposta: Response
+  try {
+    resposta = await c.env.ASSETS.fetch(c.req.raw)
+  } catch (erro) {
+    console.error('[og] falha ao buscar index.html nos assets:', erro)
+    return c.json({ erro: 'falha_assets' }, 500)
+  }
+
+  // Sem setor válido ou fora do index.html (SPA): devolve como está.
+  if (!setor || resposta.status !== 200) return resposta
+
+  const congregacao = await nomeDaCongregacao(c.env, slug)
+  const html = limparMetatagsLegadas(await resposta.text())
+  const tags = metatagsPublicas(url, setor, congregacao)
+  const comOg = html.includes('</head>')
+    ? html.replace('</head>', `    ${tags}\n  </head>`)
+    : `${tags}\n${html}`
+  const cabecalhos = new Headers(resposta.headers)
+  cabecalhos.delete('content-length')
+  cabecalhos.delete('etag')
+  return new Response(comOg, { status: resposta.status, headers: cabecalhos })
+}
+
+app.get('/escala/*', (c) => paginaPublicaComOg(c))
+app.get('/tpl/*', (c) => paginaPublicaComOg(c))
 
 /* --------------------------------- Push --------------------------------- */
 

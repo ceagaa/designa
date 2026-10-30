@@ -1,25 +1,13 @@
 import type { Campo, Dirigente, Ocorrencia } from '../lib/dominio'
 import { useState } from 'react'
-import {
-  CalendarDays,
-  CalendarPlus,
-  Clock,
-  Map as Mapa,
-  MapPin,
-  PencilLine,
-  Sparkles,
-  Trash2,
-} from 'lucide-react'
+import { CalendarDays, CalendarPlus, Map as Mapa, PencilLine, Sparkles, Trash2 } from 'lucide-react'
 import { MESES, nomeDiaCurto } from '../lib/constants'
-import { isoDeHoje } from '../lib/datas'
+import { ddMm, isoDeHoje } from '../lib/datas'
 import { rotuloEspecial } from '../lib/feriados'
-import { Botao, Kicker, Modal } from './ui'
+import { Botao, Modal } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
 import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
-
-function ddMm(iso: string): string {
-  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
-}
+import { CardHeroCampo, LinhaCampo } from './CardsDesignacao'
 
 /** Data de hoje resolvida uma vez (evita chamada instável de Date no render). */
 const HOJE_ISO = isoDeHoje()
@@ -27,93 +15,6 @@ const [HOJE_ANO, HOJE_MES] = HOJE_ISO.split('-').map(Number)
 
 /** Hora atual (HH:MM) resolvida uma vez: escolhe a saída certa em dias com várias saídas. */
 const AGORA_HHMM = new Date().toTimeString().slice(0, 5)
-
-/** Card de destaque em gradiente: quem dirige (hoje/próxima saída). */
-function CardHero({
-  rotulo,
-  especial,
-  dia,
-  nome,
-  ajudante,
-  local,
-  horario,
-  ehHoje,
-}: {
-  rotulo: string
-  especial: string | null
-  dia: string
-  nome: string | null
-  ajudante?: string | null
-  local: string
-  horario: string
-  ehHoje: boolean
-}) {
-  return (
-    <section
-      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl ${
-        ehHoje ? 'escala-hoje-branco' : ''
-      }`}
-    >
-      <div
-        className="pointer-events-none absolute -bottom-10 -right-8 size-44 rounded-full bg-white/10 blur-2xl"
-        aria-hidden="true"
-      />
-      <div className="relative z-10 flex items-center justify-between gap-3">
-        <Kicker className="text-white/80">{rotulo}</Kicker>
-        <span className="flex shrink-0 items-center gap-2">
-          {especial ? (
-            <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">
-              {especial}
-            </span>
-          ) : null}
-          {ehHoje ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-teal-deep">
-              <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
-              HOJE
-            </span>
-          ) : null}
-          <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-bold tracking-wide text-white">
-            {dia}
-          </span>
-        </span>
-      </div>
-      <div className="relative z-10 mt-3">
-        <p className="text-[34px] font-extrabold leading-tight sm:text-4xl">
-          {nome ?? 'Sem designação'}
-        </p>
-        {ajudante ? (
-          <p className="mt-0.5 text-sm text-white/75">
-            <span className="font-semibold text-white/60">Ajudante:</span> {ajudante}
-          </p>
-        ) : null}
-        <p className="mt-1 text-sm text-white/80">
-          {nome
-            ? ehHoje
-              ? 'Designação confirmada para a reunião de campo de hoje.'
-              : 'Designação confirmada para esta reunião de campo.'
-            : 'Nenhum voluntário escalado para esta reunião de campo.'}
-        </p>
-      </div>
-      <div className="relative z-10 mt-4 grid grid-cols-2 gap-2">
-        <span className="flex min-w-0 items-center gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-          <MapPin className="size-4 shrink-0" aria-hidden="true" />
-          <span className="truncate text-sm">{local}</span>
-        </span>
-        <span className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-          <Clock className="size-4 shrink-0" aria-hidden="true" />
-          <span className="text-sm">{horario}</span>
-        </span>
-      </div>
-      <div className="relative z-10 mt-2 flex items-center gap-2 rounded-xl border border-dashed border-white/45 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
-        <Mapa className="size-4 shrink-0" aria-hidden="true" />
-        <span className="text-sm font-semibold">Territórios</span>
-        <span className="ml-auto rounded-full bg-white/25 px-2.5 py-0.5 text-[11px] font-bold tracking-wide">
-          Em breve
-        </span>
-      </div>
-    </section>
-  )
-}
 
 interface ResumoDesignacaoProps {
   ano: number
@@ -220,11 +121,7 @@ export default function ResumoDesignacao({
     ? porId.get(efetivasAjudante[destaque.key])?.nome ?? null
     : null
 
-  const rotuloDestaque = deHoje
-    ? 'Quem dirige hoje'
-    : ehMesAtual
-      ? 'Próxima saída'
-      : 'Primeira saída'
+  const rotuloDestaque = deHoje || ehMesAtual ? 'Próxima designação' : 'Primeira saída'
 
   const acoesMenu: AcaoMenu[] = [
     {
@@ -269,7 +166,7 @@ export default function ResumoDesignacao({
       />
 
       {destaque ? (
-        <CardHero
+        <CardHeroCampo
           rotulo={rotuloDestaque}
           especial={rotuloEspecial(destaque)}
           dia={`${nomeDiaCurto(destaque.diaSemana)}, ${ddMm(destaque.iso)}`}
@@ -278,6 +175,15 @@ export default function ResumoDesignacao({
           local={destaque.campo.local}
           horario={destaque.campo.horario}
           ehHoje={Boolean(deHoje)}
+          rodape={
+            <div className="relative z-10 mt-2 flex items-center gap-2 rounded-xl border border-dashed border-white/45 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
+              <Mapa className="size-4 shrink-0" aria-hidden="true" />
+              <span className="text-sm font-semibold">Territórios</span>
+              <span className="ml-auto rounded-full bg-white/25 px-2.5 py-0.5 text-[11px] font-bold tracking-wide">
+                Em breve
+              </span>
+            </div>
+          }
         />
       ) : (
         <section className="rounded-2xl border border-dashed border-line bg-card px-6 py-9 text-center">
@@ -312,61 +218,21 @@ export default function ResumoDesignacao({
           </div>
 
           <div className="flex flex-col gap-2">
-            {lista.map((oc) => {
-              const nome = porId.get(efetivas[oc.key])?.nome
-              const ajudante = porId.get(efetivasAjudante[oc.key])?.nome
-              const especial = rotuloEspecial(oc)
-              const ehHoje = oc.iso === HOJE_ISO
-              return (
-                <article
-                  key={oc.key}
-                  className={`flex w-full items-start gap-3 rounded-xl bg-card p-4 shadow-sm ${
-                    ehHoje ? 'escala-hoje' : ''
-                  }`}
-                >
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
-                    <CalendarDays className="size-5" aria-hidden="true" />
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                      {ehHoje ? (
-                        <span className="flex items-center gap-1 rounded-full bg-teal px-2 py-0.5 text-[11px] font-bold text-white">
-                          <span
-                            className="size-1.5 animate-pulse rounded-full bg-crimson"
-                            aria-hidden="true"
-                          />
-                          HOJE
-                        </span>
-                      ) : null}
-                      <span className="font-semibold text-ink">
-                        {nomeDiaCurto(oc.diaSemana)}, {ddMm(oc.iso)}
-                      </span>
-                      {especial ? (
-                        <span className="rounded-full bg-line px-2 py-0.5 text-[11px] font-bold text-ink-soft">
-                          {especial}
-                        </span>
-                      ) : null}
-                      <span className="ml-auto flex min-w-0 items-center gap-1 text-muted">
-                        <span className="shrink-0">{oc.campo.horario} -</span>
-                        <span className="truncate">{oc.campo.local}</span>
-                      </span>
-                    </span>
-                    <span className="mt-1 block text-sm font-bold">
-                      {nome ? (
-                        <span className="text-teal">{nome}</span>
-                      ) : (
-                        <span className="text-crimson">Sem designação</span>
-                      )}
-                      {ajudante && nome ? (
-                        <span className="ml-1.5 text-[13px] font-semibold text-muted">
-                          + {ajudante}
-                        </span>
-                      ) : null}
-                    </span>
-                  </span>
-                </article>
-              )
-            })}
+            {lista.map((oc) => (
+              <LinhaCampo
+                key={oc.key}
+                item={{
+                  key: oc.key,
+                  iso: oc.iso,
+                  diaSemana: oc.diaSemana,
+                  horario: oc.campo.horario,
+                  local: oc.campo.local,
+                  nome: porId.get(efetivas[oc.key])?.nome ?? null,
+                  ajudante: porId.get(efetivasAjudante[oc.key])?.nome ?? null,
+                  especial: rotuloEspecial(oc),
+                }}
+              />
+            ))}
           </div>
           {restam > 0 ? (
             <p className="px-1 text-[13px] text-muted">

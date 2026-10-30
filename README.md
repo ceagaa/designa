@@ -26,15 +26,15 @@ A interface é pensada para o celular primeiro — botões grandes, uma coluna s
 
 ## Rodando o projeto
 
-Você vai precisar de Node.js e de uma conta na Cloudflare para publicar.
+Você vai precisar de Node.js e de uma conta na Cloudflare autenticada no Wrangler. O desenvolvimento usa o D1 remoto de produção; não há banco local.
 
 ```bash
 npm install
-npm run db:migrate:local   # prepara o banco local (só na primeira vez)
-npm run dev                # frontend + Worker + D1 local
+npm run dev                # frontend + Worker local + D1 remoto
 ```
 
 O app abre em `http://localhost:5173`.
+As alterações feitas no localhost são gravadas no banco de produção.
 
 Outros comandos úteis:
 
@@ -42,7 +42,7 @@ Outros comandos úteis:
 npm run typecheck          # confere os tipos
 npm run lint               # oxlint
 npm run build              # gera a versão de produção em /dist
-npm run dev:remote         # usa o D1 remoto (precisa do Wrangler autenticado)
+npm run dev:remote         # alias de dev; também usa o D1 remoto
 node test-ux.mjs           # roteiro de UX no navegador (precisa do dev server no ar)
 ```
 

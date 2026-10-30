@@ -1,4 +1,5 @@
 import type { Estado, RegistroMes } from './dominio'
+import { pertenceAoSetor } from './dominio'
 import { chaveMes, lerChaveMes, ocorrenciasDoMes } from './datas'
 import { registroDe } from './estadoInicial'
 import { gerarEscala } from './rodizio'
@@ -38,9 +39,7 @@ export function gerarEscalaDoMes(estado: Estado, chave: string, { forcar = false
 
   const { auto, autoAjudante } = gerarEscala({
     // Só voluntários do Campo entram no rodízio; AVI e TPL têm escalas próprias.
-    dirigentes: estado.dirigentes.filter(
-      (d) => (d.departamento ?? 'CAMPO') === 'CAMPO',
-    ),
+    dirigentes: estado.dirigentes.filter((d) => pertenceAoSetor(d, 'CAMPO')),
     ocorrencias,
     manuais,
     manuaisAjudante,

@@ -129,6 +129,18 @@ export function efetivasAvi(registro: RegistroAvi): Record<string, string> {
   return { ...(registro.auto ?? {}), ...(registro.manuais ?? {}) }
 }
 
+/** Nomes designados de uma reunião, na ordem das funções da planilha. */
+export function designacoesDe(
+  iso: string,
+  efetivas: Record<string, string>,
+  porId: Map<string, { nome: string }>,
+) {
+  return FUNCOES_AVI.map((f) => {
+    const id = efetivas[slotAvi(iso, f.id)]
+    return { id: f.id, rotulo: f.coluna, nome: id ? (porId.get(id)?.nome ?? null) : null }
+  })
+}
+
 /** Lista de aptidões de um irmão (defensiva). */
 export function aptidoesDe(dados: DadosAvi, id: string): AptidaoId[] {
   return dados.aptidoes[id] ?? []

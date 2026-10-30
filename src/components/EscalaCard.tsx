@@ -2,7 +2,7 @@ import type { CSSProperties, Ref } from 'react'
 import type { ConfigEscala, Dirigente, Ocorrencia } from '../lib/dominio'
 import { Fragment, forwardRef } from 'react'
 import { CITACAO, CORES_PLANILHA, MESES, MESES_ABBR, infoDia } from '../lib/constants'
-import { isoDeHoje } from '../lib/datas'
+import { ddMm, isoDeHoje } from '../lib/datas'
 import { candidatosAjudantePara, candidatosPara } from '../lib/rodizio'
 import CabecalhoEscala from './CabecalhoEscala'
 
@@ -72,10 +72,6 @@ function agrupar(ocorrencias: Ocorrencia[]): Bloco[] {
   return definicoes
     .map((d) => ({ rotulo: d.rotulo, itens: ocorrencias.filter(d.teste) }))
     .filter((b) => b.itens.length > 0)
-}
-
-function ddMm(iso: string): string {
-  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 }
 
 /** Valores exibidos por chave: nomes prontos no link, IDs efetivos na edição. */
@@ -191,7 +187,7 @@ const EscalaCard = forwardRef(function EscalaCard(
       />
 
       <table
-        className="w-full table-fixed border-collapse text-center text-[19px]"
+        className="w-full table-fixed border-collapse text-center text-[16px]"
         style={{ color: CORES.texto }}
       >
         <colgroup>

@@ -5,7 +5,6 @@ import { dirname, resolve } from 'node:path'
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const node = process.execPath
 const filhos = []
-const apiModo = process.argv.includes('--remote') ? '--remote' : '--local'
 let encerrando = false
 
 function iniciar(nome, arquivo, argumentos) {
@@ -40,9 +39,8 @@ function encerrar(codigo = 0) {
 process.on('SIGINT', () => encerrar())
 process.on('SIGTERM', () => encerrar())
 
-iniciar(`API ${apiModo === '--remote' ? 'remota' : 'local'}`, 'node_modules/wrangler/bin/wrangler.js', [
+iniciar('API local com D1 remoto', 'node_modules/wrangler/bin/wrangler.js', [
   'dev',
-  apiModo,
   '--port',
   '8787',
 ])

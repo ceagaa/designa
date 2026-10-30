@@ -1,5 +1,6 @@
 import type { Campo, Dirigente, Estado, Escalas, RegistroMes } from './dominio'
 import { CONGREGACAO_PADRAO, TITULO_PADRAO, frequenciaValida } from './constants'
+import { SETORES } from './dominio'
 
 export const CHAVE_LOCAL = 'dirigentes:estado:v1'
 
@@ -187,6 +188,10 @@ export function normalizarEstado(bruto: unknown): Estado {
       ...d,
       limiteMensal:
         d.limiteMensal === 2 || d.limiteMensal === 3 ? d.limiteMensal : 1,
+      // Fichas novas podem ter vários departamentos; fichas antigas seguem com um.
+      departamentos: Array.isArray(d.departamentos)
+        ? [...new Set(d.departamentos.filter((s) => SETORES.includes(s)))]
+        : undefined,
       // Registros antigos ficam sem departamento e são tratados como Campo.
       departamento:
         d.departamento === 'CAMPO' ||

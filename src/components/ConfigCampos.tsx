@@ -707,7 +707,7 @@ export default function ConfigCampos({
             icone={<Send className="size-6" />}
             caixa="bg-success-bg text-success"
             titulo="Aviso por WhatsApp"
-            descricao="Copie o link da escala e envie ao grupo"
+            descricao="Abra o compartilhamento nativo com o link da escala"
             onClick={aoCopiarLink}
           />
         </div>

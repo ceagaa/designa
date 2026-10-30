@@ -35,11 +35,13 @@ import {
   turnoTexto,
 } from '../lib/tpl'
 import { ErroAuth, carregarSetorExtenso, salvarDadosSetor } from '../lib/authApi'
+import { compartilharPagina } from '../lib/compartilhamento'
 import { baixarPdf } from '../lib/export'
 import TplCard from './TplCard'
-import { Botao, Chip, Input, Kicker, Modal, Rotulo, Select, Vazio } from './ui'
+import { Botao, Chip, Input, Modal, Rotulo, Select, Vazio } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
 import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
+import { CardHeroTpl, LinhaTpl } from './CardsDesignacao'
 
 /** Data de hoje resolvida uma vez (oxlint: sem Date instável no render). */
 const HOJE_ISO = isoDeHoje()
@@ -140,89 +142,6 @@ function CartaoSecao({
             </Botao>
           </div>
         )}
-      </div>
-    </section>
-  )
-}
-
-/**
- * Card de destaque do TPL: a próxima saída e quem forma a dupla.
- * Mesmo visual do hero do Campo/AVI (gradiente teal + pílulas).
- */
-function CardHeroTpl({
-  rotulo,
-  dia,
-  ehHoje,
-  ponto,
-  turno,
-  local,
-  nomes,
-  designadas,
-  total,
-}: {
-  rotulo: string
-  dia: string
-  ehHoje: boolean
-  ponto: string
-  turno: string
-  local: string | null
-  nomes: Array<string | null>
-  designadas: number
-  total: number
-}) {
-  const faltam = total - designadas
-  return (
-    <section
-      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl ${
-        ehHoje ? 'escala-hoje-branco' : ''
-      }`}
-    >
-      <div
-        className="pointer-events-none absolute -bottom-10 -right-8 size-44 rounded-full bg-white/10 blur-2xl"
-        aria-hidden="true"
-      />
-      <div className="relative z-10 flex items-center justify-between gap-3">
-        <Kicker className="text-white/80">{rotulo}</Kicker>
-        <span className="flex shrink-0 items-center gap-2">
-          {ehHoje ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-teal-deep">
-              <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
-              HOJE
-            </span>
-          ) : null}
-          <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-bold tracking-wide text-white">
-            {designadas}/{total}
-          </span>
-        </span>
-      </div>
-      <p className="relative z-10 mt-3 text-[34px] font-extrabold leading-tight sm:text-4xl">
-        {dia}
-      </p>
-      <p className="relative z-10 mt-1 text-sm text-white/80">
-        {ponto} · {turno}
-        {local ? ` · ${local}` : ''}
-      </p>
-      <p className="relative z-10 mt-1 text-sm text-white/80">
-        {faltam
-          ? `Falta${faltam === 1 ? '' : 'm'} ${faltam} pessoa${faltam === 1 ? '' : 'as'} na dupla.`
-          : 'Dupla completa para esta saída.'}
-      </p>
-      <div className="relative z-10 mt-4 grid grid-cols-1 gap-2">
-        {nomes.map((nome, i) => (
-          <span
-            key={i}
-            className="flex min-w-0 items-center gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm"
-          >
-            <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-white/60">
-              {i === 0 ? '1º participante' : '2º participante'}
-            </span>
-            <span
-              className={`truncate text-sm ${nome ? 'font-semibold' : 'font-medium text-white/60'}`}
-            >
-              {nome ?? '—'}
-            </span>
-          </span>
-        ))}
       </div>
     </section>
   )
@@ -407,21 +326,14 @@ export default function TelaTpl({
   }
 
   async function compartilharLink() {
-    const href = `${window.location.origin}/tpl/${encodeURIComponent(slug)}`
     if (!slug) {
       aoAvisar('Slug público indisponível.')
       return
     }
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: TITULO_TPL, url: href, text: `Escala de ${TITULO_TPL}` })
-        return
-      }
-      await navigator.clipboard.writeText(href)
-      aoAvisar('Link público copiado.')
-    } catch {
-      aoAvisar('Não foi possível compartilhar o link.')
-    }
+    const href = `${window.location.origin}/tpl/${encodeURIComponent(slug)}`
+    const resultado = await compartilharPagina(href, TITULO_TPL, `Escala de ${TITULO_TPL}`)
+    if (resultado === 'copiado') aoAvisar('Link público copiado.')
+    else if (resultado === 'falhou') aoAvisar('Não foi possível compartilhar o link.')
   }
 
   /* ----------------------------- Estrutura (CRUD) ----------------------------- */
@@ -580,11 +492,7 @@ export default function TelaTpl({
 
   const nomesDestaque = destaque ? nomesDe(efetivas[destaque.key]?.ids ?? []) : []
   const designadasDestaque = nomesDestaque.filter(Boolean).length
-  const rotuloDestaque = ehHoje
-    ? 'Quem trabalha hoje'
-    : ehMesAtual
-      ? 'Próxima saída'
-      : 'Primeira saída'
+  const rotuloDestaque = ehMesAtual ? 'Próxima designação' : 'Primeira designação'
   const pontoDestaque = destaque
     ? (dados.pontos.find((p) => p.id === destaque.periodo.pontoId)?.nome ?? 'Ponto')
     : ''
@@ -892,7 +800,7 @@ export default function TelaTpl({
             {lista.length ? (
               <section className="space-y-3">
                 <div className="flex items-center justify-between gap-2 px-1">
-                  <h2 className="text-lg font-semibold text-ink">Próximas designações</h2>
+                  <h2 className="text-lg font-semibold text-ink">Próximos dias</h2>
                   <p className="shrink-0 text-sm text-muted">
                     {completas}/{ocorrencias.length} duplas
                   </p>
@@ -903,55 +811,21 @@ export default function TelaTpl({
                     const ponto = dados.pontos.find((p) => p.id === oc.periodo.pontoId)
                     const local = dados.locais.find((l) => l.id === oc.periodo.localId)
                     const nomes = nomesDe(efetivas[oc.key]?.ids ?? [])
-                    const designadas = nomes.filter(Boolean).length
-                    const incompleta = designadas < MINIMO_DUPLA
-                    const doDia = oc.iso === HOJE_ISO
                     return (
-                      <article
+                      <LinhaTpl
                         key={oc.key}
-                        className={`flex w-full items-start gap-3 rounded-xl bg-card p-4 shadow-sm ${
-                          doDia ? 'escala-hoje' : ''
-                        }`}
-                      >
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
-                          <CalendarDays className="size-5" aria-hidden="true" />
-                        </span>
-                        <span className="flex min-w-0 flex-1 flex-col">
-                          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                            {doDia ? (
-                              <span className="flex items-center gap-1 rounded-full bg-teal px-2 py-0.5 text-[11px] font-bold text-white">
-                                <span
-                                  className="size-1.5 animate-pulse rounded-full bg-crimson"
-                                  aria-hidden="true"
-                                />
-                                HOJE
-                              </span>
-                            ) : null}
-                            <span className="font-semibold text-ink">
-                              {infoDia(oc.diaSemana).curto}, {oc.iso.slice(8, 10)}/
-                              {oc.iso.slice(5, 7)}
-                            </span>
-                            <span
-                              className={`ml-auto shrink-0 text-[12px] font-bold ${
-                                incompleta ? 'text-crimson' : 'text-success'
-                              }`}
-                            >
-                              {designadas}/{MINIMO_DUPLA}
-                            </span>
-                          </span>
-                          <span className="mt-1 block text-[13px] leading-snug text-muted">
-                            {ponto?.nome ?? 'Ponto'} · {turnoTexto(oc.periodo)}
-                            {local ? ` · ${local.nome}` : ''}
-                          </span>
-                          <span
-                            className={`mt-0.5 block break-words text-[13px] leading-snug ${
-                              nomes.some(Boolean) ? 'font-medium text-ink' : 'text-crimson'
-                            }`}
-                          >
-                            {nomes.filter(Boolean).join(' & ') || 'Sem designação'}
-                          </span>
-                        </span>
-                      </article>
+                        item={{
+                          key: oc.key,
+                          iso: oc.iso,
+                          diaSemana: oc.diaSemana,
+                          detalhe: `${ponto?.nome ?? 'Ponto'} · ${turnoTexto(oc.periodo)}${
+                            local ? ` · ${local.nome}` : ''
+                          }`,
+                          nomes,
+                          designadas: nomes.filter(Boolean).length,
+                          total: MINIMO_DUPLA,
+                        }}
+                      />
                     )
                   })}
                 </div>

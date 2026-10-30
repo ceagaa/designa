@@ -104,23 +104,25 @@ const AviCard = forwardRef(function AviCard(
               const ehHoje = oc.iso === HOJE_ISO
               return (
                 <Fragment key={oc.iso}>
-                  {/* Linha 1: nome do dia (mesclado) + nomes designados. */}
+                  {/* Reunião em UMA linha: dia (nome + número) e nomes designados. */}
                   <tr style={{ backgroundColor: CORES.fundo }}>
-                    <td
-                      rowSpan={2}
-                      colSpan={2}
-                      className="h-[43px] px-1 align-middle font-bold"
-                      style={celula}
-                    >
-                      {infoDia(oc.diaSemana).nome}
+                    <td className="h-[86px] px-1 align-middle font-bold" style={celula}>
+                      <span className="block">{infoDia(oc.diaSemana).nome}</span>
+                      <span className="block">
+                        {oc.dia}
+                        {ehHoje ? (
+                          <span className="ml-1" style={{ color: CORES.mes }}>
+                            (hoje)
+                          </span>
+                        ) : null}
+                      </span>
                     </td>
                     {FUNCOES_AVI.map((f) => {
                       const id = efetivas[slotAvi(oc.iso, f.id)]
                       return (
                         <td
                           key={f.id}
-                          rowSpan={2}
-                          className="h-[43px] px-1 align-middle font-semibold"
+                          className="h-[86px] px-1 align-middle font-semibold"
                           style={celula}
                         >
                           <span className="block break-words leading-snug">
@@ -129,21 +131,6 @@ const AviCard = forwardRef(function AviCard(
                         </td>
                       )
                     })}
-                  </tr>
-                  {/* Linha 2: número do dia. */}
-                  <tr style={{ backgroundColor: CORES.fundo }}>
-                    <td
-                      colSpan={2}
-                      className="h-[43px] px-1 align-middle font-bold"
-                      style={celula}
-                    >
-                      {oc.dia}
-                      {ehHoje ? (
-                        <span className="ml-1" style={{ color: CORES.mes }}>
-                          (hoje)
-                        </span>
-                      ) : null}
-                    </td>
                   </tr>
                   {/* Linha espaçadora entre reuniões (36px na planilha). */}
                   <tr aria-hidden="true">

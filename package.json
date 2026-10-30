@@ -5,14 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "dev:remote": "node scripts/dev.mjs --remote",
-    "dev:api": "wrangler dev --local --port 8787",
+    "dev:remote": "node scripts/dev.mjs",
+    "dev:api": "wrangler dev --port 8787",
     "dev:api:remote": "wrangler dev --remote --port 8787",
     "dev:frontend": "vite",
     "build": "tsc --noEmit && vite build",
     "deploy": "npm run build && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply dirigentes --remote",
-    "db:migrate:local": "wrangler d1 migrations apply dirigentes --local",
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview"

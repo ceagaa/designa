@@ -17,13 +17,15 @@ export default function CabecalhoEscala({
   congregacao: string
   mesRotulo: string
 }) {
+  // Títulos longos (personalizados) reduzem a fonte para não cortar na largura.
+  const tamTitulo = titulo.length > 38 ? 24 : titulo.length > 30 ? 28 : 34
   return (
     <>
       <div className="flex h-[43px] border-b border-l border-t" style={borda}>
         <div className="flex w-[81.4%] items-center justify-center overflow-hidden px-3">
           <span
-            className="truncate text-[34px] font-bold leading-none"
-            style={{ color: CORES.titulo }}
+            className="truncate font-bold leading-none"
+            style={{ color: CORES.titulo, fontSize: tamTitulo }}
           >
             {titulo}
           </span>
@@ -32,7 +34,7 @@ export default function CabecalhoEscala({
           className="flex w-[18.6%] items-center justify-center overflow-hidden"
           style={{ backgroundColor: CORES.mes }}
         >
-          <span className="truncate px-1 text-[34px] font-bold leading-none text-white">
+          <span className="truncate px-1 text-[28px] font-bold leading-none text-white">
             {mesRotulo || '\u00a0'}
           </span>
         </div>

@@ -1,6 +1,36 @@
 import type { ConfigEscala, Dirigente, Ocorrencia, PayloadCompartilhado } from './dominio'
 import { lerChaveMes } from './datas'
 
+/**
+ * Abre o compartilhamento nativo do aparelho (navigator.share) apontando para
+ * a página pública informada. Sem suporte, copia o link como alternativa.
+ */
+export type ResultadoCompartilhamento = 'compartilhado' | 'copiado' | 'cancelado' | 'falhou'
+
+export async function compartilharPagina(
+  url: string,
+  titulo: string,
+  texto: string,
+): Promise<ResultadoCompartilhamento> {
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: titulo, text: texto, url })
+      return 'compartilhado'
+    } catch (falha) {
+      // Pessoal que cancelou a folha de compartilhamento não é erro.
+      if (falha instanceof DOMException && falha.name === 'AbortError') return 'cancelado'
+      // Navegador sem folha nativa: cai para o clipboard.
+    }
+  }
+  try {
+    if (!navigator.clipboard) return 'falhou'
+    await navigator.clipboard.writeText(url)
+    return 'copiado'
+  } catch {
+    return 'falhou'
+  }
+}
+
 /** Codifica um objeto JSON em texto seguro para URL (base64url, sem padding). */
 export function codificar(valor: unknown): string {
   const bytes = new TextEncoder().encode(JSON.stringify(valor))
