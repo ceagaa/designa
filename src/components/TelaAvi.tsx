@@ -340,6 +340,9 @@ export default function TelaAvi({
   ]
 
   async function persistir(novos: DadosAvi): Promise<boolean> {
+    // Nunca grave com o setor ainda carregando: `dados` estaria incompleto e o
+    // PUT apagaria o que já existe no servidor.
+    if (!carregado) return false
     setDadosBrutos(novos)
     try {
       await salvarDadosSetor('AUDIO_VIDEO', novos as unknown as Record<string, unknown>)

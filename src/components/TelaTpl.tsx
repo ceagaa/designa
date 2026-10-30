@@ -88,6 +88,7 @@ function CartaoSecao({
   quantidade,
   aoNovo,
   vazio,
+  desabilitado,
   children,
 }: {
   titulo: string
@@ -96,6 +97,8 @@ function CartaoSecao({
   quantidade: number
   aoNovo: () => void
   vazio: { texto: string; rotulo: string; desabilitado?: boolean }
+  /** Trava os botões de criar enquanto o setor ainda carrega. */
+  desabilitado?: boolean
   children?: ReactNode
 }) {
   return (
@@ -109,7 +112,12 @@ function CartaoSecao({
           <p className="mt-0.5 text-[13px] text-muted">{descricao}</p>
         </div>
         {quantidade ? (
-          <Botao variante="secundario" className="shrink-0" onClick={aoNovo}>
+          <Botao
+            variante="secundario"
+            className="shrink-0"
+            onClick={aoNovo}
+            disabled={desabilitado}
+          >
             <ListPlus className="size-4" aria-hidden="true" />
             Novo
           </Botao>
@@ -125,7 +133,7 @@ function CartaoSecao({
             <Botao
               variante="primario"
               onClick={aoNovo}
-              disabled={vazio.desabilitado}
+              disabled={vazio.desabilitado || desabilitado}
             >
               <ListPlus className="size-4" aria-hidden="true" />
               {vazio.rotulo}
@@ -333,6 +341,9 @@ export default function TelaTpl({
   const semParticipantes = !participantes.some((p) => p.ativo)
 
   async function persistir(novos: DadosTpl): Promise<boolean> {
+    // Nunca grave com o setor ainda carregando: `dados` estaria incompleto e o
+    // PUT apagaria o que já existe no servidor (pontos, períodos e escalas).
+    if (!carregado) return false
     setDadosBrutos(novos)
     try {
       await salvarDadosSetor('TPL', novos as unknown as Record<string, unknown>)
@@ -1007,6 +1018,7 @@ export default function TelaTpl({
             icone={MapPin}
             quantidade={dados.pontos.length}
             aoNovo={novoPonto}
+            desabilitado={!carregado}
             vazio={{
               texto: 'Nenhum ponto de apoio. Cadastre onde a equipe retira o carrinho.',
               rotulo: 'Adicionar ponto de apoio',
@@ -1055,6 +1067,7 @@ export default function TelaTpl({
             icone={MapPin}
             quantidade={dados.locais.length}
             aoNovo={novoLocal}
+            desabilitado={!carregado}
             vazio={{
               texto: 'Nenhum local de trabalho. Cadastre onde a equipe vai trabalhar com o carrinho.',
               rotulo: 'Adicionar local de trabalho',
@@ -1107,6 +1120,7 @@ export default function TelaTpl({
             icone={RefreshCcw}
             quantidade={dados.periodos.length}
             aoNovo={novoPeriodo}
+            desabilitado={!carregado}
             vazio={{
               texto: dados.pontos.length
                 ? 'Nenhum período. Defina dias da semana e turnos (ex.: Quinta 08:00–10:00).'
