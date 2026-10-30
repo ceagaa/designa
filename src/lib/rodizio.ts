@@ -48,6 +48,7 @@ interface Estatistica {
   nome: string
   dias: Set<number>
   horarios: Set<string>
+  maximoMensal: number
   gap: number
   capacidade: number
   restantes: number
@@ -86,6 +87,8 @@ function preparar(dirigentes: Dirigente[], ocorrencias: Ocorrencia[]): Estatisti
         nome: d.nome,
         dias,
         horarios,
+        maximoMensal:
+          d.limiteMensal === 2 || d.limiteMensal === 3 ? d.limiteMensal : 1,
         gap: GAP_DIAS[freq.id] ?? GAP_DIAS.semanal,
         capacidade,
         restantes: capacidade,
@@ -118,6 +121,7 @@ function escolher(candidatos: Estatistica[], contexto: ContextoEscolha): Estatis
     contexto
 
   const validos = candidatos.filter((c) => {
+    if (c.total >= c.maximoMensal) return false
     if (!ignorarCapacidade && c.restantes <= 0) return false
     const dias = diasDesde(c.ultimoTs, dataTs)
     if (!ignorarGap && dias < c.gap) return false
@@ -150,9 +154,15 @@ function escolher(candidatos: Estatistica[], contexto: ContextoEscolha): Estatis
   return ordenados[0].c
 }
 
-function comprometer(estatistica: Estatistica, ocorrencia: Ocorrencia): void {
-  estatistica.total += 1
-  estatistica.restantes -= 1
+function comprometer(
+  estatistica: Estatistica,
+  ocorrencia: Ocorrencia,
+  contabilizarLimite = true,
+): void {
+  if (contabilizarLimite) {
+    estatistica.total += 1
+    estatistica.restantes -= 1
+  }
   if (ehFimDeSemana(ocorrencia.diaSemana)) estatistica.fds += 1
   estatistica.ultimoTs = ocorrencia.data.getTime()
 }
@@ -268,7 +278,9 @@ export function gerarEscala({
     const s = porId.get(id)
     const oc = porChave.get(chave)
     if (!s) continue
+    if (fixa && oc?.campo.fixo) continue
     s.total += 1
+    s.restantes -= 1
     if (oc && ehFimDeSemana(oc.diaSemana)) s.fds += 1
     if (oc && oc.data.getTime() > s.ultimoTs) s.ultimoTs = oc.data.getTime()
   }
@@ -306,7 +318,7 @@ export function gerarEscala({
       if (estatisticaFixa && fixo) {
         auto[oc.key] = fixo
         designacoes[oc.key] = fixo
-        comprometer(estatisticaFixa, oc)
+        comprometer(estatisticaFixa, oc, false)
         designado = fixo
       } else {
         const escolhido = cascata(candidatos, contexto)
@@ -351,6 +363,120 @@ export function gerarEscala({
 }
 
 /** Dirigentes ativos disponíveis para um dia/horário, com os disponíveis primeiro. */
+export interface EntradaDesignarDia {
+  dirigentes: Dirigente[]
+  /** O dia (único) que deve receber designação. */
+  ocorrencia: Ocorrencia
+  /** Todas as ocorrências ativas do mês: calibram capacidade e folga de cada um. */
+  todasOcorrencias: Ocorrencia[]
+  /** Designações já existentes no mês (automáticas + manuais), travadas. */
+  existentes: Record<string, string>
+  /** Ajudantes já existentes no mês, usados no revezamento do apoio. */
+  existentesAjudante?: Record<string, string>
+  semente?: string
+  fixa?: boolean
+  regras?: RegrasRodizio
+}
+
+export interface ResultadoDia {
+  dirigente: string | null
+  ajudante: string | null
+}
+
+/**
+ * Designa UM dia com o rodízio, contando as designações já existentes do mês
+ * nas estatísticas (carga, folga e limite) para não repetir quem já saiu.
+ * Usado ao restaurar um dia removido: só aquele dia muda, o resto da escala
+ * permanece exatamente como está.
+ */
+export function designarDia({
+  dirigentes,
+  ocorrencia,
+  todasOcorrencias,
+  existentes,
+  existentesAjudante = {},
+  semente = '',
+  fixa = false,
+  regras,
+}: EntradaDesignarDia): ResultadoDia {
+  const regrasNorm = normalizarRegras(regras)
+  const stats = preparar(dirigentes, todasOcorrencias)
+  const porId = new Map(stats.map((s) => [s.id, s]))
+  const porChave = new Map(todasOcorrencias.map((o) => [o.key, o]))
+
+  // Situação atual do mês, carregada em ordem de data (mesma calibração do gerador).
+  const emOrdem = Object.entries(existentes).sort((a, b) => {
+    const oa = porChave.get(a[0])
+    const ob = porChave.get(b[0])
+    return (oa?.data.getTime() ?? 0) - (ob?.data.getTime() ?? 0)
+  })
+  for (const [chave, id] of emOrdem) {
+    const s = porId.get(id)
+    const oc = porChave.get(chave)
+    if (!s || !oc || (fixa && oc.campo.fixo)) continue
+    s.total += 1
+    s.restantes -= 1
+    if (ehFimDeSemana(oc.diaSemana)) s.fds += 1
+    if (oc.data.getTime() > s.ultimoTs) s.ultimoTs = oc.data.getTime()
+  }
+  for (const [chave, id] of Object.entries(existentesAjudante)) {
+    const s = porId.get(id)
+    if (s && porChave.has(chave)) s.ajudou += 1
+  }
+
+  // Espelha a cascata do gerador: pessoa fixa do dia quando a escala é fixa.
+  const fixo = fixa ? ocorrencia.campo?.fixo ?? null : null
+  const estatisticaFixa = fixo ? porId.get(fixo) : null
+  const contexto = {
+    chave: ocorrencia.key,
+    semente,
+    dataTs: ocorrencia.data.getTime(),
+    ehFds: ehFimDeSemana(ocorrencia.diaSemana),
+    regras: regrasNorm,
+  }
+
+  let designado: string | null = null
+  if (estatisticaFixa && fixo) {
+    designado = fixo
+    comprometer(estatisticaFixa, ocorrencia, false)
+  } else {
+    const candidatos = stats.filter(
+      (s) => s.dias.has(ocorrencia.diaSemana) && s.horarios.has(ocorrencia.campo.horario),
+    )
+    const escolhido = cascata(candidatos, contexto)
+    if (escolhido) {
+      designado = escolhido.id
+      comprometer(escolhido, ocorrencia)
+    }
+  }
+
+  // Ajudante: fixa do dia ou revezamento entre quem tem o dia habilitado.
+  let ajudante: string | null = null
+  if (designado) {
+    if (fixa) {
+      const fixoAjudante = ocorrencia.campo?.ajudanteFixo ?? null
+      const estatisticaAjudante = fixoAjudante ? porId.get(fixoAjudante) : null
+      if (fixoAjudante && estatisticaAjudante) ajudante = fixoAjudante
+    } else {
+      const habilitados = new Set<string>()
+      for (const d of dirigentes) {
+        if (!d || d.ativo === false || !d.nome || !d.ajudante) continue
+        if ((d.diasAjudante ?? []).map(Number).includes(ocorrencia.diaSemana)) habilitados.add(d.id)
+      }
+      if (habilitados.size) {
+        ajudante =
+          escolherAjudante(stats, habilitados, {
+            chave: ocorrencia.key,
+            semente,
+            dirigente: designado,
+          })?.id ?? null
+      }
+    }
+  }
+
+  return { dirigente: designado, ajudante }
+}
+
 export function candidatosPara(ocorrencia: Ocorrencia, dirigentes: Dirigente[]): Array<Dirigente & { disponivel: boolean }> {
   const ativos = dirigentes.filter((d) => d && d.ativo !== false && d.nome)
   const disponiveis = ativos.filter(

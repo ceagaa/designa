@@ -49,7 +49,7 @@ function resumoAvi(ano: number, mes: number, bruto: unknown): ResumoSetor {
   const chave = chaveMes(ano, mes)
   const registro = registroAviDe(dados, chave)
   if (!registro.geradoEm) return { status: 'pendente', nota: 'Escala não gerada' }
-  const ocorrencias = ocorrenciasAvi(ano, mes, dados.diaSemanaMeio)
+  const ocorrencias = ocorrenciasAvi(ano, mes, dados.diasReuniao)
   const efetivas = efetivasAvi(registro)
   const total = ocorrencias.length * FUNCOES_AVI.length
   const preenchidos = ocorrencias.reduce(
@@ -64,11 +64,9 @@ function resumoAvi(ano: number, mes: number, bruto: unknown): ResumoSetor {
 /** Resumo do mês do setor TPL (duplas completas com no mínimo 2). */
 function resumoTpl(ano: number, mes: number, bruto: unknown): ResumoSetor {
   const dados = normalizarDadosTpl(bruto)
-  const chave = chaveMes(ano, mes)
-  const registro = registroTplDe(dados, chave)
-  if (!registro.geradoEm) return { status: 'pendente', nota: 'Escala não gerada' }
   const ocorrencias = ocorrenciasTpl(ano, mes, dados.periodos)
   if (!ocorrencias.length) return { status: 'pendente', nota: 'Sem períodos neste mês' }
+  const registro = registroTplDe(dados, chaveMes(ano, mes))
   const efetivas = efetivasTpl(registro)
   const completas = ocorrencias.filter(
     (oc) => (efetivas[oc.key]?.ids.length ?? 0) >= MINIMO_DUPLA,
@@ -106,8 +104,13 @@ export default function TelaDesignacoes({
   const [resumos, setResumos] = useState<Record<string, ResumoSetor>>({})
 
   // Resumo do Campo: calculado no cliente com o estado já carregado.
-  const ocorrenciasCampo = ocorrenciasDoMes(ano, mes, estado.config_campos, estado.escalas._config)
   const registroCampo = registroDe(estado.escalas, chave)
+  const ocorrenciasCampo = ocorrenciasDoMes(
+    ano,
+    mes,
+    estado.config_campos,
+    estado.escalas._config,
+  ).filter((ocorrencia) => !registroCampo.removidas?.[ocorrencia.key])
   const efetivasCampo = {
     ...(registroCampo.auto ?? {}),
     ...(registroCampo.manuais ?? {}),

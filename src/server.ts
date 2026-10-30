@@ -1,10 +1,11 @@
 import { Hono } from 'hono'
-import type { Estado } from './lib/dominio'
+import type { Dirigente, Estado } from './lib/dominio'
 import { estadoVazio, normalizarEstado, registroDe } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
 import { chaveMes, lerChaveMes, ocorrenciasDoMes } from './lib/datas'
 import { codificar, montarPayload } from './lib/compartilhamento'
 import { enviarParaTodas } from './lib/pushServidor'
+import { gerarAviDoMes, normalizarDadosAvi } from './lib/avi'
 import { normalizarDadosTpl, sanitizarParaPublico } from './lib/tpl'
 import { MESES } from './lib/constants'
 import type { SetorId, UsuarioSessao } from './lib/authServidor'
@@ -247,6 +248,30 @@ app.get('/api/auth/eu', async (c) => {
   return c.json({ usuario })
 })
 
+app.put('/api/congregacao', async (c) => {
+  if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
+  const usuario = await sessaoDe(c)
+  if (!usuario) return semSessao(c)
+  if (usuario.papel !== 'ADMIN') return semPermissao(c)
+  try {
+    const corpo = await c.req.json<{ nome?: unknown; numero?: unknown }>()
+    const nome = typeof corpo.nome === 'string' ? corpo.nome.trim() : ''
+    const numero = typeof corpo.numero === 'string' ? corpo.numero.trim() : ''
+    if (nome.length < 3) return c.json({ erro: 'congregacao_invalida' }, 400)
+    if (numero.length > 30) return c.json({ erro: 'numero_congregacao_invalido' }, 400)
+
+    await c.env.DB
+      .prepare('UPDATE congregacoes SET nome = ?, numero = ? WHERE id = ?')
+      .bind(nome, numero, usuario.congregacao_id)
+      .run()
+    const atualizado = await sessaoPorToken(c.env.DB, tokenDoCookie(c.req.raw.headers.get('cookie')))
+    if (!atualizado) return semSessao(c)
+    return c.json({ usuario: atualizado })
+  } catch {
+    return c.json({ erro: 'falha_atualizacao_congregacao' }, 500)
+  }
+})
+
 /** Calibra as iterações do PBKDF2 ao CPU real do plano (limite Free: 10 ms). */
 app.post('/api/auth/calibrar', async (c) => {
   if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
@@ -309,6 +334,26 @@ app.get('/api/convites', async (c) => {
     return c.json({ convites })
   } catch {
     return c.json({ erro: 'falha_listagem' }, 500)
+  }
+})
+
+app.delete('/api/convites/:token', async (c) => {
+  if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
+  const usuario = await sessaoDe(c)
+  if (!usuario) return semSessao(c)
+  if (usuario.papel !== 'ADMIN') return semPermissao(c)
+  try {
+    const resultado = await c.env.DB
+      .prepare('DELETE FROM convites WHERE token = ? AND congregacao_id = ?')
+      .bind(c.req.param('token'), usuario.congregacao_id)
+      .run()
+    if (typeof resultado === 'object' && resultado !== null && 'meta' in resultado) {
+      const meta = resultado.meta as { changes?: number } | undefined
+      if (meta?.changes === 0) return c.json({ erro: 'convite_nao_encontrado' }, 404)
+    }
+    return c.json({ ok: true })
+  } catch {
+    return c.json({ erro: 'falha_remocao_convite' }, 500)
   }
 })
 
@@ -509,6 +554,62 @@ app.post('/api/escala/gerar', async (c) => {
 
 /* ------------------------ Estado dos setores AVI e TPL ------------------------ */
 
+/**
+ * Voluntários que pertencem a um setor. Registros antigos (sem `departamento`)
+ * continuam aparecendo no AVI/TPL quando já tinham aptidão ou participação.
+ */
+function voluntariosDoSetor(
+  estado: Estado,
+  setor: SetorId,
+  dados: Record<string, unknown>,
+): Dirigente[] {
+  return estado.dirigentes.filter((d) => {
+    if (setor === 'CAMPO') return (d.departamento ?? 'CAMPO') === 'CAMPO'
+    if (setor === 'AUDIO_VIDEO') {
+      if (d.departamento === 'AUDIO_VIDEO') return true
+      // Sem departamento explícito, a ficha antiga continua no AVI se tinha aptidão.
+      if (d.departamento != null) return false
+      const aptidoes = dados.aptidoes as Record<string, unknown> | undefined
+      const lista = aptidoes?.[d.id]
+      return Array.isArray(lista) && lista.length > 0
+    }
+    if (d.departamento === 'TPL') return true
+    if (d.departamento != null) return false
+    const participantes = dados.participantes as Array<{ id?: string }> | undefined
+    return Boolean(participantes?.some((p) => p.id === d.id))
+  })
+}
+
+function projetarIrmao(d: Dirigente) {
+  return {
+    id: d.id,
+    nome: d.nome,
+    ativo: d.ativo !== false,
+    departamento: d.departamento ?? 'CAMPO',
+    reunioes: d.reunioes ?? 'ambos',
+    frequencia: d.frequencia,
+    limiteMensal: d.limiteMensal ?? 1,
+  }
+}
+
+/** Voluntários do TPL + participantes antigos que ainda não têm ficha. */
+function participantesDoTpl(
+  estado: Estado,
+  dados: Record<string, unknown>,
+): Array<{ id: string; nome: string; ativo: boolean }> {
+  const normalizado = normalizarDadosTpl(dados)
+  const mapa = new Map(
+    normalizado.participantes.map((p) => [
+      p.id,
+      { id: p.id, nome: p.nome, ativo: p.ativo !== false },
+    ]),
+  )
+  for (const d of voluntariosDoSetor(estado, 'TPL', dados)) {
+    mapa.set(d.id, { id: d.id, nome: d.nome, ativo: d.ativo !== false })
+  }
+  return [...mapa.values()].sort((a, b) => a.nome.localeCompare(b.nome))
+}
+
 async function dadosDoSetor(env: Env, congregacaoId: string, setor: SetorId): Promise<Record<string, unknown>> {
   const linha = await env.DB
     .prepare('SELECT dados FROM setor_dados WHERE congregacao_id = ? AND setor = ?')
@@ -536,14 +637,15 @@ app.get('/api/setor/:setor', async (c) => {
       congregacao: estado.escalas._config.congregacao,
     }
     if (setor === 'AUDIO_VIDEO') {
-      const dirigentes = estado.dirigentes.map((d) => ({
-        id: d.id,
-        nome: d.nome,
-        ativo: d.ativo !== false,
-      }))
+      const dirigentes = voluntariosDoSetor(estado, setor, dados).map(projetarIrmao)
       return c.json({ dados, dirigentes, config })
     }
-    return c.json({ dados, config })
+
+    // TPL: os participantes vêm dos voluntários, não de um cadastro separado.
+    // O `dados` continua com os participantes antigos; os voluntários vão à parte
+    // para não serem gravados de volta como se fossem cadastro do setor.
+    const participantes = participantesDoTpl(estado, dados)
+    return c.json({ dados, dirigentes: participantes, config })
   } catch {
     return c.json({ erro: 'falha_leitura' }, 500)
   }
@@ -600,20 +702,22 @@ async function publicoPorSlug(
   if (!congregacao) return { status: 404, corpo: { erro: 'nao_encontrado' } }
 
   const cabecalho = { congregacao: { nome: congregacao.nome, slug } }
+  const estado = await estadoPorCongregacao(env.DB, congregacao.id, congregacao.nome)
+  const config = estado.escalas._config
 
   if (setor === 'TPL') {
     const dados = await dadosDoSetor(env, congregacao.id, 'TPL')
+    const participantes = participantesDoTpl(estado, dados)
     return {
       status: 200,
       corpo: {
         ...cabecalho,
-        dados: sanitizarParaPublico(normalizarDadosTpl(dados)),
+        dados: sanitizarParaPublico(
+          normalizarDadosTpl({ ...dados, participantes }),
+        ),
       },
     }
   }
-
-  const estado = await estadoPorCongregacao(env.DB, congregacao.id, congregacao.nome)
-  const config = estado.escalas._config
 
   if (setor === 'AUDIO_VIDEO') {
     const dados = await dadosDoSetor(env, congregacao.id, 'AUDIO_VIDEO')
@@ -623,38 +727,48 @@ async function publicoPorSlug(
         ...cabecalho,
         dados,
         // Projeção mínima: sem telefone.
-        irmoes: estado.dirigentes.map((d) => ({ id: d.id, nome: d.nome, ativo: d.ativo !== false })),
+        irmoes: voluntariosDoSetor(estado, 'AUDIO_VIDEO', dados).map(projetarIrmao),
         config: { titulo: config.titulo, congregacao: config.congregacao },
       },
     }
   }
 
-  // CAMPO: payload da última escala gerada (nomes apenas — sem telefone).
+  // CAMPO: prefere o mês atual; se ainda não foi gerado, mostra o próximo.
   const chaves = Object.keys(estado.escalas)
     .filter((k) => k !== '_config' && /^\d{4}-\d{1,2}$/.test(k))
     .sort()
   const geradas = chaves.filter((k) => registroDe(estado.escalas, k).geradoEm != null)
   const agora = new Date()
   const atual = chaveMes(agora.getFullYear(), agora.getMonth())
-  const chave =
-    geradas.length > 0
-      ? geradas[geradas.length - 1]
-      : chaves.length > 0
-        ? chaves[chaves.length - 1]
-        : atual
+  const chave = geradas.includes(atual)
+    ? atual
+    : geradas.find((k) => k > atual) ??
+      geradas[geradas.length - 1] ??
+      chaves[chaves.length - 1] ??
+      atual
   const { ano, mes } = lerChaveMes(chave)
   const registro = registroDe(estado.escalas, chave)
   const efetivas: Record<string, string> = {
     ...(registro.auto ?? {}),
     ...(registro.manuais ?? {}),
   }
-  const ocorrencias = ocorrenciasDoMes(ano, mes, estado.config_campos, config)
+  const efetivasAjudante: Record<string, string> = {
+    ...(registro.autoAjudante ?? {}),
+    ...(registro.manuaisAjudante ?? {}),
+  }
+  const ocorrencias = ocorrenciasDoMes(ano, mes, estado.config_campos, config).filter(
+    (ocorrencia) => !registro.removidas?.[ocorrencia.key],
+  )
   const payload = montarPayload({
     config,
     chave,
     ocorrencias,
     designacoes: efetivas,
-    dirigentes: estado.dirigentes,
+    designacoesAjudante: efetivasAjudante,
+    // A rota pública do Campo não precisa expor nomes de outros setores.
+    dirigentes: estado.dirigentes.filter(
+      (d) => (d.departamento ?? 'CAMPO') === 'CAMPO',
+    ),
   })
   return {
     status: 200,
@@ -823,6 +937,55 @@ async function executarAgendamento(env: Env): Promise<void> {
       linha.congregacao_id,
     )
     console.log(`[agendamento] push: ${JSON.stringify(envio)}`)
+  }
+
+  const setores = await env.DB
+    .prepare("SELECT congregacao_id, setor, dados FROM setor_dados WHERE setor = 'AUDIO_VIDEO'")
+    .all<{ congregacao_id: string; dados: string }>()
+
+  for (const linha of setores.results ?? []) {
+    const dados = normalizarDadosAvi(paraObjeto(linha.dados, {}))
+    const config = dados.geracaoAutomatica
+    if (!config.ativa) continue
+    const diasNoMes = new Date(ano, mes + 1, 0).getDate()
+    const diaEfetivo = Math.min(config.dia, diasNoMes)
+    const [horaAlvo, minutoAlvo] = config.hora.split(':').map(Number)
+    const alvo = horaAlvo * 60 + minutoAlvo
+    const devido = dia > diaEfetivo || (dia === diaEfetivo && minutos >= alvo)
+    if (!devido) continue
+
+    const estado = await estadoPorCongregacao(env.DB, linha.congregacao_id, '')
+    const novo = gerarAviDoMes(
+      dados,
+      voluntariosDoSetor(
+        estado,
+        'AUDIO_VIDEO',
+        dados as unknown as Record<string, unknown>,
+      ).map(projetarIrmao),
+      proximo.chave,
+    )
+    if (novo === dados) continue
+
+    await env.DB
+      .prepare(
+        `UPDATE setor_dados SET dados = ?, updated_at = ?
+          WHERE congregacao_id = ? AND setor = 'AUDIO_VIDEO'`,
+      )
+      .bind(JSON.stringify(novo), new Date().toISOString(), linha.congregacao_id)
+      .run()
+    console.log(`[agendamento] escala AVI ${proximo.chave} gerada`)
+
+    const envio = await enviarParaTodas(
+      env,
+      {
+        titulo: `Escala AVI de ${MESES[proximo.mes]}`,
+        corpo: `A escala AVI de ${MESES[proximo.mes]} já está disponível.`,
+        url: '/',
+        tag: 'escala-avi',
+      },
+      linha.congregacao_id,
+    )
+    console.log(`[agendamento] push AVI: ${JSON.stringify(envio)}`)
   }
 }
 

@@ -1,6 +1,6 @@
 import type { DadosTpl, PeriodoTpl, RegistroTpl } from './dominio'
 import { MINIMO_DUPLA } from './dominio'
-import { lerChaveMes } from './datas'
+import { chaveMes, lerChaveMes } from './datas'
 
 /** Título do cartão TPL. */
 export const TITULO_TPL = 'Testemunho Público Local'
@@ -78,7 +78,14 @@ function normalizarRegistro(bruto: unknown): RegistroTpl {
 }
 
 export function normalizarDadosTpl(bruto: unknown): DadosTpl {
-  const base: DadosTpl = { versao: 1, pontos: [], periodos: [], participantes: [], escalas: {} }
+  const base: DadosTpl = {
+    versao: 1,
+    pontos: [],
+    locais: [],
+    periodos: [],
+    participantes: [],
+    escalas: {},
+  }
   if (!bruto || typeof bruto !== 'object') return base
   const dados = bruto as Partial<DadosTpl>
 
@@ -89,6 +96,12 @@ export function normalizarDadosTpl(bruto: unknown): DadosTpl {
     : []
 
   const pontosIds = new Set(pontos.map((p) => p.id))
+  const locais = Array.isArray(dados.locais)
+    ? dados.locais
+        .filter((local) => local && typeof local.id === 'string' && typeof local.nome === 'string')
+        .map((local) => ({ id: local.id, nome: local.nome }))
+    : []
+  const locaisIds = new Set(locais.map((local) => local.id))
   const periodos = Array.isArray(dados.periodos)
     ? dados.periodos
         .filter(
@@ -103,6 +116,8 @@ export function normalizarDadosTpl(bruto: unknown): DadosTpl {
         .map((p) => ({
           id: p.id,
           pontoId: p.pontoId,
+          localId:
+            typeof p.localId === 'string' && locaisIds.has(p.localId) ? p.localId : '',
           diaSemana: Number(p.diaSemana),
           inicio: p.inicio,
           fim: p.fim,
@@ -127,11 +142,33 @@ export function normalizarDadosTpl(bruto: unknown): DadosTpl {
     }
   }
 
-  return { versao: 1, pontos, periodos, participantes, escalas }
+  return { versao: 1, pontos, locais, periodos, participantes, escalas }
 }
 
 export function registroTplDe(dados: DadosTpl, chave: string): RegistroTpl {
   return normalizarRegistro(dados.escalas[chave])
+}
+
+/**
+ * Meses que fazem sentido mostrar na escala pública do TPL: o mês atual, o
+ * seguinte e qualquer mês que já tenha designações salvas.
+ */
+export function mesesTpl(dados: DadosTpl): string[] {
+  const agora = new Date()
+  const atual = chaveMes(agora.getFullYear(), agora.getMonth())
+  const proximo = chaveMes(
+    agora.getMonth() === 11 ? agora.getFullYear() + 1 : agora.getFullYear(),
+    agora.getMonth() === 11 ? 0 : agora.getMonth() + 1,
+  )
+  const comDesignacoes = Object.entries(dados.escalas)
+    .filter(([, registro]) => {
+      const reg = normalizarRegistro(registro)
+      return Boolean(reg.geradoEm) ||
+        Object.keys(reg.auto ?? {}).length > 0 ||
+        Object.keys(reg.manuais ?? {}).length > 0
+    })
+    .map(([chave]) => chave)
+  return [...new Set([atual, proximo, ...comDesignacoes])].sort()
 }
 
 export interface DuplaEfetiva {
@@ -307,6 +344,7 @@ export interface LinhaTpl {
   dia: number
   diaSemana: number
   ponto: string
+  local: string
   turno: string
   dupla: string[]
   incompleta: boolean
@@ -319,7 +357,7 @@ export interface FiltroTpl {
 
 /**
  * Linhas do mês (ou do recorte do filtro) para o cartão de impressão.
- * Devolve [] quando o mês ainda não foi gerado.
+ * Devolve [] quando não há duplas atribuídas no mês.
  */
 export function linhasTplPara(
   dados: DadosTpl,
@@ -327,11 +365,11 @@ export function linhasTplPara(
   mes: number,
   filtro?: FiltroTpl,
 ): LinhaTpl[] {
-  const chave = `${ano}-${mes + 1}`
+  const chave = chaveMes(ano, mes)
   const registro = registroTplDe(dados, chave)
-  if (!registro.geradoEm) return []
   const efetivas = efetivasTpl(registro)
   const porPonto = new Map(dados.pontos.map((p) => [p.id, p.nome]))
+  const porLocal = new Map(dados.locais.map((local) => [local.id, local.nome]))
   const porParticipante = new Map(dados.participantes.map((p) => [p.id, p.nome]))
 
   const linhas: LinhaTpl[] = []
@@ -346,6 +384,7 @@ export function linhasTplPara(
       dia: oc.dia,
       diaSemana: oc.diaSemana,
       ponto: porPonto.get(oc.periodo.pontoId) ?? 'Ponto',
+      local: porLocal.get(oc.periodo.localId ?? '') ?? '',
       turno: turnoTexto(oc.periodo),
       dupla,
       incompleta: ids.length < MINIMO_DUPLA || dupla.length !== ids.length,

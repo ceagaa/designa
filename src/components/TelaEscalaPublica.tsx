@@ -6,8 +6,8 @@ import TelaVer from './TelaVer'
 type Estado = 'carregando' | 'pronto' | 'erro'
 
 /**
- * Rota pública /escala/:slug/CAMPO — mesma visão somente leitura do link de
- * WhatsApp, com barra fixa de Baixar PDF e Copiar link.
+ * Rota pública /escala/:slug/CAMPO — visão somente leitura da programação,
+ * com "Próximos dias" e copiar link.
  */
 export default function TelaEscalaPublica({
   slug,
@@ -50,7 +50,6 @@ export default function TelaEscalaPublica({
       <TelaVer
         payload={payload}
         linkPublico={window.location.href}
-        aoVoltar={() => window.location.assign('/')}
         aoAvisar={aoAvisar}
       />
     )
@@ -73,9 +72,6 @@ export default function TelaEscalaPublica({
           >
             <RefreshCcw className="size-4" aria-hidden="true" />
             Tentar de novo
-          </Botao>
-          <Botao variante="primario" onClick={() => window.location.assign('/')}>
-            Ir para o app
           </Botao>
         </div>
       </div>

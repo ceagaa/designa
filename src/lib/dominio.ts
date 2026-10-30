@@ -11,13 +11,25 @@ export interface Dirigente {
   telefone: string
   ativo: boolean
   frequencia: FrequenciaId | string
+  /** Máximo de designações não fixas por mês (padrão 1). */
+  limiteMensal?: 1 | 2 | 3
   dias: number[]
   horarios: string[]
   /** Habilita a pessoa para sair como ajudante. */
   ajudante?: boolean
   /** Dias em que pode ser ajudante (quando `ajudante`). */
   diasAjudante?: number[]
+  /**
+   * Departamento do voluntário. Registros antigos sem este campo continuam
+   * valendo como Campo.
+   */
+  departamento?: SetorId
+  /** Reuniões em que o voluntário do AVI pode atuar. */
+  reunioes?: ReuniaoAvi
 }
+
+/** Turnos de reunião do AVI. */
+export type ReuniaoAvi = 'semana' | 'fds' | 'ambos'
 
 export interface Campo {
   id: Identificador
@@ -69,11 +81,15 @@ export interface Estado {
 export interface RegistroMes {
   auto?: Record<string, Identificador>
   manuais?: Record<string, Identificador>
+  /** Ocorrências removidas da programação daquele mês. */
+  removidas?: Record<string, boolean>
   /** Dirigentes-ajudante sugeridos pelo rodízio. */
   autoAjudante?: Record<string, Identificador>
   /** Ajuste manual de ajudante (não afeta a próxima geração automática). */
   manuaisAjudante?: Record<string, Identificador>
   geradoEm?: string
+  /** Impede que a geração automática recrie uma escala limpa pelo usuário. */
+  limpa?: boolean
 }
 
 /** Ocorrência (data x campo) de um mês. */
@@ -97,15 +113,16 @@ export interface Candidato extends Dirigente {
 
 /**
  * Payload codificado no link compartilhado. Linhas:
- * [iso, horário, local, nome] e, quando o dia é fixo (designação fixa +
- * "Quem dirige"), um 5º elemento '1' mantém o agrupamento igual ao PDF.
+ * [iso, horário, local, nome, fixo?, ajudante?] e, quando o dia é fixo
+ * (designação fixa + "Quem dirige"), um 5º elemento '1' mantém o
+ * agrupamento igual ao PDF. Links antigos sem o 6º campo continuam válidos.
  */
 export interface PayloadCompartilhado {
   t: string
   c: string
   a: number
   m: number
-  r: Array<[string, string, string, string, string?]>
+  r: Array<[string, string, string, string, string?, string?]>
 }
 
 /** Origem de onde o estado veio ao carregar. */
@@ -129,6 +146,9 @@ export type Tela =
   | 'tpl'
   | 'pessoas'
   | 'ajustes'
+  | 'ajustesCampo'
+  | 'ajustesAvi'
+  | 'ajustesTpl'
   | 'locais'
 
 /** Setores gerenciáveis por convite (Fase 1). */
@@ -155,8 +175,14 @@ export interface Usuario {
 /** Variantes visuais do Botão da UI. */
 export type VarianteBotao = 'primario' | 'vinho' | 'sucesso' | 'secundario' | 'fantasma' | 'perigo'
 
-/** Aptidões AVI (checkbox do cadastro unificado). */
-export type AptidaoId = 'som' | 'video' | 'palco' | 'microfone' | 'indicador'
+/** Aptidões AVI (checkbox do cadastro de voluntários). */
+export type AptidaoId =
+  | 'som'
+  | 'video'
+  | 'palco'
+  | 'microfone'
+  | 'indicador_interno'
+  | 'indicador_externo'
 
 /** Colunas da aba AVI da planilha original (cabeçalho + rótulo do checkbox). */
 export interface FuncaoAvi {
@@ -170,11 +196,12 @@ export interface FuncaoAvi {
 }
 
 export const FUNCOES_AVI: readonly FuncaoAvi[] = [
-  { id: 'som', rotulo: 'Operador de Som', coluna: 'Operador áudio', subtitulo: 'mesa de som' },
+  { id: 'som', rotulo: 'Operador de Áudio', coluna: 'Operador áudio', subtitulo: 'mesa de som' },
   { id: 'video', rotulo: 'Operador de Vídeo', coluna: 'Operador vídeo', subtitulo: 'notebook' },
   { id: 'palco', rotulo: 'Palco', coluna: 'Palco' },
   { id: 'microfone', rotulo: 'Microfone Volante', coluna: 'Microfone volante' },
-  { id: 'indicador', rotulo: 'Indicador', coluna: 'Indicador' },
+  { id: 'indicador_interno', rotulo: 'Indicador interno', coluna: 'Indicador interno' },
+  { id: 'indicador_externo', rotulo: 'Indicador externo', coluna: 'Indicador externo' },
 ]
 
 /** Registro mensal AVI — slot = `${iso}_${funcao}` (uma designação por função/reunião). */
@@ -189,6 +216,9 @@ export interface DadosAvi {
   versao: number
   /** Dia da reunião de meio de semana: 3 = quarta, 4 = quinta. */
   diaSemanaMeio: number
+  /** Dias de reunião AVI por semana (0 = domingo, 6 = sábado). */
+  diasReuniao: number[]
+  geracaoAutomatica: { ativa: boolean; dia: number; hora: string }
   /** Aptidões marcadas por irmão (cadastro unificado, chave = id da ficha). */
   aptidoes: Record<string, AptidaoId[]>
   /** Escalas por chave de mês ("2026-11"). */
@@ -205,11 +235,15 @@ export interface OcorrenciaAvi {
   secao: 'fds' | 'meio'
 }
 
-/** Projeção mínima de irmão devolvida pela API do setor AVI. */
+/** Projeção mínima de irmão devolvida pela API dos setores AVI e TPL. */
 export interface IrmaoProjecao {
   id: Identificador
   nome: string
   ativo: boolean
+  departamento?: SetorId
+  reunioes?: ReuniaoAvi
+  frequencia?: string
+  limiteMensal?: 1 | 2 | 3
 }
 
 /** Ponto de apoio / local do carrinho (setor TPL). */
@@ -218,10 +252,17 @@ export interface PontoTpl {
   nome: string
 }
 
+/** Local de trabalho atendido com o carrinho. */
+export interface LocalTpl {
+  id: Identificador
+  nome: string
+}
+
 /** Período (dia da semana + turno) de um ponto — ex.: Manhã 08:00–10:00. */
 export interface PeriodoTpl {
   id: Identificador
   pontoId: Identificador
+  localId?: Identificador
   diaSemana: number
   inicio: string
   fim: string
@@ -246,6 +287,7 @@ export interface RegistroTpl {
 export interface DadosTpl {
   versao: number
   pontos: PontoTpl[]
+  locais: LocalTpl[]
   periodos: PeriodoTpl[]
   participantes: ParticipanteTpl[]
   escalas: Record<string, RegistroTpl>

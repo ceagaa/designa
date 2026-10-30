@@ -3,6 +3,12 @@ import { mkdirSync } from 'node:fs'
 
 const BASE = process.env.UX_BASE ?? 'http://localhost:5180'
 const DIR = process.env.UX_SHOTS ?? 'C:/Users/carlo/AppData/Local/Temp/opencode/ux'
+const SUFIXO = Date.now().toString(36)
+const EMAIL_TESTE = `ux-${SUFIXO}@exemplo.com`
+const CONG_TESTE = `Cong UX ${SUFIXO}`
+// O roteiro usa o dia de hoje para o Campo, então roda em qualquer dia da semana.
+const HOJE_IDX = new Date().getDay()
+const DIA_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][HOJE_IDX]
 mkdirSync(DIR, { recursive: true })
 
 let ok = 0
@@ -22,6 +28,16 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true })
 const context = await browser.newContext({
   acceptDownloads: true,
   permissions: ['clipboard-read', 'clipboard-write'],
+})
+// O Edge headless expõe navigator.share, mas não abre a folha de compartilhamento.
+// Guardamos a URL compartilhada para conferir o link sem depender do sistema.
+await context.addInitScript(() => {
+  Object.defineProperty(navigator, 'share', {
+    configurable: true,
+    value: async (dados) => {
+      window.__shareDesigna = dados?.url ?? dados?.text ?? ''
+    },
+  })
 })
 const page = await context.newPage()
 page.on('pageerror', (e) => errosConsole.push('pageerror: ' + e.message))
@@ -61,21 +77,21 @@ try {
   // ---------- 1) Marca na tela de login (apos splash) ----------
   await page.goto(BASE, { waitUntil: 'networkidle', timeout: 45000 })
   await page.waitForSelector('#lg-email', { state: 'visible', timeout: 20000 })
-  ck('login: titulo visual e logotipo', await page.locator('h1 img[src="/img/LOGOTIPO.png"]').isVisible())
+  ck('login: titulo visual e logotipo', await page.locator('h1 img[src="/img/LOGOTIPO.png"]').first().isVisible())
   ck(
     'login: logotipo Designa visivel',
     await page.locator('img[src="/img/LOGOTIPO.png"]').first().isVisible(),
   )
-  ck('login: sem titulo Designa duplicado', (await page.locator('h1').innerText()) === '')
+  ck('login: sem titulo Designa duplicado', (await page.locator('h1').first().innerText()).trim() === '')
   ck('login: sem referencia a Sao Joao', !(await page.content()).includes('Paraíso'))
   await shot('01-login')
 
   // ---------- 2) Criar conta ----------
   await page.click('button:has-text("Criar conta")')
   await page.fill('#lg-nome', 'Teste UX')
-  await page.fill('#lg-email', 'ux-teste@exemplo.com')
+  await page.fill('#lg-email', EMAIL_TESTE)
   await page.fill('#lg-senha', 'senha-teste-123')
-  await page.fill('#lg-cong', 'Cong UX Local')
+  await page.fill('#lg-cong', CONG_TESTE)
   await page.fill('#lg-num', '132599')
   await page.click('button[type="submit"]')
   await page.waitForSelector('text=Setores', { timeout: 30000 })
@@ -93,58 +109,78 @@ try {
   await page.click('button:has-text("Configurar dias de campo")')
   await page.waitForSelector('text=Locais e horários', { timeout: 15000 })
 
-  // ---------- 4) Adicionar sexta-feira (hoje) em Locais ----------
+  // ---------- 4) Adicionar o dia de hoje em Locais ----------
   await page.click('button:has-text("Adicionar ponto de encontro")')
   await page.waitForSelector('#campo-dia', { timeout: 10000 })
   const opcoes = await page.locator('#campo-dia option').allTextContents()
-  const sexta = opcoes.find((o) => /sex/i.test(o))
-  ck('locais: opcao sexta-feira', Boolean(sexta), opcoes.join('|'))
-  if (sexta) await page.selectOption('#campo-dia', { label: sexta })
+  ck('locais: todos os dias disponiveis', opcoes.length === 7, opcoes.join('|'))
+  await page.selectOption('#campo-dia', String(HOJE_IDX))
   await page.fill('#campo-hora', '18:30')
   await page.fill('#campo-local', 'Praça UX')
   await page.click('button:has-text("Salvar dia de campo")')
   await page.waitForSelector('text=Locais e horários', { timeout: 10000 })
-  ck('locais: sexta adicionada', (await page.locator('article:has-text("Praça UX")').count()) > 0)
+  ck('locais: dia de hoje adicionado', (await page.locator('article:has-text("Praça UX")').count()) > 0)
   await shot('04-locais')
 
-  // ---------- 5) Pessoas: criar 2 dirigentes ----------
-  await page.getByRole('button', { name: 'Pessoas', exact: true }).click()
-  await page.waitForSelector('text=/Quadro de pessoas|Nenhuma pessoa cadastrada/', { timeout: 15000 })
+  // ---------- 5) Voluntários: criar 2 do Campo ----------
+  await page.getByRole('button', { name: 'Voluntários', exact: true }).click()
+  await page.waitForSelector('text=/Quadro de voluntários|Nenhum voluntário cadastrado/', { timeout: 15000 })
   async function novaPessoa(nome, comoAjudante) {
-    const fab = page.locator('button[aria-label="Novo dirigente"]')
+    const fab = page.locator('button[aria-label="Novo voluntário"]')
     if (await fab.count()) await fab.click()
-    else await page.click('button:has-text("Cadastrar primeira pessoa")')
+    else await page.click('button:has-text("Cadastrar primeiro voluntário")')
+    // O modal pergunta o departamento antes de mostrar a ficha.
+    await page.locator('[role=dialog] button:has-text("Dirige no serviço de campo")').click()
     await page.waitForSelector('#dir-nome', { timeout: 10000 })
     await page.fill('#dir-nome', nome)
     await page.selectOption('#dir-freq', 'semanal')
-    await page.locator('[role=dialog] button:text-is("Sex")').first().click()
+    await page.selectOption('#dir-limite-mensal', '3')
+    await page.locator(`[role=dialog] button:text-is("${DIA_CURTO}")`).first().click()
     await page.locator('[role=dialog] button:text-is("18:30")').first().click()
     if (comoAjudante) {
       await page.locator('[role=dialog] label:has-text("Marcar como ajudante")').click()
     }
-    await page.click('button:has-text("Salvar dirigente")')
+    await page.click('button:has-text("Salvar voluntário")')
     await page.waitForSelector(`article:has-text("${nome}")`, { timeout: 15000 })
   }
   await novaPessoa('Carlos Teste', false)
   await novaPessoa('Marcos Teste', true)
-  ck('pessoas: 2 fichas criadas', (await page.locator('article:has-text("Marcos Teste")').count()) > 0)
-  ck('pessoas: rotulo Designações AVI', (await page.locator('text=Designações AVI').count()) > 0)
-  ck('pessoas: sem rotulo Aptidões AVI', (await page.locator('text=Aptidões AVI').count()) === 0)
-  ck('pessoas: checkbox Participa do TPL', (await page.locator('text=Participa do TPL').count()) > 0)
-  await shot('05-pessoas')
+  ck('voluntários: 2 fichas criadas', (await page.locator('article:has-text("Marcos Teste")').count()) > 0)
+  ck('voluntários: quadro com 2 pessoas', (await page.locator('text=2 voluntários').count()) > 0)
+  ck('voluntários: departamento Campo visível', (await page.locator('article:has-text("Carlos Teste"):has-text("Campo")').count()) > 0)
+  ck('voluntários: atalho de inativo', (await page.locator('button[aria-label="Marcar Carlos Teste como inativo"]').count()) > 0)
+
+  // O formulário muda conforme o departamento: AVI mostra reuniões e funções.
+  await page.locator('button[aria-label="Novo voluntário"]').click()
+  await page
+    .locator('[role=dialog] button:has-text("Áudio, Vídeo & Indicadores nas reuniões")')
+    .click()
+  await page.waitForSelector('#dir-nome', { timeout: 10000 })
+  const dlgAvi = page.locator('[role=dialog]')
+  ck(
+    'voluntários: campos do AVI',
+    (await dlgAvi.getByText('Reuniões').count()) > 0 &&
+      (await dlgAvi.getByText('Designações AVI').count()) > 0,
+  )
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
+  await shot('05-voluntarios')
 
   // ---------- 6) Ajustes: nova organizacao ----------
   await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
   await page.waitForSelector('text=Acesso à conta', { timeout: 15000 })
-  ck('ajustes: kicker Setor Campo', (await page.locator('text=Setor Campo').count()) > 0)
+  ck('ajustes: kicker Configurações gerais', (await page.locator('text=Configurações gerais').count()) > 0)
   ck('ajustes: kicker Avisos', (await page.locator('text=Avisos').count()) > 0)
   ck(
-    'ajustes: subtitulo AVI/TPL',
-    (await page.locator('text=AVI e TPL são configurados dentro da tela de cada setor').count()) > 0,
+    'ajustes: subtitulo de configuracoes por setor',
+    (await page.locator('text=/configurações por setor/i').count()) > 0,
   )
   ck('ajustes: secao Equipe', (await page.locator('text=Contas com acesso ao aplicativo').count()) > 0)
-  ck('ajustes: botao Abrir (Configuracao de campos)', (await page.locator('button:text-is("Abrir")').count()) > 0)
+  ck('ajustes: cards de configuracao dos setores', (await page.locator('button:has-text("Saídas de Campo"), button:has-text("Áudio, Vídeo & Indicadores"), button:has-text("Testemunho Público Local")').count()) === 3)
   await shot('06-ajustes')
+  await page.getByRole('button', { name: /Saídas de Campo/ }).click()
+  await page.waitForSelector('text=Configurações do setor Campo', { timeout: 10000 })
+  ck('ajustes: card Campo abre configuracao do setor', true)
 
   // ---------- 7) Campo com HOJE destacado ----------
   await page.getByRole('button', { name: 'Designações', exact: true }).click()
@@ -156,9 +192,12 @@ try {
   ck('campo: bloco Territórios no card grande', true)
   ck('campo: selo Em breve', (await page.locator('text=Em breve').count()) > 0)
   ck('campo: texto do mapa em breve', (await page.locator('text=O mapa do território').count()) > 0)
-  await page.waitForSelector('text=Quem dirige hoje', { timeout: 15000 })
-  ck('hoje: card "Quem dirige hoje"', true)
-  ck('hoje: borda ao vivo no hero', (await page.locator('.escala-hoje-branco').count()) > 0)
+  await page.waitForSelector('text=/Quem dirige hoje|Próxima saída|Primeira saída/', { timeout: 15000 })
+  const temDestaqueHoje = (await page.locator('text=Quem dirige hoje').count()) > 0
+  ck('campo: card de destaque (hoje ou próxima saída)', true)
+  if (temDestaqueHoje) {
+    ck('hoje: borda ao vivo no hero', (await page.locator('.escala-hoje-branco').count()) > 0)
+  }
   await shot('07-campo-hoje')
 
   // ---------- 8) Gerar escala do Campo ----------
@@ -166,51 +205,43 @@ try {
   await page.locator('[role=menu] button:has-text("Gerar escala")').click()
   await page.locator('[role=dialog] h2:has-text("Gerar escala de")').waitFor({ timeout: 10000 })
   await page.locator('[role=dialog] button:has-text("Gerar")').click()
-  await page.waitForSelector('text=Designação pronta', { timeout: 30000 })
-  ck('campo: escala pronta', true)
+  await page.waitForFunction(() => {
+    const texto = document.body.innerText
+    return texto.includes('Designação pronta') || /Gerada · \d+ sem designação/.test(texto)
+  }, undefined, { timeout: 30000 })
+  ck('campo: geração finalizada', !(await page.locator('text=Pendente de montar').count()))
   await page.waitForTimeout(500)
   await shot('08-campo-gerado')
 
-  // ---------- 9) Modal de exportacao (Ver e Baixar PDF) ----------
-  await page.click('button:has-text("Ver e Baixar PDF")')
-  await page.locator('[role=dialog]:has-text("Exportar escala")').waitFor({ timeout: 15000 })
-  ck('export: modal Exportar escala aberto', true)
-  const temPrevia = await page
-    .locator('[role=dialog] img[alt="Prévia da escala pronta para exportação"]')
-    .waitFor({ state: 'visible', timeout: 15000 })
-    .then(() => true)
-    .catch(() => false)
-  ck('export: previa da escala visivel', temPrevia)
+  // ---------- 9) PDF pronto (rodapé fixo: Gerar / PDF / Link) ----------
+  ck('campo: rodapé fixo tem os 3 botões', (await page.locator('button:has-text("Gerar")').count()) > 0 && (await page.locator('button:has-text("PDF")').count()) > 0 && (await page.locator('button:has-text("Link")').count()) > 0)
   let dl = page.waitForEvent('download', { timeout: 30000 }).catch(() => null)
-  await page.locator('[role=dialog] button:has-text("Baixar PDF")').click()
+  await page.locator('button:has-text("PDF")').click()
   let arquivo = await dl
-  ck('pdf: download da tabela (Campo)', Boolean(arquivo && arquivo.suggestedFilename().endsWith('.pdf')), arquivo ? arquivo.suggestedFilename() : 'sem download')
-  dl = page.waitForEvent('download', { timeout: 30000 }).catch(() => null)
-  await page.locator('[role=dialog] button:has-text("Baixar imagem")').click()
-  arquivo = await dl
-  ck('png: download da imagem (Campo)', Boolean(arquivo && /\.(png|jpg|jpeg)$/i.test(arquivo.suggestedFilename())), arquivo ? arquivo.suggestedFilename() : 'sem download')
-  await page.locator('[role=dialog] button[aria-label="Fechar"]').click()
-  await page.waitForSelector('text=Quem dirige hoje', { timeout: 10000 })
+  ck('pdf: download direto da escala (Campo)', Boolean(arquivo && arquivo.suggestedFilename().endsWith('.pdf')), arquivo ? arquivo.suggestedFilename() : 'sem download')
   await shot('09-export')
 
   // ---------- 10) Link de compartilhamento (#/ver/) ----------
-  await page.click('button:has-text("Copiar link")')
-  await page.waitForTimeout(500)
-  const link = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))
+  await page.click('button:has-text("Link")')
+  await page.waitForFunction(() => Boolean(window.__shareDesigna), undefined, { timeout: 10000 })
+  const link = await page.evaluate(() => window.__shareDesigna ?? '')
   ck('link: copiado contem #/ver/', link.includes('#/ver/'), link.slice(0, 120))
   if (link.includes('#/ver/')) {
     await page.goto(link, { waitUntil: 'networkidle', timeout: 30000 })
-    await page.waitForSelector('text=somente leitura', { timeout: 20000 })
-    ck('ver: pagina somente leitura abriu', true)
-    ck('ver: hero com borda ao vivo de hoje', (await page.locator('.escala-hoje-branco').count()) > 0)
-    ck('ver: marcador (hoje) na tabela', (await page.locator('.escala-card:has-text("(hoje)")').count()) > 0)
-    ck('ver: botao Voltar para o app', (await page.locator('button:has-text("Voltar para o app")').count()) > 0)
-    dl = page.waitForEvent('download', { timeout: 30000 }).catch(() => null)
-    await page.locator('button:has-text("Baixar PDF")').last().click()
-    arquivo = await dl
-    ck('ver: PDF baixavel pela visao somente leitura', Boolean(arquivo && arquivo.suggestedFilename().endsWith('.pdf')), arquivo ? arquivo.suggestedFilename() : 'sem download')
+    await page.waitForSelector('h1:has-text("Programação para serviço de campo")', { timeout: 20000 })
+    ck('ver: programação compartilhada abriu', true)
+    ck('ver: card de destaque presente', (await page.locator('text=/Quem dirige hoje|Próxima saída|Última saída/').count()) > 0)
+    if ((await page.locator('text=Quem dirige hoje').count()) > 0) {
+      ck('ver: hero com borda ao vivo de hoje', (await page.locator('.escala-hoje-branco').count()) > 0)
+    }
+    ck('ver: lista única de próximos dias', (await page.locator('h2:has-text("Próximos dias")').count()) > 0)
+    ck('ver: sem botões de grupo de dias', (await page.locator('[aria-label="Grupos de dias"]').count()) === 0)
+    ck('ver: sem botão voltar para o app', (await page.locator('button:has-text("Voltar para o app")').count()) === 0)
+    ck('ver: sem botão ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) === 0)
+    ck('ver: sem texto somente leitura', !(await page.locator('text=/somente leitura/i').count()))
+    ck('ver: sem botao de exportacao', !(await page.locator('button:has-text("Baixar PDF"), button:has-text("Baixar imagem")').count()))
     await shot('10-somente-leitura')
-    await page.click('button:has-text("Voltar para o app")')
+    await page.goto(BASE, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForTimeout(800)
   }
   if (!(await page.locator('text=Setores').first().isVisible().catch(() => false))) {
@@ -218,49 +249,171 @@ try {
     await page.waitForSelector('text=Setores', { timeout: 10000 })
   }
 
-  // ---------- 11) AVI: gerar + PDF ----------
+  // ---------- 10b) Campo: restaurar dia volta designado + ajudante nas listas ----------
+  await page.locator('button:has-text("Saídas de Campo")').first().click()
+  await page.waitForSelector('text=Territórios', { timeout: 15000 })
+  await page.locator('button:has-text("Ajustar escala")').click()
+  await page.waitForSelector('h1:has-text("Tabela completa")', { timeout: 15000 })
+  await shot('10b-tabela')
+
+  // (a) Remover o único dia: vira "removido" e não conta como pendência.
+  await page.locator('button[aria-label^="Remover"]').first().click()
+  await page.waitForTimeout(300)
+  let stats = (await page.locator('p[aria-live="polite"]').innerText()).replace(/\s+/g, ' ')
+  ck('tabela: dia removido conta como removido', /1 removidos?/.test(stats), stats)
+  ck('tabela: dia removido não vira pendência', /0 sem designação/.test(stats), stats)
+
+  // (b) Restaurar: o dia volta designado (não zerado/pendência).
+  await page.locator('button[aria-label^="Restaurar"]').first().click()
+  await page.waitForTimeout(400)
+  stats = (await page.locator('p[aria-live="polite"]').innerText()).replace(/\s+/g, ' ')
+  ck('tabela: restaurado volta designado (0 pendências)', /0 sem designação/.test(stats), stats)
+  const mDias = stats.match(/(\d+) dias? de campo\s+(\d+) designados?/)
+  ck(
+    'tabela: restaurado volta como designado (sem dia zerado)',
+    Boolean(mDias) && mDias[1] === mDias[2],
+    stats,
+  )
+  await shot('10c-tabela-restaurado')
+
+  // (c) Ajudante manual (Marcos Teste) no dia de HOJE (o card de destaque).
+  // A tabela vem ordenada por data: o último select é o dia mais futuro do mês.
+  const selAjudante = page.locator('select[aria-label^="Ajudante de"]').last()
+  ck('tabela: select de ajudante visível', await selAjudante.isVisible().catch(() => false))
+  const textoAjudante = (
+    await selAjudante
+      .locator('option', { hasText: 'Marcos Teste' })
+      .first()
+      .innerText()
+      .catch(() => '')
+  ).trim()
+  ck('tabela: Marcos Teste disponível como ajudante', Boolean(textoAjudante), textoAjudante)
+  if (textoAjudante) await selAjudante.selectOption({ label: textoAjudante })
+  await page.waitForTimeout(300)
+  await page.locator('button[aria-label="Voltar"]').click()
+  // O card de destaque sempre existe; a lista "Próximos dias" só com mais dias.
+  await page.waitForSelector('text=/Quem dirige hoje|Próxima saída|Primeira saída/', { timeout: 15000 })
+  ck('campo: destaque interno mostra ajudante discreto', (await page.locator('section p:has-text("Ajudante:")').count()) > 0)
+  await shot('10d-campo-ajudante')
+
+  // (d) Ajudante também na página pública do link.
+  await page.evaluate(() => {
+    window.__shareDesigna = ''
+  })
+  await page.click('button:has-text("Link")')
+  await page.waitForFunction(() => Boolean(window.__shareDesigna), undefined, { timeout: 10000 })
+  const linkAj = await page.evaluate(() => window.__shareDesigna ?? '')
+  if (linkAj.includes('#/ver/')) {
+    await page.goto(linkAj, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.waitForSelector('h1:has-text("Programação para serviço de campo")', { timeout: 20000 })
+    ck('ver: destaque público mostra ajudante discreto', (await page.locator('section p:has-text("Ajudante:")').count()) > 0)
+    if (await page.locator('article').count()) {
+      ck('ver: lista pública mostra ajudante discreto', (await page.locator('article p:has-text("Marcos Teste")').count()) > 0)
+    }
+    await shot('10e-ver-ajudante')
+    await page.goto(BASE, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.waitForTimeout(800)
+  }
+  if (!(await page.locator('text=Setores').first().isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: 'Designações', exact: true }).click()
+    await page.waitForSelector('text=Setores', { timeout: 10000 })
+  }
+
+  // ---------- 11) AVI: resumo + ajustar + gerar + PDF ----------
   await page.click('button:has-text("Áudio, Vídeo & Indicadores")')
-  await page.waitForSelector('text=Reunião de meio de semana', { timeout: 15000 })
+  await page.waitForSelector('button:has-text("Ajustar escala")', { timeout: 15000 })
+  let temHeroAvi =
+    (await page.locator('text=/Quem serve hoje|Próxima reunião|Primeira reunião/').count()) > 0
+  if (!temHeroAvi) {
+    // Sem reuniões restantes no mês corrente: o mês seguinte sempre tem destaque.
+    await page.click('button[aria-label="Próximo mês"]')
+    await page.waitForTimeout(400)
+    temHeroAvi =
+      (await page.locator('text=/Quem serve hoje|Próxima reunião|Primeira reunião/').count()) > 0
+  }
+  ck('avi: resumo com hero de reunião', temHeroAvi)
+  ck('avi: sem faixas FDS/meio de semana no resumo', (await page.locator('text=Meio de semana').count()) === 0)
+  ck(
+    'avi: rodapé fixo Gerar/PDF/Link',
+    (await page.locator('button:has-text("Gerar")').count()) > 0 &&
+      (await page.locator('button:has-text("PDF")').count()) > 0 &&
+      (await page.locator('button:has-text("Link")').count()) > 0,
+  )
+  await page.locator('button:has-text("Ajustar escala")').first().click()
+  await page.waitForSelector('select[id^="avi-"]', { timeout: 15000 })
   ck('avi: botao Designações AVI', (await page.locator('button:has-text("Designações AVI")').count()) > 0)
   await page.locator('button:has-text("Gerar escala")').first().click()
   await dialogoBaixarPdf('AVI')
   await shot('11-avi')
 
-  // ---------- 12) TPL: estrutura + participantes + PDF ----------
-  await page.getByRole('button', { name: 'Designações', exact: true }).click()
-  await page.click('button:has-text("Testemunho Público Local")')
-  await page.getByRole('tab', { name: 'Estrutura', exact: true }).click()
-  await page.waitForSelector('h3:has-text("Participantes")', { timeout: 15000 })
-  ck('tpl: titulo Participantes', await page.locator('h3:has-text("Participantes")').isVisible())
-  ck('tpl: sem rotulo "movers"', (await page.locator('text=movers').count()) === 0)
+  // ---------- 12) TPL: voluntários + estrutura + escala manual + PDF ----------
+  await page.getByRole('button', { name: 'Voluntários', exact: true }).click()
+  await page.waitForSelector('text=Quadro de voluntários', { timeout: 15000 })
+  async function novoVoluntarioTpl(nome) {
+    await page.locator('button[aria-label="Novo voluntário"]').click()
+    // Departamento primeiro; a ficha do TPL abre em seguida.
+    await page.locator('[role=dialog] button:has-text("Testemunho Público Local com o carrinho")').click()
+    await page.waitForSelector('#dir-nome', { timeout: 10000 })
+    await page.fill('#dir-nome', nome)
+    await page.click('button:has-text("Salvar voluntário")')
+    await page.waitForSelector(`article:has-text("${nome}")`, { timeout: 15000 })
+  }
+  await novoVoluntarioTpl('Ana TPL')
+  await novoVoluntarioTpl('Beto TPL')
+  ck('voluntários: TPL no quadro', (await page.locator('article:has-text("Ana TPL"):has-text("TPL")').count()) > 0)
+  await shot('12-voluntarios-tpl')
 
-  await page.locator('section:has(h3:text-is("Pontos de apoio")) button:has-text("Novo")').click()
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
+  await page.waitForSelector('text=Configurações gerais', { timeout: 15000 })
+  await page.getByRole('button', { name: /Testemunho Público Local/ }).click()
+  await page.waitForSelector('h3:has-text("Pontos de apoio")', { timeout: 15000 })
+  ck('ajustes TPL: sem abas Escala/Estrutura', (await page.getByRole('tab').count()) === 0)
+  ck('tpl: sem seção Participantes', (await page.locator('h3:has-text("Participantes")').count()) === 0)
+  ck('tpl: sem rótulo "movers"', (await page.locator('text=movers').count()) === 0)
+
+  await page.locator('section:has(h3:text-is("Pontos de apoio")) button:has-text("Adicionar ponto de apoio")').click()
   await page.fill('#tpl-ponto-nome', 'Praça UX')
   await page.locator('[role=dialog] button:has-text("Salvar")').click()
   await page.waitForSelector('li:has-text("Praça UX")', { timeout: 10000 })
 
-  await page.locator('section:has(h3:text-is("Períodos e dias")) button:has-text("Novo")').click()
+  await page.locator('section:has(h3:text-is("Períodos e dias")) button:has-text("Adicionar período")').click()
   await page.waitForSelector('#tpl-periodo-inicio', { timeout: 10000 })
   await page.locator('[role=dialog] button:text-is("Sex")').click()
   await page.fill('#tpl-periodo-inicio', '09:00')
   await page.fill('#tpl-periodo-fim', '12:00')
   await page.locator('[role=dialog] button:has-text("Salvar")').click()
   await page.waitForSelector('li:has-text("Sexta-Feira")', { timeout: 10000 })
+  await shot('13-tpl-estrutura')
 
-  for (const nome of ['Ana TPL', 'Beto TPL']) {
-    await page.locator('section:has(h3:text-is("Participantes")) button:has-text("Novo")').click()
-    await page.waitForSelector('#tpl-pessoa-nome', { timeout: 10000 })
-    await page.fill('#tpl-pessoa-nome', nome)
-    await page.locator('[role=dialog] button:has-text("Salvar")').click()
-    await page.waitForSelector(`li:has-text("${nome}")`, { timeout: 10000 })
+  await page.getByRole('button', { name: 'Designações', exact: true }).click()
+  await page.click('button:has-text("Testemunho Público Local")')
+  await page.waitForSelector('button:has-text("Ajustar escala")', { timeout: 15000 })
+  let temHeroTpl =
+    (await page.locator('text=/Quem trabalha hoje|Próxima saída|Primeira saída/').count()) > 0
+  if (!temHeroTpl) {
+    // Sem saídas restantes no mês corrente: o mês seguinte sempre tem destaque.
+    await page.click('button[aria-label="Próximo mês"]')
+    await page.waitForTimeout(400)
+    temHeroTpl =
+      (await page.locator('text=/Quem trabalha hoje|Próxima saída|Primeira saída/').count()) > 0
   }
-  ck('tpl: 2 participantes cadastrados', (await page.locator('section:has(h3:text-is("Participantes")) li').count()) >= 2)
-  await shot('12-tpl-estrutura')
-
-  await page.getByRole('tab', { name: 'Escala', exact: true }).click()
-  await page.locator('button:has-text("Gerar escala")').first().click()
+  ck('tpl: resumo com hero de saída', temHeroTpl)
+  ck('tpl: sem link público na tela', (await page.locator('text=/Link público/').count()) === 0)
+  ck(
+    'tpl: rodapé fixo Ajustar/PDF/Link',
+    (await page.locator('button:has-text("Ajustar")').count()) > 0 &&
+      (await page.locator('button:has-text("PDF")').count()) > 0 &&
+      (await page.locator('button:has-text("Link")').count()) > 0,
+  )
+  await page.locator('button:has-text("Ajustar escala")').first().click()
+  const selectsTpl = page.locator('select[id^="tpl-"]')
+  await selectsTpl.first().waitFor({ timeout: 15000 })
+  ck('tpl: sem abas Escala/Estrutura', (await page.getByRole('tab').count()) === 0)
+  await selectsTpl.first().selectOption({ label: 'Ana TPL' })
+  await selectsTpl.nth(1).selectOption({ label: 'Beto TPL' })
+  ck('tpl: dupla manual atribuída', (await page.locator('text=manual').count()) > 0)
   await dialogoBaixarPdf('TPL')
-  await shot('13-tpl')
+  await shot('14-tpl')
 
   // ---------- 13) Links publicos /escala/:slug/:setor ----------
   const info = await page
@@ -270,44 +423,46 @@ try {
   ck('auth/eu expoe slug da congregacao', Boolean(slug), JSON.stringify(info).slice(0, 200))
   if (slug) {
     await page.goto(`${BASE}/escala/${encodeURIComponent(slug)}/CAMPO`, { waitUntil: 'networkidle', timeout: 30000 })
-    await page.waitForSelector('text=somente leitura', { timeout: 20000 })
-    ck('publico CAMPO: somente leitura', true)
-    ck('publico CAMPO: botao Ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) > 0)
-    ck('publico CAMPO: barra fixa Baixar PDF', await page.locator('button:has-text("Baixar PDF")').last().isVisible())
-    ck('publico CAMPO: borda ao vivo de hoje', (await page.locator('.escala-hoje-branco').count()) > 0)
-    ck('publico CAMPO: marcador (hoje) na tabela', (await page.locator('.escala-card:has-text("(hoje)")').count()) > 0)
-    dl = page.waitForEvent('download', { timeout: 30000 }).catch(() => null)
-    await page.locator('button:has-text("Baixar PDF")').last().click()
-    arquivo = await dl
-    ck('publico CAMPO: PDF baixavel', Boolean(arquivo && arquivo.suggestedFilename().endsWith('.pdf')), arquivo ? arquivo.suggestedFilename() : 'sem download')
-    await shot('14-publico-campo')
+    await page.waitForSelector('h1:has-text("Programação para serviço de campo")', { timeout: 20000 })
+    ck('publico CAMPO: programação abre', true)
+    ck('publico CAMPO: sem chamadas de somente leitura', !(await page.locator('text=/somente leitura/i').count()))
+    ck('publico CAMPO: sem botões de download', !(await page.locator('button:has-text("Baixar PDF"), button:has-text("Baixar imagem")').count()))
+    if ((await page.locator('text=Quem dirige hoje').count()) > 0) {
+      ck('publico CAMPO: borda ao vivo de hoje', (await page.locator('.escala-hoje-branco').count()) > 0)
+    }
+    ck('publico CAMPO: lista única de próximos dias', (await page.locator('h2:has-text("Próximos dias")').count()) > 0)
+    ck('publico CAMPO: sem botões de grupo de dias', (await page.locator('[aria-label="Grupos de dias"]').count()) === 0)
+    ck('publico CAMPO: sem botão Ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) === 0)
+    await shot('15-publico-campo')
 
     await page.goto(`${BASE}/escala/${encodeURIComponent(slug)}/AVI`, { waitUntil: 'networkidle', timeout: 30000 })
-    await page.waitForSelector('button:has-text("Ir para o app")', { timeout: 20000 })
+    await page.waitForSelector('button:has-text("Baixar PDF")', { timeout: 20000 })
     ck('publico AVI: pagina abre', true)
     ck('publico AVI: cartao AVI', (await page.locator('text=Áudio, Vídeo e Indicadores').count()) > 0)
-    await shot('15-publico-avi')
+    ck('publico AVI: sem botao Ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) === 0)
+    await shot('16-publico-avi')
 
     await page.goto(`${BASE}/escala/${encodeURIComponent(slug)}/TPL`, { waitUntil: 'networkidle', timeout: 30000 })
-    await page.waitForSelector('button:has-text("Ir para o app")', { timeout: 20000 })
+    await page.waitForSelector('button:has-text("Baixar PDF")', { timeout: 20000 })
     ck('publico TPL: pagina abre', true)
-    await shot('16-publico-tpl')
+    ck('publico TPL: sem botao Ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) === 0)
+    await shot('17-publico-tpl')
   }
 
-  // ---------- 14) Pessoas: secao TPL-only ----------
+  // ---------- 14) Voluntários: TPL no quadro ----------
   await page.goto(BASE, { waitUntil: 'networkidle', timeout: 30000 })
   await page.waitForSelector('text=Setores', { timeout: 20000 })
-  await page.getByRole('button', { name: 'Pessoas', exact: true }).click()
-  await page.waitForSelector('text=/Quadro de pessoas|Nenhuma pessoa cadastrada/', { timeout: 15000 })
+  await page.getByRole('button', { name: 'Voluntários', exact: true }).click()
+  await page.waitForSelector('text=Quadro de voluntários', { timeout: 15000 })
   await page.waitForTimeout(500)
-  ck('pessoas: secao TPL-only explicativa', (await page.locator('text=Somente aqui e no TPL').count()) > 0)
-  await shot('17-pessoas-tpl')
+  ck('voluntários: TPL no quadro', (await page.locator('article:has-text("Ana TPL"):has-text("TPL")').count()) > 0)
+  await shot('18-voluntarios-final')
 
   // ---------- 15) Home: status pos-geracao ----------
   await page.getByRole('button', { name: 'Designações', exact: true }).click()
   await page.waitForTimeout(700)
   ck('home: status Escala pronta apos gerar', (await page.locator('text=Escala pronta').count()) >= 1)
-  await shot('18-home-final')
+  await shot('19-home-final')
 } catch (erro) {
   fal += 1
   console.log('FAL - excecao no roteiro :: ' + (erro && erro.message ? erro.message : erro))

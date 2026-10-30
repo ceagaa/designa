@@ -178,9 +178,9 @@ export default function Locais({ campos, dirigentes, aoAlterarCampos }: LocaisPr
         <Kicker className="block px-1 pt-2 text-muted">Como funciona</Kicker>
         <p className="px-1 text-[13px] text-muted">
           Cada linha daqui vira uma data na escala do mês. Com a designação fixa ligada em
-          Configurações, a pessoa de “Quem dirige” sai em todas as datas deste dia e a de “Quem
-          ajuda” acompanha como ajudante — deixando em branco, o dia sai sem ajudante. Sem a
-          designação fixa, dirigente e ajudante continuam em rodízio.
+          Configurações, o voluntário de “Quem dirige” sai em todas as datas deste dia e o de
+          “Quem ajuda” acompanha como ajudante — deixando em branco, o dia sai sem ajudante. Sem
+          a designação fixa, voluntário e ajudante continuam em rodízio.
         </p>
       </section>
 
@@ -252,7 +252,7 @@ export default function Locais({ campos, dirigentes, aoAlterarCampos }: LocaisPr
                 ))}
               </Select>
               <p className="mt-1.5 text-[13px] text-muted">
-                Com a designação fixa ligada, esta pessoa sai em todas as datas deste dia.
+                Com a designação fixa ligada, este voluntário sai em todas as datas deste dia.
               </p>
             </div>
 
@@ -271,8 +271,8 @@ export default function Locais({ campos, dirigentes, aoAlterarCampos }: LocaisPr
                 ))}
               </Select>
               <p className="mt-1.5 text-[13px] text-muted">
-                Com a designação fixa ligada, esta pessoa ajuda em todas as datas deste dia; em
-                branco, o dia sai sem ajudante.
+                Com a designação fixa ligada, este voluntário ajuda em todas as datas deste dia;
+                em branco, o dia sai sem ajudante.
               </p>
             </div>
 

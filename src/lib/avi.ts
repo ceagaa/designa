@@ -20,15 +20,22 @@ export function slotAvi(iso: string, funcao: AptidaoId): string {
  * Reuniões do mês para o AVI: TODOS os domingos (fim de semana) e todas as
  * reuniões do meio de semana (quarta ou quinta, conforme configuração).
  */
-export function ocorrenciasAvi(ano: number, mes: number, diaSemanaMeio: number): OcorrenciaAvi[] {
+export function ocorrenciasAvi(
+  ano: number,
+  mes: number,
+  diasReuniao: number | number[],
+): OcorrenciaAvi[] {
   const totalDias = new Date(ano, mes + 1, 0).getDate()
-  const meio = diaSemanaMeio === 4 ? 4 : 3
+  const dias = new Set(
+    (Array.isArray(diasReuniao) ? diasReuniao : [0, diasReuniao])
+      .filter((dia) => Number.isInteger(dia) && dia >= 0 && dia <= 6),
+  )
   const lista: OcorrenciaAvi[] = []
 
   for (let dia = 1; dia <= totalDias; dia += 1) {
     const data = new Date(ano, mes, dia)
     const diaSemana = data.getDay()
-    const secao = diaSemana === 0 ? 'fds' : diaSemana === meio ? 'meio' : null
+    const secao = dias.has(diaSemana) ? (diaSemana === 0 || diaSemana === 6 ? 'fds' : 'meio') : null
     if (!secao) continue
     const iso = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
     lista.push({ key: iso, iso, dia, diaSemana, secao })
@@ -41,6 +48,8 @@ export function normalizarDadosAvi(bruto: unknown): DadosAvi {
   const base: DadosAvi = {
     versao: 1,
     diaSemanaMeio: 3,
+    diasReuniao: [0, 3],
+    geracaoAutomatica: { ativa: false, dia: 20, hora: '00:00' },
     aptidoes: {},
     escalas: {},
   }
@@ -51,9 +60,12 @@ export function normalizarDadosAvi(bruto: unknown): DadosAvi {
   if (dados.aptidoes && typeof dados.aptidoes === 'object') {
     for (const [id, lista] of Object.entries(dados.aptidoes)) {
       if (!Array.isArray(lista)) continue
-      const validas = lista.filter((a): a is AptidaoId =>
-        FUNCOES_AVI.some((f) => f.id === a),
-      )
+      // O antigo "indicador" vira os dois indicadores (interno e externo).
+      const validas = lista.flatMap((a): AptidaoId[] => {
+        const id = a as string
+        if (id === 'indicador') return ['indicador_interno', 'indicador_externo']
+        return FUNCOES_AVI.some((f) => f.id === id) ? [id as AptidaoId] : []
+      })
       aptidoes[id] = [...new Set(validas)]
     }
   }
@@ -71,9 +83,32 @@ export function normalizarDadosAvi(bruto: unknown): DadosAvi {
     }
   }
 
+  const diaSemanaMeio = dados.diaSemanaMeio === 4 ? 4 : 3
+  const diasReuniao = Array.isArray(dados.diasReuniao)
+    ? [...new Set(
+        dados.diasReuniao.filter(
+          (dia): dia is number => Number.isInteger(dia) && dia >= 0 && dia <= 6,
+        ),
+      )]
+    : [0, diaSemanaMeio]
+  const automacao = dados.geracaoAutomatica
+  const geracaoAutomatica = {
+    ativa: automacao?.ativa === true,
+    dia:
+      typeof automacao?.dia === 'number' && Number.isFinite(automacao.dia)
+        ? Math.min(31, Math.max(1, Math.floor(automacao.dia)))
+        : 20,
+    hora:
+      typeof automacao?.hora === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(automacao.hora)
+        ? automacao.hora
+        : '00:00',
+  }
+
   return {
     versao: 1,
-    diaSemanaMeio: dados.diaSemanaMeio === 4 ? 4 : 3,
+    diaSemanaMeio,
+    diasReuniao,
+    geracaoAutomatica,
     aptidoes,
     escalas: escalas as DadosAvi['escalas'],
   }
@@ -110,6 +145,21 @@ export interface EntradaGerarAvi {
 export interface ResultadoAvi {
   auto: Record<string, string>
   designacoes: Record<string, string>
+}
+
+/** Intervalo mínimo (em dias) entre designações, conforme a frequência. */
+const DIAS_POR_FREQUENCIA: Record<string, number> = {
+  semanal: 7,
+  quinzenal: 14,
+  mensal: 28,
+  bimestral: 56,
+}
+
+/** O voluntário aceitou servir naquele tipo de reunião? */
+function aceitaSecao(irmao: IrmaoProjecao, secao: 'fds' | 'meio'): boolean {
+  const reunioes = irmao.reunioes ?? 'ambos'
+  if (reunioes === 'ambos') return true
+  return secao === 'meio' ? reunioes === 'semana' : reunioes === 'fds'
 }
 
 function hash(texto: string): number {
@@ -155,10 +205,36 @@ export function gerarEscalaAvi({
     if (ts > (ultimoTs.get(id) ?? 0)) ultimoTs.set(id, ts)
   }
 
-  function escolher(funcao: AptidaoId, chave: string): string | null {
-    const candidatos = aptosPorFuncao.get(funcao) ?? []
+  function escolher(
+    funcao: AptidaoId,
+    chave: string,
+    secao: 'fds' | 'meio',
+  ): string | null {
+    const candidatos = (aptosPorFuncao.get(funcao) ?? []).filter((id) => {
+      const irmao = porId.get(id)
+      return Boolean(irmao && aceitaSecao(irmao, secao))
+    })
     if (!candidatos.length) return null
-    const ordenados = [...candidatos].sort((a, b) => {
+
+    // Limite mensal é uma preferência: se todos estouraram, ainda escolhe alguém.
+    const dentroDoLimite = candidatos.filter((id) => {
+      const limite = porId.get(id)?.limiteMensal ?? 3
+      return (total.get(id) ?? 0) < limite
+    })
+    const base = dentroDoLimite.length ? dentroDoLimite : candidatos
+
+    // Folga da frequência também é preferência; sem ninguém elegível, relaxa.
+    const iso = chave.slice(0, 10)
+    const dataAtual = Date.parse(`${iso}T12:00:00Z`)
+    const comFolga = base.filter((id) => {
+      const ultimo = ultimoTs.get(id)
+      if (!ultimo) return true
+      const dias = DIAS_POR_FREQUENCIA[porId.get(id)?.frequencia ?? ''] ?? 7
+      return dataAtual - ultimo >= dias * 86_400_000
+    })
+    const elegiveis = comFolga.length ? comFolga : base
+
+    const ordenados = [...elegiveis].sort((a, b) => {
       const placarA = [total.get(a) ?? 0, ultimoTs.get(a) ?? 0, hash(`${semente}|${chave}|${a}`)]
       const placarB = [total.get(b) ?? 0, ultimoTs.get(b) ?? 0, hash(`${semente}|${chave}|${b}`)]
       for (let i = 0; i < placarA.length; i += 1) {
@@ -166,7 +242,7 @@ export function gerarEscalaAvi({
       }
       return 0
     })
-    return ordenados[0]
+    return ordenados[0] ?? null
   }
 
   const auto: Record<string, string> = {}
@@ -184,7 +260,7 @@ export function gerarEscalaAvi({
       const manual = manuais[chave]
 
       if (manual) {
-        const sugestao = escolher(funcao, chave)
+        const sugestao = escolher(funcao, chave, oc.secao)
         if (sugestao) {
           auto[chave] = sugestao
           if (sugestao !== manual) contar(sugestao, oc.iso)
@@ -192,7 +268,7 @@ export function gerarEscalaAvi({
         continue
       }
 
-      const escolhido = escolher(funcao, chave)
+      const escolhido = escolher(funcao, chave, oc.secao)
       if (!escolhido) continue
       auto[chave] = escolhido
       designacoes[chave] = escolhido
@@ -217,7 +293,7 @@ export function gerarAviDoMes(
   if (registro.geradoEm && !forcar) return dados
 
   const { ano, mes } = lerChaveMes(chave)
-  const ocorrencias = ocorrenciasAvi(ano, mes, dados.diaSemanaMeio)
+  const ocorrencias = ocorrenciasAvi(ano, mes, dados.diasReuniao)
   const mantidos = manuais ?? registro.manuais ?? {}
 
   const { auto } = gerarEscalaAvi({

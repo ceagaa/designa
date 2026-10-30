@@ -23,6 +23,7 @@ interface ExportModalProps {
   config: ConfigEscala
   ocorrencias: Ocorrencia[]
   efetivas: Record<string, string>
+  efetivasAjudante?: Record<string, string>
   dirigentes: Dirigente[]
   aoAvisar: (mensagem: string) => void
 }
@@ -37,6 +38,7 @@ export default function ExportModal({
   config,
   ocorrencias,
   efetivas,
+  efetivasAjudante,
   dirigentes,
   aoAvisar,
 }: ExportModalProps) {
@@ -52,12 +54,19 @@ export default function ExportModal({
 
   const link = useMemo(() => {
     try {
-      const payload = montarPayload({ config, chave, ocorrencias, designacoes: efetivas, dirigentes })
+      const payload = montarPayload({
+        config,
+        chave,
+        ocorrencias,
+        designacoes: efetivas,
+        designacoesAjudante: efetivasAjudante,
+        dirigentes,
+      })
       return payload.r.length ? linkDe(payload) : ''
     } catch {
       return ''
     }
-  }, [config, chave, ocorrencias, efetivas, dirigentes])
+  }, [config, chave, ocorrencias, efetivas, efetivasAjudante, dirigentes])
 
   useEffect(() => {
     if (!aberto) return undefined

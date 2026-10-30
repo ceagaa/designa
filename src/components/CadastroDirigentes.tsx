@@ -1,9 +1,26 @@
-import type { AptidaoId, Campo, Dirigente, FrequenciaId, ParticipanteTpl } from '../lib/dominio'
+import type {
+  AptidaoId,
+  Campo,
+  Dirigente,
+  FrequenciaId,
+  ReuniaoAvi,
+  SetorId,
+} from '../lib/dominio'
 import { useMemo, useState } from 'react'
-import { CalendarDays, Check, CircleAlert, Trash, UserPlus } from 'lucide-react'
+import {
+  CalendarDays,
+  Check,
+  CircleAlert,
+  MapPin,
+  Megaphone,
+  Trash,
+  UserPlus,
+  Volume2,
+} from 'lucide-react'
 import { FUNCOES_AVI } from '../lib/dominio'
 import { FREQUENCIAS, HORARIOS_PADRAO, MESES, ORDEM_DIAS, infoDia } from '../lib/constants'
 import { Botao, Chip, Input, Modal, Rotulo, Select, Vazio } from './ui'
+import { BarraFixa } from './CabecalhoDesignacao'
 
 type FormDirigente = Partial<Dirigente> & {
   nome: string
@@ -12,10 +29,60 @@ type FormDirigente = Partial<Dirigente> & {
   frequencia: FrequenciaId | string
   dias: number[]
   horarios: string[]
+  departamento: SetorId
+  reunioes: ReuniaoAvi
+}
+
+const DEPARTAMENTOS: ReadonlyArray<{
+  id: SetorId
+  rotulo: string
+  descricao: string
+  Icone: typeof MapPin
+}> = [
+  {
+    id: 'CAMPO',
+    rotulo: 'Campo',
+    descricao: 'Dirige no serviço de campo, com ou sem ajudante.',
+    Icone: MapPin,
+  },
+  {
+    id: 'AUDIO_VIDEO',
+    rotulo: 'AVI',
+    descricao: 'Áudio, Vídeo & Indicadores nas reuniões.',
+    Icone: Volume2,
+  },
+  {
+    id: 'TPL',
+    rotulo: 'TPL',
+    descricao: 'Testemunho Público Local com o carrinho.',
+    Icone: Megaphone,
+  },
+]
+
+const ROTULO_DEPARTAMENTO: Record<SetorId, string> = {
+  CAMPO: 'Campo',
+  AUDIO_VIDEO: 'AVI',
+  TPL: 'TPL',
+}
+
+const ROTULO_REUNIAO: Record<ReuniaoAvi, string> = {
+  semana: 'Semana',
+  fds: 'Final de semana',
+  ambos: 'Os dois',
 }
 
 function novoId(): string {
   return `dir-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+}
+
+function departamentoDe(
+  d: Dirigente,
+  aptidoes: Record<string, AptidaoId[]> | null,
+): SetorId {
+  if (d.departamento) return d.departamento
+  // Fichas antigas com aptidão eram do AVI; as demais continuam no Campo.
+  if (aptidoes?.[d.id]?.length) return 'AUDIO_VIDEO'
+  return 'CAMPO'
 }
 
 function formularioVazio(frequenciaPadrao?: string): FormDirigente {
@@ -24,8 +91,12 @@ function formularioVazio(frequenciaPadrao?: string): FormDirigente {
     telefone: '',
     ativo: true,
     frequencia: frequenciaPadrao ?? 'quinzenal',
+    limiteMensal: 1,
     dias: [],
     horarios: [],
+    diasAjudante: [],
+    departamento: 'CAMPO',
+    reunioes: 'ambos',
   }
 }
 
@@ -54,12 +125,10 @@ interface CadastroDirigentesProps {
   /** Designações efetivas do mês corrente (iso → id). */
   efetivas: Record<string, string>
   aoAlterar: (lista: Dirigente[]) => void
-  /** Designações AVI por irmão (cadastro unificado). Oculto quando null. */
+  /** Designações AVI por voluntário. Oculto quando null. */
   aptidoes?: Record<string, AptidaoId[]> | null
-  aoAlternarAptidao?: (idIrmao: string, aptidao: AptidaoId) => void
-  /** Participantes do TPL (chave = id da ficha). Oculto quando null. */
-  participantesTpl?: ParticipanteTpl[] | null
-  aoAlternarTpl?: (dirigente: Dirigente) => void
+  /** Salva as designações AVI de um voluntário. */
+  aoDefinirAptidoes?: (idIrmao: string, aptidoes: AptidaoId[]) => void
   /** Abre a tela Locais quando faltam dias de campo. */
   aoConfigurar?: () => void
 }
@@ -73,14 +142,15 @@ export default function CadastroDirigentes({
   efetivas,
   aoAlterar,
   aptidoes = null,
-  aoAlternarAptidao,
-  participantesTpl = null,
-  aoAlternarTpl,
+  aoDefinirAptidoes,
   aoConfigurar,
 }: CadastroDirigentesProps) {
   const [form, setForm] = useState<FormDirigente | null>(null)
+  /** Cadastro novo começa perguntando o departamento; edição vai direto à ficha. */
+  const [etapa, setEtapa] = useState<'departamento' | 'ficha'>('ficha')
   const [erro, setErro] = useState('')
   const [excluindo, setExcluindo] = useState<Dirigente | null>(null)
+  const [aptidoesForm, setAptidoesForm] = useState<AptidaoId[]>([])
 
   const horarios = useMemo(() => {
     const conjunto = new Set([...HORARIOS_PADRAO])
@@ -98,19 +168,26 @@ export default function CadastroDirigentes({
   }, [efetivas])
 
   const resumoMes = `${MESES[mes].slice(0, 3)}/${String(ano).slice(2)}`
+  const temCampo = dirigentes.some((d) => departamentoDe(d, aptidoes) === 'CAMPO')
 
   function abrir(novo: Dirigente | null = null) {
     setErro('')
-    setForm(
-      novo
-        ? {
-            ...novo,
-            dias: [...(novo.dias ?? [])],
-            horarios: [...(novo.horarios ?? [])],
-            diasAjudante: [...(novo.diasAjudante ?? [])],
-          }
-        : formularioVazio(frequenciaPadrao),
-    )
+    if (!novo) {
+      setForm(formularioVazio(frequenciaPadrao))
+      setAptidoesForm([])
+      setEtapa('departamento')
+      return
+    }
+    setForm({
+      ...novo,
+      departamento: departamentoDe(novo, aptidoes),
+      reunioes: novo.reunioes ?? 'ambos',
+      dias: [...(novo.dias ?? [])],
+      horarios: [...(novo.horarios ?? [])],
+      diasAjudante: [...(novo.diasAjudante ?? [])],
+    })
+    setAptidoesForm(aptidoes?.[novo.id] ?? [])
+    setEtapa('ficha')
   }
 
   function fechar() {
@@ -135,22 +212,39 @@ export default function CadastroDirigentes({
     })
   }
 
+  function alternarAptidaoForm(aptidao: AptidaoId) {
+    setAptidoesForm((atual) =>
+      atual.includes(aptidao)
+        ? atual.filter((a) => a !== aptidao)
+        : [...atual, aptidao],
+    )
+  }
+
   function salvar() {
     if (!form?.nome.trim()) {
-      setErro('Informe o nome do dirigente.')
+      setErro('Informe o nome do voluntário.')
       return
     }
 
+    const id = form.id ?? novoId()
+    const departamento = form.departamento
     const registro: Dirigente = {
       ...form,
+      id,
       nome: form.nome.trim(),
       telefone: form.telefone.trim(),
-      id: form.id ?? novoId(),
-      dias: [...form.dias].sort((a, b) => a - b),
-      horarios: form.horarios,
-      ajudante: form.ajudante === true,
+      ativo: form.ativo !== false,
+      departamento,
+      reunioes: departamento === 'AUDIO_VIDEO' ? (form.reunioes ?? 'ambos') : undefined,
+      limiteMensal:
+        form.limiteMensal === 2 || form.limiteMensal === 3 ? form.limiteMensal : 1,
+      dias: departamento === 'CAMPO' ? [...form.dias].sort((a, b) => a - b) : [],
+      horarios: departamento === 'CAMPO' ? [...form.horarios] : [],
+      ajudante: departamento === 'CAMPO' ? form.ajudante === true : false,
       diasAjudante:
-        form.ajudante === true ? [...(form.diasAjudante ?? [])].sort((a, b) => a - b) : undefined,
+        departamento === 'CAMPO' && form.ajudante === true
+          ? [...(form.diasAjudante ?? [])].sort((a, b) => a - b)
+          : undefined,
     }
 
     const existe = dirigentes.some((d) => d.id === registro.id)
@@ -159,7 +253,28 @@ export default function CadastroDirigentes({
         ? dirigentes.map((d) => (d.id === registro.id ? registro : d))
         : [...dirigentes, registro],
     )
+    aoDefinirAptidoes?.(
+      registro.id,
+      departamento === 'AUDIO_VIDEO' ? aptidoesForm : [],
+    )
     fechar()
+  }
+
+  function alternarAtivo(d: Dirigente) {
+    aoAlterar(
+      dirigentes.map((x) =>
+        x.id === d.id ? { ...x, ativo: x.ativo === false } : x,
+      ),
+    )
+  }
+
+  function alternarAptidaoCartao(d: Dirigente, aptidao: AptidaoId) {
+    if (!aoDefinirAptidoes) return
+    const atuais = aptidoes?.[d.id] ?? []
+    const nova = atuais.includes(aptidao)
+      ? atuais.filter((a) => a !== aptidao)
+      : [...atuais, aptidao]
+    aoDefinirAptidoes(d.id, nova)
   }
 
   function remover(id: string) {
@@ -180,166 +295,192 @@ export default function CadastroDirigentes({
       {dirigentes.length ? (
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2 px-0.5">
-            <h2 className="text-lg font-semibold text-ink">Quadro de pessoas</h2>
-            <p className="text-sm text-muted">{dirigentes.length} cadastrados</p>
+            <h2 className="text-lg font-semibold text-ink">Quadro de voluntários</h2>
+            <p className="text-sm text-muted">
+              {dirigentes.length} voluntário{dirigentes.length === 1 ? '' : 's'}
+            </p>
           </div>
 
-            <div className="flex flex-col gap-2">
-              {dirigentes.map((d) => {
-                  const inativo = d.ativo === false
-                  const n = contagem[d.id] ?? 0
-                  const diasTexto = (d.dias ?? []).map((idx) => infoDia(idx).curto).join(' · ')
-                  const nota = inativo
-                    ? 'Fora da escala'
-                    : (d.horarios ?? []).length
-                      ? (d.horarios ?? []).join(' · ')
-                      : 'Sem horário'
+          <div className="flex flex-col gap-2">
+            {dirigentes.map((d) => {
+              const depto = departamentoDe(d, aptidoes)
+              const inativo = d.ativo === false
+              const n = contagem[d.id] ?? 0
+              const diasTexto = (d.dias ?? []).map((idx) => infoDia(idx).curto).join(' · ')
+              const nota =
+                depto === 'CAMPO'
+                  ? (d.horarios ?? []).length
+                    ? (d.horarios ?? []).join(' · ')
+                    : 'Sem horário'
+                  : depto === 'AUDIO_VIDEO'
+                    ? `Reuniões: ${ROTULO_REUNIAO[d.reunioes ?? 'ambos']}`
+                    : 'Escala manual'
 
-                  return (
-                    <article
-                      key={d.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Editar ${d.nome}`}
-                      onClick={() => abrir(d)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          abrir(d)
-                        }
-                      }}
-                      className={`cursor-pointer rounded-2xl bg-card p-4 text-left shadow-sm transition-all hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
-                        inativo ? 'opacity-85 hover:opacity-100' : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span
-                            className={`flex size-12 shrink-0 items-center justify-center rounded-full text-sm font-bold shadow-sm ${
-                              inativo ? 'bg-line text-muted' : 'bg-teal-tint text-teal-deep'
-                            }`}
-                            aria-hidden="true"
-                          >
-                            {iniciais(d.nome)}
-                          </span>
-                          <div className="flex min-w-0 flex-col">
-                            <h3
-                              className={`truncate text-sm font-semibold ${
-                                inativo ? 'text-ink-soft' : 'text-ink'
-                              }`}
-                            >
-                              {d.nome}
-                            </h3>
-                            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px]">
-                              <span
-                                className={`shrink-0 font-medium ${
-                                  inativo ? 'text-muted' : 'text-teal'
-                                }`}
-                              >
-                                {rotuloFrequencia(d.frequencia)}
-                              </span>
-                              {!inativo && diasTexto ? (
-                                <>
-                                  <span className="size-1 shrink-0 rounded-full bg-muted" aria-hidden="true" />
-                                  <span className="truncate text-muted">{diasTexto}</span>
-                                </>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span
-                            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
-                              inativo ? 'bg-line text-ink-soft' : 'bg-success-bg text-success'
-                            }`}
-                          >
-                            <span
-                              className={`size-1.5 rounded-full ${inativo ? 'bg-muted' : 'bg-success'}`}
-                              aria-hidden="true"
-                            />
-                            {inativo ? 'Inativo' : 'Disponível'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-canvas/70 px-3 py-2 text-[13px]">
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <CalendarDays
-                            className={`size-[18px] shrink-0 ${inativo ? 'text-muted' : 'text-teal'}`}
-                            aria-hidden="true"
-                          />
-                          <span className="truncate">
-                            <span className="font-semibold text-ink">
-                              {n} designação{n === 1 ? '' : 's'}
-                            </span>{' '}
-                            <span className="text-muted">em {resumoMes}</span>
-                          </span>
-                        </span>
-                        <span
-                          className={`shrink-0 text-right ${
-                            !inativo && !(d.horarios ?? []).length
-                              ? 'font-medium text-crimson'
-                              : 'text-muted'
+              return (
+                <article
+                  key={d.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Editar ${d.nome}`}
+                  onClick={() => abrir(d)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      abrir(d)
+                    }
+                  }}
+                  className={`cursor-pointer rounded-2xl bg-card p-4 text-left shadow-sm transition-all hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
+                    inativo ? 'opacity-85 hover:opacity-100' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={`flex size-12 shrink-0 items-center justify-center rounded-full text-sm font-bold shadow-sm ${
+                          inativo ? 'bg-line text-muted' : 'bg-teal-tint text-teal-deep'
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {iniciais(d.nome)}
+                      </span>
+                      <div className="flex min-w-0 flex-col">
+                        <h3
+                          className={`truncate text-sm font-semibold ${
+                            inativo ? 'text-ink-soft' : 'text-ink'
                           }`}
                         >
-                          {nota}
-                        </span>
-                      </div>
-
-                      {aptidoes !== null || participantesTpl !== null ? (
-                        <div
-                          className="mt-3 border-t border-line-soft pt-3"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
-                          {participantesTpl !== null && aoAlternarTpl ? (
-                            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-canvas/70 px-3 py-2">
-                              <span className="text-[13px] font-semibold text-ink">
-                                Participa do TPL
-                              </span>
-                              <input
-                                type="checkbox"
-                                checked={participantesTpl.some((p) => p.id === d.id && p.ativo)}
-                                onChange={() => aoAlternarTpl(d)}
-                                className="size-4 shrink-0 accent-teal"
-                                aria-label={`Participa do TPL: ${d.nome}`}
+                          {d.nome}
+                        </h3>
+                        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px]">
+                          <span
+                            className={`shrink-0 font-medium ${
+                              inativo ? 'text-muted' : 'text-teal'
+                            }`}
+                          >
+                            {ROTULO_DEPARTAMENTO[depto]}
+                          </span>
+                          {depto === 'CAMPO' && !inativo && diasTexto ? (
+                            <>
+                              <span
+                                className="size-1 shrink-0 rounded-full bg-muted"
+                                aria-hidden="true"
                               />
-                            </label>
+                              <span className="truncate text-muted">{diasTexto}</span>
+                            </>
                           ) : null}
-
-                          {aptidoes !== null && aoAlternarAptidao ? (
-                            <div className={participantesTpl !== null ? 'mt-2.5' : ''}>
-                              <p className="mb-1.5 text-[12px] font-semibold text-muted">
-                                  Designações AVI
-                              </p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {FUNCOES_AVI.map((f) => (
-                                  <Chip
-                                    key={f.id}
-                                    ativo={(aptidoes[d.id] ?? []).includes(f.id)}
-                                    onClick={() => aoAlternarAptidao(d.id, f.id)}
-                                  >
-                                    {f.rotulo}
-                                  </Chip>
-                                ))}
-                              </div>
-                            </div>
+                          {depto === 'CAMPO' && !diasTexto ? (
+                            <span className="truncate text-muted">
+                              {rotuloFrequencia(d.frequencia)}
+                            </span>
                           ) : null}
                         </div>
-                      ) : null}
-                    </article>
-                  )
-                })}
-              </div>
-          </section>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        aria-pressed={inativo}
+                        aria-label={
+                          inativo
+                            ? `Marcar ${d.nome} como disponível`
+                            : `Marcar ${d.nome} como inativo`
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          alternarAtivo(d)
+                        }}
+                        className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold transition-colors ${
+                          inativo
+                            ? 'bg-line text-ink-soft hover:bg-line-soft'
+                            : 'bg-success-bg text-success hover:bg-success/15'
+                        }`}
+                      >
+                        <span
+                          className={`size-1.5 rounded-full ${
+                            inativo ? 'bg-muted' : 'bg-success'
+                          }`}
+                          aria-hidden="true"
+                        />
+                        {inativo ? 'Inativo' : 'Disponível'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-canvas/70 px-3 py-2 text-[13px]">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <CalendarDays
+                        className={`size-[18px] shrink-0 ${
+                          inativo ? 'text-muted' : 'text-teal'
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">
+                        {depto === 'CAMPO' ? (
+                          <>
+                            <span className="font-semibold text-ink">
+                              {n} designaç{n === 1 ? 'ão' : 'ões'}
+                            </span>{' '}
+                            <span className="text-muted">em {resumoMes}</span>
+                          </>
+                        ) : depto === 'AUDIO_VIDEO' ? (
+                          <span className="font-semibold text-ink">
+                            Áudio, Vídeo & Indicadores
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-ink">
+                            Testemunho Público Local
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span
+                      className={`shrink-0 text-right ${
+                        depto === 'CAMPO' && !inativo && !(d.horarios ?? []).length
+                          ? 'font-medium text-crimson'
+                          : 'text-muted'
+                      }`}
+                    >
+                      {nota}
+                    </span>
+                  </div>
+
+                  {depto === 'AUDIO_VIDEO' &&
+                  aptidoes !== null &&
+                  aoDefinirAptidoes ? (
+                    <div
+                      className="mt-3 border-t border-line-soft pt-3"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <p className="mb-1.5 text-[12px] font-semibold text-muted">
+                        Designações AVI
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {FUNCOES_AVI.map((f) => (
+                          <Chip
+                            key={f.id}
+                            ativo={(aptidoes[d.id] ?? []).includes(f.id)}
+                            onClick={() => alternarAptidaoCartao(d, f.id)}
+                          >
+                            {f.rotulo}
+                          </Chip>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              )
+            })}
+          </div>
+        </section>
       ) : (
         <Vazio
           icone={UserPlus}
-          titulo="Nenhuma pessoa cadastrada. Comece pela ficha: nome, frequência e dias em que a pessoa pode sair ao campo."
+          titulo="Nenhum voluntário cadastrado. Comece pela ficha: nome e departamento."
           acao={
             <Botao variante="primario" onClick={() => abrir()}>
               <UserPlus className="size-4" aria-hidden="true" />
-              Cadastrar primeira pessoa
+              Cadastrar primeiro voluntário
             </Botao>
           }
         />
@@ -348,14 +489,62 @@ export default function CadastroDirigentes({
       <Modal
         aberto={form !== null}
         aoFechar={fechar}
-        titulo={form?.id ? 'Editar pessoa' : 'Nova pessoa'}
-        descricao="Ficha alimenta o rodízio do Campo e os setores."
+        titulo={form?.id ? 'Editar voluntário' : 'Novo voluntário'}
+        descricao="Cada voluntário serve em um departamento."
         largura="max-w-lg"
       >
         {form ? (
+          etapa === 'departamento' ? (
+            <div className="space-y-2 px-5 py-4">
+              <p className="text-sm text-muted">
+                Escolha o departamento primeiro. As opções da ficha aparecem em seguida.
+              </p>
+              {DEPARTAMENTOS.map((dep) => (
+                <button
+                  key={dep.id}
+                  type="button"
+                  onClick={() => {
+                    alternar('departamento', dep.id)
+                    setEtapa('ficha')
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3.5 text-left transition-all hover:border-teal hover:bg-teal-tint active:scale-[0.99]"
+                >
+                  <span
+                    className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-tint text-teal"
+                    aria-hidden="true"
+                  >
+                    <dep.Icone className="size-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-ink">{dep.rotulo}</span>
+                    <span className="block text-[13px] leading-snug text-muted">
+                      {dep.descricao}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
           <div className="space-y-4 px-5 py-4">
+            <fieldset>
+              <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                Departamento
+              </legend>
+              <div className="grid grid-cols-3 gap-1.5">
+                {DEPARTAMENTOS.map((dep) => (
+                  <Chip
+                    key={dep.id}
+                    ativo={form.departamento === dep.id}
+                    onClick={() => alternar('departamento', dep.id)}
+                  >
+                    {dep.rotulo}
+                  </Chip>
+                ))}
+              </div>
+            </fieldset>
+
             <div>
-              <Rotulo htmlFor="dir-nome">Nome da pessoa</Rotulo>
+              <Rotulo htmlFor="dir-nome">Nome</Rotulo>
               <Input
                 id="dir-nome"
                 value={form.nome}
@@ -369,112 +558,200 @@ export default function CadastroDirigentes({
               />
             </div>
 
-            <div>
-              <Rotulo htmlFor="dir-tel">Telefone (opcional)</Rotulo>
-              <Input
-                id="dir-tel"
-                type="tel"
-                inputMode="tel"
-                value={form.telefone}
-                onChange={(e) => alternar('telefone', e.target.value)}
-                placeholder="Ex.: (11) 99999-0000"
-                autoComplete="tel"
-                enterKeyHint="next"
-              />
-            </div>
-
-            <div>
-              <Rotulo htmlFor="dir-freq">Frequência de designação</Rotulo>
-              <Select
-                id="dir-freq"
-                value={form.frequencia}
-                onChange={(e) => alternar('frequencia', e.target.value)}
-              >
-                {FREQUENCIAS.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <fieldset>
-              <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                Dias disponíveis
-              </legend>
-              <div className="flex flex-wrap gap-1.5">
-                {ORDEM_DIAS.map((idx) => (
-                  <Chip
-                    key={idx}
-                    ativo={form.dias.includes(idx)}
-                    onClick={() => alternarNaLista('dias', idx)}
+            {form.departamento === 'CAMPO' ? (
+              <>
+                <div>
+                  <Rotulo htmlFor="dir-freq">Frequência de designação</Rotulo>
+                  <Select
+                    id="dir-freq"
+                    value={form.frequencia}
+                    onChange={(e) => alternar('frequencia', e.target.value)}
                   >
-                    {infoDia(idx).curto}
-                  </Chip>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset>
-              <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                Horários disponíveis
-              </legend>
-              <div className="flex flex-wrap gap-1.5">
-                {horarios.map((h) => (
-                  <Chip
-                    key={h}
-                    ativo={form.horarios.includes(h)}
-                    onClick={() => alternarNaLista('horarios', h)}
-                  >
-                    {h}
-                  </Chip>
-                ))}
-              </div>
-            </fieldset>
-
-            <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-canvas px-3 py-2.5">
-              <input
-                type="checkbox"
-                checked={form.ajudante === true}
-                onChange={(e) => alternar('ajudante', e.target.checked)}
-                className="size-4 accent-teal"
-              />
-              <span className="text-sm font-semibold text-ink">Marcar como ajudante</span>
-            </label>
-
-            {form.ajudante === true ? (
-              <fieldset>
-                <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                  Dias como ajudante
-                </legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {ORDEM_DIAS.map((idx) => (
-                    <Chip
-                      key={idx}
-                      ativo={(form.diasAjudante ?? []).includes(idx)}
-                      onClick={() => alternarNaLista('diasAjudante', idx)}
-                    >
-                      {infoDia(idx).curto}
-                    </Chip>
-                  ))}
+                    {FREQUENCIAS.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
-                <p className="mt-1.5 text-[13px] text-muted">
-                  Sem nenhum dia marcado, ajuda em qualquer dia.
-                </p>
-              </fieldset>
-            ) : null}
 
-            <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-canvas px-3 py-2.5">
-              <input
-                type="checkbox"
-                checked={form.ativo === false}
-                onChange={(e) => alternar('ativo', !e.target.checked)}
-                className="size-4 accent-teal"
-              />
-              <span className="text-sm font-semibold text-ink">
-                Marcar pessoa como inativa
-              </span>
-            </label>
+                <div>
+                  <Rotulo htmlFor="dir-limite-mensal">Frequência mensal</Rotulo>
+                  <Select
+                    id="dir-limite-mensal"
+                    value={form.limiteMensal ?? 1}
+                    onChange={(e) =>
+                      alternar('limiteMensal', Number(e.target.value) as 1 | 2 | 3)
+                    }
+                  >
+                    <option value={1}>1x no mês</option>
+                    <option value={2}>Até 2x no mês</option>
+                    <option value={3}>Até 3x no mês</option>
+                  </Select>
+                  <p className="mt-1.5 text-[13px] text-muted">
+                    Aplica-se ao rodízio. Dias com voluntário fixo não contam neste limite.
+                  </p>
+                </div>
+
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                    Dias disponíveis
+                  </legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ORDEM_DIAS.map((idx) => (
+                      <Chip
+                        key={idx}
+                        ativo={form.dias.includes(idx)}
+                        onClick={() => alternarNaLista('dias', idx)}
+                      >
+                        {infoDia(idx).curto}
+                      </Chip>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                    Horários disponíveis
+                  </legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    {horarios.map((h) => (
+                      <Chip
+                        key={h}
+                        ativo={form.horarios.includes(h)}
+                        onClick={() => alternarNaLista('horarios', h)}
+                      >
+                        {h}
+                      </Chip>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-canvas px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={form.ajudante === true}
+                    onChange={(e) => alternar('ajudante', e.target.checked)}
+                    className="size-4 accent-teal"
+                  />
+                  <span className="text-sm font-semibold text-ink">
+                    Marcar como ajudante
+                  </span>
+                </label>
+
+                {form.ajudante === true ? (
+                  <fieldset>
+                    <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                      Dias como ajudante
+                    </legend>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ORDEM_DIAS.map((idx) => (
+                        <Chip
+                          key={idx}
+                          ativo={(form.diasAjudante ?? []).includes(idx)}
+                          onClick={() => alternarNaLista('diasAjudante', idx)}
+                        >
+                          {infoDia(idx).curto}
+                        </Chip>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-[13px] text-muted">
+                      Sem nenhum dia marcado, ajuda em qualquer dia.
+                    </p>
+                  </fieldset>
+                ) : null}
+
+                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-canvas px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={form.ativo === false}
+                    onChange={(e) => alternar('ativo', !e.target.checked)}
+                    className="size-4 accent-teal"
+                  />
+                  <span className="text-sm font-semibold text-ink">
+                    Marcar pessoa como inativa
+                  </span>
+                </label>
+              </>
+            ) : form.departamento === 'AUDIO_VIDEO' ? (
+              <>
+                <div>
+                  <Rotulo htmlFor="dir-freq">Frequência de designação</Rotulo>
+                  <Select
+                    id="dir-freq"
+                    value={form.frequencia}
+                    onChange={(e) => alternar('frequencia', e.target.value)}
+                  >
+                    {FREQUENCIAS.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                <div>
+                  <Rotulo htmlFor="dir-limite-mensal">Frequência mensal</Rotulo>
+                  <Select
+                    id="dir-limite-mensal"
+                    value={form.limiteMensal ?? 1}
+                    onChange={(e) =>
+                      alternar('limiteMensal', Number(e.target.value) as 1 | 2 | 3)
+                    }
+                  >
+                    <option value={1}>1x no mês</option>
+                    <option value={2}>Até 2x no mês</option>
+                    <option value={3}>Até 3x no mês</option>
+                  </Select>
+                </div>
+
+                <div>
+                  <Rotulo htmlFor="dir-reunioes">Reuniões</Rotulo>
+                  <Select
+                    id="dir-reunioes"
+                    value={form.reunioes ?? 'ambos'}
+                    onChange={(e) =>
+                      alternar('reunioes', e.target.value as ReuniaoAvi)
+                    }
+                  >
+                    <option value="semana">Semana</option>
+                    <option value="fds">Final de semana</option>
+                    <option value="ambos">Os dois</option>
+                  </Select>
+                </div>
+
+                {aoDefinirAptidoes ? (
+                  <fieldset>
+                    <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                      Designações AVI
+                    </legend>
+                    <div className="flex flex-wrap gap-1.5">
+                      {FUNCOES_AVI.map((f) => (
+                        <Chip
+                          key={f.id}
+                          ativo={aptidoesForm.includes(f.id)}
+                          onClick={() => alternarAptidaoForm(f.id)}
+                        >
+                          {f.rotulo}
+                        </Chip>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-[13px] text-muted">
+                      Marque as funções em que o voluntário pode servir.
+                    </p>
+                  </fieldset>
+                ) : (
+                  <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-teal-deep">
+                    As designações AVI são definidas pelo administrador.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-teal-deep">
+                No TPL a ficha usa só o nome. As duplas são montadas manualmente na
+                escala do TPL.
+              </p>
+            )}
 
             {erro ? (
               <p role="alert" className="text-sm font-semibold text-crimson">
@@ -482,9 +759,11 @@ export default function CadastroDirigentes({
               </p>
             ) : null}
 
-            {!form.dias.length || !form.horarios.length ? (
+            {form.departamento === 'CAMPO' &&
+            (!form.dias.length || !form.horarios.length) ? (
               <p className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
-                Sem dias ou horários marcados este dirigente fica fora do rodízio automático.
+                Sem dias ou horários marcados este voluntário fica fora do rodízio
+                automático.
               </p>
             ) : null}
 
@@ -497,20 +776,21 @@ export default function CadastroDirigentes({
               ) : null}
               <Botao variante="primario" className="flex-1" onClick={salvar}>
                 <Check className="size-4" aria-hidden="true" />
-                Salvar dirigente
+                Salvar voluntário
               </Botao>
             </div>
           </div>
+          )
         ) : null}
       </Modal>
 
       <Modal
         aberto={excluindo !== null}
         aoFechar={() => setExcluindo(null)}
-        titulo="Excluir ficha"
+        titulo="Excluir voluntário"
         descricao={
           excluindo
-            ? `${excluindo.nome} sai da equipe e não aparece mais na escala.`
+            ? `${excluindo.nome} sai da equipe e não aparece mais nas escalas.`
             : undefined
         }
         largura="max-w-sm"
@@ -533,11 +813,12 @@ export default function CadastroDirigentes({
         </div>
       </Modal>
 
-      {campos.length ? null : (
+      {!campos.length && temCampo ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
           <p className="flex min-w-0 flex-1 items-start gap-2">
             <CircleAlert className="mt-0.5 size-4 shrink-0 text-crimson" aria-hidden="true" />
-            Configure os dias de campo na tela Locais para que o rodízio comece a distribuir.
+            Configure os dias de campo na tela Locais para que o rodízio comece a
+            distribuir.
           </p>
           {aoConfigurar ? (
             <Botao variante="fantasma" className="shrink-0 text-crimson" onClick={aoConfigurar}>
@@ -545,17 +826,20 @@ export default function CadastroDirigentes({
             </Botao>
           ) : null}
         </div>
-      )}
+      ) : null}
 
-      <button
-        type="button"
-        onClick={() => abrir()}
-        aria-label="Novo dirigente"
-        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-30 flex h-14 items-center gap-2 rounded-full bg-teal pl-4 pr-5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(13,92,104,0.35)] transition-all hover:bg-teal-deep active:scale-95"
-      >
-        <UserPlus className="size-5" aria-hidden="true" />
-        Nova pessoa
-      </button>
+      {/* Barra fixa acima da Bottom Nav: novo voluntário em largura total. */}
+      <BarraFixa>
+        <Botao
+          variante="primario"
+          aria-label="Novo voluntário"
+          className="w-full py-3.5 text-base shadow-sm"
+          onClick={() => abrir()}
+        >
+          <UserPlus className="size-5" aria-hidden="true" />
+          Novo voluntário
+        </Botao>
+      </BarraFixa>
     </div>
   )
 }

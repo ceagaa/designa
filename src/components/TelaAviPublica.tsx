@@ -128,17 +128,18 @@ export default function TelaAviPublica({
           <p className="text-sm text-muted">
             Não foi possível carregar esta escala. Verifique o link.
           </p>
-          <Botao
-            variante="secundario"
-            className="mt-3"
-            onClick={() => {
-              setEstado('carregando')
-              setTentativa((t) => t + 1)
-            }}
-          >
-            <RefreshCcw className="size-4" aria-hidden="true" />
-            Tentar de novo
-          </Botao>
+          <div className="mt-3 flex justify-center gap-2">
+            <Botao
+              variante="secundario"
+              onClick={() => {
+                setEstado('carregando')
+                setTentativa((t) => t + 1)
+              }}
+            >
+              <RefreshCcw className="size-4" aria-hidden="true" />
+              Tentar de novo
+            </Botao>
+          </div>
         </div>
       ) : estado === 'vazio' ? (
         <div className="mt-6 rounded-xl bg-card p-5 text-center shadow-sm">
@@ -185,14 +186,6 @@ export default function TelaAviPublica({
           <p className="text-center text-[13px] text-muted">
             Arraste o cartão para o lado para ver todas as funções.
           </p>
-
-          <Botao
-            variante="secundario"
-            className="w-full"
-            onClick={() => window.location.assign('/')}
-          >
-            Ir para o app
-          </Botao>
         </div>
       )}
 

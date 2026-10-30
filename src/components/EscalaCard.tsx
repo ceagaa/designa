@@ -232,7 +232,7 @@ const EscalaCard = forwardRef(function EscalaCard(
                     Local
                   </th>
                   <th scope="col" className="h-[41px] font-bold" style={coluna}>
-                    Dirigente
+                    Voluntário
                   </th>
                   <th scope="col" className="h-[41px] font-bold" style={coluna}>
                     Ajudante
@@ -292,7 +292,7 @@ const EscalaCard = forwardRef(function EscalaCard(
                             <>
                               <select
                                 id={`dirigente-${chave0}`}
-                                aria-label={`Dirigente designado para ${linha.rotulo}`}
+                                aria-label={`Voluntário designado para ${linha.rotulo}`}
                                 className="selecao-dirigente w-full cursor-pointer appearance-none border-0 bg-transparent px-1 py-1 text-center font-bold outline-none hover:bg-white/50"
                                 style={{ color: CORES.texto }}
                                 value={primeiroId}

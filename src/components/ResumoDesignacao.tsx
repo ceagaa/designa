@@ -1,17 +1,11 @@
 import type { Campo, Dirigente, Ocorrencia } from '../lib/dominio'
-import type { ReactNode } from 'react'
 import { useState } from 'react'
 import {
   CalendarDays,
   CalendarPlus,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardCopy,
   Clock,
-  Eye,
   Map as Mapa,
   MapPin,
-  MoreVertical,
   PencilLine,
   Sparkles,
   Trash2,
@@ -20,6 +14,8 @@ import { MESES, nomeDiaCurto } from '../lib/constants'
 import { isoDeHoje } from '../lib/datas'
 import { rotuloEspecial } from '../lib/feriados'
 import { Botao, Kicker, Modal } from './ui'
+import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
+import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
 
 function ddMm(iso: string): string {
   return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
@@ -32,18 +28,13 @@ const [HOJE_ANO, HOJE_MES] = HOJE_ISO.split('-').map(Number)
 /** Hora atual (HH:MM) resolvida uma vez: escolhe a saída certa em dias com várias saídas. */
 const AGORA_HHMM = new Date().toTimeString().slice(0, 5)
 
-interface Status {
-  rotulo: string
-  estilo: string
-  ponto: string
-}
-
 /** Card de destaque em gradiente: quem dirige (hoje/próxima saída). */
 function CardHero({
   rotulo,
   especial,
   dia,
   nome,
+  ajudante,
   local,
   horario,
   ehHoje,
@@ -52,6 +43,7 @@ function CardHero({
   especial: string | null
   dia: string
   nome: string | null
+  ajudante?: string | null
   local: string
   horario: string
   ehHoje: boolean
@@ -89,12 +81,17 @@ function CardHero({
         <p className="text-[34px] font-extrabold leading-tight sm:text-4xl">
           {nome ?? 'Sem designação'}
         </p>
+        {ajudante ? (
+          <p className="mt-0.5 text-sm text-white/75">
+            <span className="font-semibold text-white/60">Ajudante:</span> {ajudante}
+          </p>
+        ) : null}
         <p className="mt-1 text-sm text-white/80">
           {nome
             ? ehHoje
               ? 'Designação confirmada para a reunião de campo de hoje.'
               : 'Designação confirmada para esta reunião de campo.'
-            : 'Nenhum dirigente escalado para esta reunião de campo.'}
+            : 'Nenhum voluntário escalado para esta reunião de campo.'}
         </p>
       </div>
       <div className="relative z-10 mt-4 grid grid-cols-2 gap-2">
@@ -114,50 +111,7 @@ function CardHero({
           Em breve
         </span>
       </div>
-      <p className="relative z-10 mt-1.5 text-xs text-white/70">
-        O mapa do território (PDF, imagem ou link) abre aqui, abaixo do local e horário.
-      </p>
     </section>
-  )
-}
-
-/** Item do menu ⋮ (ações da escala). */
-function ItemMenu({
-  icone,
-  cor,
-  titulo,
-  texto,
-  onClick,
-  desabilitado,
-  aoFecharMenu,
-}: {
-  icone: ReactNode
-  cor: string
-  titulo: string
-  texto: string
-  onClick: () => void
-  desabilitado?: boolean
-  aoFecharMenu: () => void
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      disabled={desabilitado}
-      onClick={() => {
-        aoFecharMenu()
-        onClick()
-      }}
-      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50`}
-    >
-      <span className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg ${cor}`} aria-hidden="true">
-        {icone}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-ink">{titulo}</span>
-        <span className="block text-[12px] leading-snug text-muted">{texto}</span>
-      </span>
-    </button>
   )
 }
 
@@ -167,9 +121,11 @@ interface ResumoDesignacaoProps {
   aoMudarData: (ano: number, mes: number) => void
   ocorrencias: Ocorrencia[]
   efetivas: Record<string, string>
+  efetivasAjudante: Record<string, string>
   dirigentes: Dirigente[]
   campos: Campo[]
   pronta: boolean
+  gerado: boolean
   proximoNome: string
   proximoPronto: boolean
   aoAdiantar: () => void
@@ -177,8 +133,9 @@ interface ResumoDesignacaoProps {
   aoMontar: () => void
   aoGerar: () => void
   aoLimparDesignacao: () => void
-  aoVer: () => void
-  aoCopiarLink: () => void
+  aoBaixarPdf: () => void
+  pdfOcupado: boolean
+  aoCompartilharLink: () => void
   aoConfigurar: () => void
   aoCadastrar: () => void
 }
@@ -189,9 +146,11 @@ export default function ResumoDesignacao({
   aoMudarData,
   ocorrencias,
   efetivas,
+  efetivasAjudante,
   dirigentes,
   campos,
   pronta,
+  gerado,
   proximoNome,
   proximoPronto,
   aoAdiantar,
@@ -199,12 +158,12 @@ export default function ResumoDesignacao({
   aoMontar,
   aoGerar,
   aoLimparDesignacao,
-  aoVer,
-  aoCopiarLink,
+  aoBaixarPdf,
+  pdfOcupado,
+  aoCompartilharLink,
   aoConfigurar,
   aoCadastrar,
 }: ResumoDesignacaoProps) {
-  const [menuAberto, setMenuAberto] = useState(false)
   const [gerarAberto, setGerarAberto] = useState(false)
   const [adiantarAberto, setAdiantarAberto] = useState(false)
   const [limparAberto, setLimparAberto] = useState(false)
@@ -238,12 +197,18 @@ export default function ResumoDesignacao({
   const semCampos = !campos.length
   const semDirigentes = !dirigentes.length
 
-  const status: Status = semCampos
+  const status: StatusDesignacao = semCampos
     ? { rotulo: 'Sem dias de campo', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
     : !ocorrencias.length
       ? { rotulo: 'Mês sem saídas', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
       : pronta
         ? { rotulo: 'Designação pronta', estilo: 'bg-success-bg text-success', ponto: 'bg-success' }
+        : gerado
+          ? {
+              rotulo: `Gerada · ${pendentes} sem designação`,
+              estilo: 'bg-crimson-bg text-crimson',
+              ponto: 'bg-crimson',
+            }
         : {
             rotulo: 'Pendente de montar',
             estilo: 'bg-crimson-bg text-crimson',
@@ -251,6 +216,9 @@ export default function ResumoDesignacao({
           }
 
   const nomeDestaque = destaque ? porId.get(efetivas[destaque.key])?.nome : undefined
+  const ajudanteDestaque = destaque
+    ? porId.get(efetivasAjudante[destaque.key])?.nome ?? null
+    : null
 
   const rotuloDestaque = deHoje
     ? 'Quem dirige hoje'
@@ -258,101 +226,47 @@ export default function ResumoDesignacao({
       ? 'Próxima saída'
       : 'Primeira saída'
 
+  const acoesMenu: AcaoMenu[] = [
+    {
+      icone: <Sparkles className="size-4" />,
+      cor: 'bg-teal text-white',
+      titulo: 'Gerar escala',
+      texto: semCampos ? 'Cadastre dias de campo primeiro' : 'Monta o mês pelo rodízio',
+      desabilitado: semCampos,
+      onClick: () => setGerarAberto(true),
+    },
+    {
+      icone: <CalendarPlus className="size-4" />,
+      cor: 'bg-success-bg text-success',
+      titulo: proximoPronto
+        ? `Ver escala de ${proximoNome}`
+        : `Adiantar escala de ${proximoNome}`,
+      texto: proximoPronto
+        ? 'Próxima escala já gerada — confira.'
+        : 'Gera a escala do mês seguinte com antecedência',
+      desabilitado: !proximoPronto && (semCampos || semDirigentes),
+      onClick: () => (proximoPronto ? aoVerProximo() : setAdiantarAberto(true)),
+    },
+    {
+      icone: <Trash2 className="size-4" />,
+      cor: 'bg-wine-soft text-wine',
+      titulo: 'Limpar designação',
+      texto: 'Apaga automáticas e ajustes do mês',
+      desabilitado: !designados && !gerado,
+      onClick: () => setLimparAberto(true),
+    },
+  ]
+
   return (
     <div className="space-y-6">
       {/* Seletor único de mês + chip de status + menu ⋮ */}
-      <header className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-1 rounded-xl bg-card p-1 shadow-sm">
-          <button
-            type="button"
-            aria-label="Mês anterior"
-            onClick={() => (mes === 0 ? aoMudarData(ano - 1, 11) : aoMudarData(ano, mes - 1))}
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-canvas text-teal transition-all hover:bg-teal-tint active:scale-95"
-          >
-            <ChevronLeft className="size-5" aria-hidden="true" />
-          </button>
-          <p className="min-w-0 flex-1 truncate px-1 text-center text-[15px] font-bold tracking-tight text-ink">
-            {MESES[mes]} <span className="font-semibold text-muted">{ano}</span>
-          </p>
-          <button
-            type="button"
-            aria-label="Próximo mês"
-            onClick={() => (mes === 11 ? aoMudarData(ano + 1, 0) : aoMudarData(ano, mes + 1))}
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-canvas text-teal transition-all hover:bg-teal-tint active:scale-95"
-          >
-            <ChevronRight className="size-5" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="relative flex shrink-0 items-center gap-1.5">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${status.estilo}`}
-            role="status"
-          >
-            <span className={`size-1.5 rounded-full ${status.ponto}`} aria-hidden="true" />
-            {status.rotulo}
-          </span>
-          <button
-            type="button"
-            aria-label="Ações da designação"
-            aria-haspopup="menu"
-            aria-expanded={menuAberto}
-            onClick={() => setMenuAberto((aberto) => !aberto)}
-            className="flex size-9 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-canvas hover:text-ink"
-          >
-            <MoreVertical className="size-5" aria-hidden="true" />
-          </button>
-
-          {menuAberto ? (
-            <>
-              <button
-                type="button"
-                aria-label="Fechar menu"
-                tabIndex={-1}
-                onClick={() => setMenuAberto(false)}
-                className="fixed inset-0 z-20 cursor-default"
-              />
-              <div
-                role="menu"
-                aria-label="Ações da designação"
-                className="absolute right-0 top-full z-30 mt-1.5 w-[17rem] divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-card py-0.5 shadow-xl"
-              >
-                <ItemMenu
-                  icone={<Sparkles className="size-4" />}
-                  cor="bg-teal text-white"
-                  titulo="Gerar escala"
-                  texto={semCampos ? 'Cadastre dias de campo primeiro' : 'Monta o mês pelo rodízio'}
-                  desabilitado={semCampos}
-                  onClick={() => setGerarAberto(true)}
-                  aoFecharMenu={() => setMenuAberto(false)}
-                />
-                <ItemMenu
-                  icone={<CalendarPlus className="size-4" />}
-                  cor="bg-success-bg text-success"
-                  titulo={proximoPronto ? `Ver escala de ${proximoNome}` : `Adiantar escala de ${proximoNome}`}
-                  texto={
-                    proximoPronto
-                      ? 'Próxima escala já gerada — confira.'
-                      : 'Gera a escala do mês seguinte com antecedência'
-                  }
-                  desabilitado={!proximoPronto && (semCampos || semDirigentes)}
-                  onClick={() => (proximoPronto ? aoVerProximo() : setAdiantarAberto(true))}
-                  aoFecharMenu={() => setMenuAberto(false)}
-                />
-                <ItemMenu
-                  icone={<Trash2 className="size-4" />}
-                  cor="bg-wine-soft text-wine"
-                  titulo="Limpar designação"
-                  texto="Apaga automáticas e ajustes do mês"
-                  desabilitado={!designados}
-                  onClick={() => setLimparAberto(true)}
-                  aoFecharMenu={() => setMenuAberto(false)}
-                />
-              </div>
-            </>
-          ) : null}
-        </div>
-      </header>
+      <CabecalhoDesignacao
+        ano={ano}
+        mes={mes}
+        aoMudarData={aoMudarData}
+        status={status}
+        acoes={acoesMenu}
+      />
 
       {destaque ? (
         <CardHero
@@ -360,6 +274,7 @@ export default function ResumoDesignacao({
           especial={rotuloEspecial(destaque)}
           dia={`${nomeDiaCurto(destaque.diaSemana)}, ${ddMm(destaque.iso)}`}
           nome={nomeDestaque ?? null}
+          ajudante={ajudanteDestaque}
           local={destaque.campo.local}
           horario={destaque.campo.horario}
           ehHoje={Boolean(deHoje)}
@@ -399,6 +314,7 @@ export default function ResumoDesignacao({
           <div className="flex flex-col gap-2">
             {lista.map((oc) => {
               const nome = porId.get(efetivas[oc.key])?.nome
+              const ajudante = porId.get(efetivasAjudante[oc.key])?.nome
               const especial = rotuloEspecial(oc)
               const ehHoje = oc.iso === HOJE_ISO
               return (
@@ -441,6 +357,11 @@ export default function ResumoDesignacao({
                       ) : (
                         <span className="text-crimson">Sem designação</span>
                       )}
+                      {ajudante && nome ? (
+                        <span className="ml-1.5 text-[13px] font-semibold text-muted">
+                          + {ajudante}
+                        </span>
+                      ) : null}
                     </span>
                   </span>
                 </article>
@@ -463,37 +384,38 @@ export default function ResumoDesignacao({
           onClick={aoMontar}
         >
           <PencilLine className="size-5" aria-hidden="true" />
-          Ajustar dias
+          Ajustar escala
         </Botao>
         <p className="mt-2 text-center text-[13px] text-muted">
-          Abre a tabela do mês: troque dirigente e ajudante dia a dia.
+          Abre a tabela do mês: troque o voluntário e o ajudante dia a dia.
         </p>
       </div>
 
-      {/* Barra fixa acima da Bottom Nav: prévia/PDF e link. */}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-30 border-t border-line bg-surface/95 px-4 py-2.5 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-[640px] gap-2">
-          <Botao
-            variante="primario"
-            className="min-w-0 flex-1"
-            disabled={!pronta}
-            onClick={aoVer}
-            title={pronta ? undefined : 'Gere a designação primeiro'}
-          >
-            <Eye className="size-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">Ver e Baixar PDF</span>
-          </Botao>
-          <Botao
-            className="min-w-0 flex-1"
-            disabled={!pronta}
-            onClick={aoCopiarLink}
-            title={pronta ? undefined : 'Gere a designação primeiro'}
-          >
-            <ClipboardCopy className="size-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">Copiar link</span>
-          </Botao>
-        </div>
-      </div>
+      {/* Barra fixa acima da Bottom Nav: gerar, PDF e link. */}
+      <BarraAcoesDesignacao
+        primaria={{
+          rotulo: 'Gerar',
+          icone: <Sparkles className="size-4" aria-hidden="true" />,
+          desabilitado: semCampos,
+          titulo: semCampos ? 'Cadastre dias de campo primeiro' : undefined,
+          onClick: () => setGerarAberto(true),
+        }}
+        pdf={{
+          onClick: aoBaixarPdf,
+          desabilitado: !gerado,
+          ocupado: pdfOcupado,
+          titulo: gerado ? undefined : 'Gere a designação primeiro',
+        }}
+        link={{
+          onClick: aoCompartilharLink,
+          desabilitado: !gerado || !ocorrencias.some((oc) => efetivas[oc.key]),
+          titulo: !gerado
+            ? 'Gere a designação primeiro'
+            : ocorrencias.some((oc) => efetivas[oc.key])
+              ? undefined
+              : 'Designe pelo menos um voluntário para compartilhar',
+        }}
+      />
 
       {/* Confirmar geração */}
       <Modal
@@ -522,7 +444,7 @@ export default function ResumoDesignacao({
                   aoCadastrar()
                 }}
               >
-                Cadastrar dirigentes
+                Cadastrar voluntários
               </Botao>
             ) : (
               <Botao

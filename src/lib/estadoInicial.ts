@@ -129,9 +129,11 @@ export function registroDe(escalas: Escalas, chave: string): RegistroMes {
   return {
     auto: registro.auto ?? {},
     manuais: registro.manuais ?? {},
+    removidas: registro.removidas ?? {},
     autoAjudante: registro.autoAjudante ?? {},
     manuaisAjudante: registro.manuaisAjudante ?? {},
     geradoEm: registro.geradoEm,
+    limpa: registro.limpa === true,
   }
 }
 
@@ -180,8 +182,26 @@ export function normalizarEstado(bruto: unknown): Estado {
       ajudanteFixo: c.ajudanteFixo || null,
     }))
 
+  const normalizarDirigentes = (lista: Dirigente[]): Dirigente[] =>
+    lista.map((d) => ({
+      ...d,
+      limiteMensal:
+        d.limiteMensal === 2 || d.limiteMensal === 3 ? d.limiteMensal : 1,
+      // Registros antigos ficam sem departamento e são tratados como Campo.
+      departamento:
+        d.departamento === 'CAMPO' ||
+        d.departamento === 'AUDIO_VIDEO' ||
+        d.departamento === 'TPL'
+          ? d.departamento
+          : undefined,
+      reunioes:
+        d.reunioes === 'semana' || d.reunioes === 'fds' ? d.reunioes : 'ambos',
+    }))
+
   return {
-    dirigentes: Array.isArray(dados.dirigentes) ? dados.dirigentes : base.dirigentes,
+    dirigentes: Array.isArray(dados.dirigentes)
+      ? normalizarDirigentes(dados.dirigentes)
+      : base.dirigentes,
     config_campos: Array.isArray(dados.config_campos)
       ? normalizarCampos(dados.config_campos)
       : base.config_campos,

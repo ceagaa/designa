@@ -27,11 +27,11 @@ export function decodificar(texto: string): PayloadCompartilhado | null {
       c: bruto.c,
       a: Number(bruto.a) || 0,
       m: Number(bruto.m) || 0,
-      r: bruto.r.map((linha): [string, string, string, string, string?] => {
-        const [iso = '', horario = '', local = '', nome = '', fixo = ''] = Array.isArray(linha)
+      r: bruto.r.map((linha): [string, string, string, string, string?, string?] => {
+        const [iso = '', horario = '', local = '', nome = '', fixo = '', ajudante = ''] = Array.isArray(linha)
           ? linha
           : []
-        return [String(iso), String(horario), String(local), String(nome), String(fixo)]
+        return [String(iso), String(horario), String(local), String(nome), String(fixo), String(ajudante)]
       }),
     }
   } catch {
@@ -44,19 +44,23 @@ export interface EntradaPayload {
   chave: string
   ocorrencias: Ocorrencia[]
   designacoes: Record<string, string>
+  /** Ajudantes por dia (opcional: só o Campo usa). */
+  designacoesAjudante?: Record<string, string>
   dirigentes: Dirigente[]
 }
 
 /**
  * Monta o payload mínimo da designação pronta: cabeçalho + linhas
- * [iso, horário, local, nome] — cabe em um link de WhatsApp. Dias fixos
- * (designação fixa + "Quem dirige") ganham o marcador '1' no fim da linha.
+ * [iso, horário, local, nome, fixo?, ajudante?] — cabe em um link de
+ * WhatsApp. Dias fixos (designação fixa + "Quem dirige") ganham o marcador
+ * '1' no 5º campo; o ajudante, quando há, vem no 6º.
  */
 export function montarPayload({
   config,
   chave,
   ocorrencias,
   designacoes,
+  designacoesAjudante = {},
   dirigentes,
 }: EntradaPayload): PayloadCompartilhado {
   const { ano, mes } = lerChaveMes(chave)
@@ -64,14 +68,16 @@ export function montarPayload({
 
   const linhas = ocorrencias
     .filter((oc) => designacoes[oc.key])
-    .map((oc): [string, string, string, string, string?] => {
+    .map((oc): [string, string, string, string, string?, string?] => {
       const base: [string, string, string, string] = [
         oc.iso,
         String(oc.campo.horario),
         String(oc.campo.local),
         porId.get(designacoes[oc.key])?.nome ?? '',
       ]
-      if (config.designacao_fixa && oc.campo.fixo) return [base[0], base[1], base[2], base[3], '1']
+      const nomeAjudante = porId.get(designacoesAjudante[oc.key])?.nome ?? ''
+      const marcador = config.designacao_fixa && oc.campo.fixo ? '1' : ''
+      if (marcador || nomeAjudante) return [base[0], base[1], base[2], base[3], marcador, nomeAjudante]
       return base
     })
 

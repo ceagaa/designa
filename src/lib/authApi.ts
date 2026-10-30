@@ -157,6 +157,22 @@ export async function listarConvites(): Promise<ConviteListado[]> {
   return dados.convites
 }
 
+export async function removerConvite(token: string): Promise<void> {
+  await pedir(`/api/convites/${encodeURIComponent(token)}`, { method: 'DELETE' })
+}
+
+export async function atualizarCongregacao(dados: {
+  nome: string
+  numero: string
+}): Promise<Usuario> {
+  const resposta = await pedir<{ usuario: Usuario }>('/api/congregacao', {
+    method: 'PUT',
+    body: JSON.stringify(dados),
+  })
+  guardarSessaoLocal(resposta.usuario)
+  return resposta.usuario
+}
+
 /** Membro da equipe (contas da congregação) — admin. */
 export interface MembroEquipe {
   id: string
@@ -211,10 +227,13 @@ export function textoErroAuth(codigo: string): string {
     convite_invalido: 'Convite inválido. Peça um novo link ao administrador.',
     convite_expirado: 'Este convite expirou (validade de 7 dias). Peça um novo link.',
     convite_usado: 'Este convite já foi usado. Peça um novo link ao administrador.',
+    convite_nao_encontrado: 'Este convite já foi removido.',
     pin_invalido: 'PIN incorreto — tente novamente.',
     falha_cadastro: 'Não foi possível criar a conta agora. Tente de novo.',
     falha_login: 'Não foi possível entrar agora. Tente de novo.',
     falha_aceite: 'Não foi possível concluir o convite agora. Tente de novo.',
+    numero_congregacao_invalido: 'O número da congregação deve ter até 30 caracteres.',
+    falha_atualizacao_congregacao: 'Não foi possível atualizar a congregação agora.',
   }
   return textos[codigo] ?? 'Não foi possível concluir. Verifique os dados e tente de novo.'
 }

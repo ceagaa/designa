@@ -53,7 +53,7 @@ const TplCard = forwardRef(function TplCard(
                 Dia
               </th>
               <th scope="col" className="h-[40px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
-                Ponto de apoio
+                Retirada / local
               </th>
               <th scope="col" className="h-[40px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
                 Turno
@@ -77,7 +77,10 @@ const TplCard = forwardRef(function TplCard(
                   ) : null}
                 </td>
                 <td className="h-[38px] px-2" style={borda}>
-                  {linha.ponto}
+                  <span className="block font-semibold">{linha.ponto}</span>
+                  {linha.local ? (
+                    <span className="block text-[12px]">Trabalho: {linha.local}</span>
+                  ) : null}
                 </td>
                 <td className="h-[38px] px-2" style={borda}>
                   {linha.turno}

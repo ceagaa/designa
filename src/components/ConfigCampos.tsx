@@ -11,10 +11,11 @@ import {
   Link2,
   Loader2,
   MapPin,
-  RefreshCw,
+  Radio,
   Send,
   ShieldCheck,
   Trash2,
+  ShoppingCart,
   UserPlus,
   Users,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ import {
   gerarConvite,
   listarConvites,
   listarEquipe,
+  removerConvite,
   removerEquipe,
   textoErroAuth,
 } from '../lib/authApi'
@@ -43,9 +45,9 @@ function dataCurta(iso: string): string {
 }
 
 const DESCRICAO_SETOR: Record<SetorId, string> = {
-  CAMPO: 'Designação, dirigentes e locais',
+  CAMPO: 'Designação, voluntários e locais',
   AUDIO_VIDEO: 'Designações e escala AVI',
-  TPL: 'Escala de TPL com link público',
+  TPL: 'Estrutura e escala manual do TPL',
 }
 
 /** Horários oferecidos para o feriado: 05:00 às 21:30, de 30 em 30 minutos. */
@@ -187,6 +189,11 @@ interface ConfigCamposProps {
   admin?: boolean
   /** Id da conta logada (evita remover a própria conta na tela). */
   usuarioId?: string
+  congregacaoNumero?: string
+  visao?: 'geral' | 'campo'
+  aoIrParaSetor?: (setor: SetorId) => void
+  aoIrParaPessoas?: () => void
+  aoSalvarCongregacao?: (nome: string, numero: string) => Promise<void>
   aoAlterarConfig: (patch: Partial<ConfigEscala>) => void
   aoExportar: () => void
   aoCopiarLink: () => void
@@ -221,6 +228,11 @@ export default function ConfigCampos({
   campos,
   admin = false,
   usuarioId,
+  congregacaoNumero = '',
+  visao = 'geral',
+  aoIrParaSetor,
+  aoIrParaPessoas,
+  aoSalvarCongregacao,
   aoAlterarConfig,
   aoExportar,
   aoCopiarLink,
@@ -228,6 +240,11 @@ export default function ConfigCampos({
   aoAvisar,
 }: ConfigCamposProps) {
   const [editandoCong, setEditandoCong] = useState(false)
+  const [nomeCongregacao, setNomeCongregacao] = useState(config.congregacao)
+  const [numeroCongregacao, setNumeroCongregacao] = useState(congregacaoNumero)
+  const [salvandoCongregacao, setSalvandoCongregacao] = useState(false)
+  const [erroCongregacao, setErroCongregacao] = useState('')
+  const [editandoCabecalho, setEditandoCabecalho] = useState(false)
   const [push, setPush] = useState<EstadoNotificacoes | null>(null)
   const [pushOcupado, setPushOcupado] = useState(false)
   const [pushMensagem, setPushMensagem] = useState<string | null>(null)
@@ -242,6 +259,8 @@ export default function ConfigCampos({
   const [membroRemovendo, setMembroRemovendo] = useState<MembroEquipe | null>(null)
   const [removendoOcupado, setRemovendoOcupado] = useState(false)
   const [equipeErro, setEquipeErro] = useState<string | null>(null)
+  const [conviteRemovendo, setConviteRemovendo] = useState<ConviteVisivel | null>(null)
+  const [conviteRemocaoOcupada, setConviteRemocaoOcupada] = useState(false)
 
   useEffect(() => {
     let vivo = true
@@ -346,6 +365,55 @@ export default function ConfigCampos({
     }
   }
 
+  async function aoConfirmarRemocaoConvite() {
+    if (!conviteRemovendo) return
+    setConviteRemocaoOcupada(true)
+    setConviteErro(null)
+    try {
+      await removerConvite(conviteRemovendo.token)
+      const lista = await listarConvites()
+      setConvites(
+        lista.map((convite) => ({
+          ...convite,
+          criadoFmt: dataCurta(convite.criado_em),
+          expiraFmt: dataCurta(convite.expira_em),
+        })),
+      )
+      setConviteRemovendo(null)
+      aoAvisar?.('Link de convite removido.')
+    } catch (falha) {
+      setConviteErro(falha instanceof ErroAuth ? textoErroAuth(falha.codigo) : 'Falha de conexão.')
+    } finally {
+      setConviteRemocaoOcupada(false)
+    }
+  }
+
+  async function salvarCongregacao() {
+    if (!nomeCongregacao.trim()) {
+      setErroCongregacao('Informe o nome da congregação.')
+      return
+    }
+    if (!aoSalvarCongregacao) return
+    setSalvandoCongregacao(true)
+    setErroCongregacao('')
+    try {
+      await aoSalvarCongregacao(nomeCongregacao.trim(), numeroCongregacao.trim())
+      setEditandoCong(false)
+      aoAvisar?.('Dados da congregação atualizados.')
+    } catch {
+      setErroCongregacao('Não foi possível salvar. Verifique a conexão e tente novamente.')
+    } finally {
+      setSalvandoCongregacao(false)
+    }
+  }
+
+  function abrirEdicaoCongregacao() {
+    setNomeCongregacao(config.congregacao)
+    setNumeroCongregacao(congregacaoNumero)
+    setErroCongregacao('')
+    setEditandoCong(true)
+  }
+
   async function aoAtivarPush() {
     setPushOcupado(true)
     setPushMensagem(null)
@@ -377,57 +445,111 @@ export default function ConfigCampos({
   return (
     <div className="space-y-6">
       <header>
-        <Kicker className="text-muted">Ajustes do sistema</Kicker>
-        <h1 className="mt-1 text-[26px] font-bold tracking-tight text-ink">Configurações</h1>
-        <p className="mt-1.5 text-sm text-muted">
-          Conta, equipe e ajustes do <span className="font-semibold text-ink">setor Campo</span>.
-          AVI e TPL são configurados dentro da tela de cada setor.
-        </p>
+        <Kicker className="text-muted">
+          {visao === 'geral' ? 'Configurações gerais' : 'Setor'}
+        </Kicker>
+        <h1 className="mt-1 text-[26px] font-bold tracking-tight text-ink">
+          {visao === 'geral' ? 'Configurações' : 'Campo'}
+        </h1>
+        {visao === 'geral' ? (
+          <p className="mt-1.5 text-sm text-muted">
+            Congregação, equipe, convites, notificações e configurações por setor.
+          </p>
+        ) : null}
       </header>
 
-      <div className="rounded-xl bg-card p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3.5">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
-              <Building2 className="size-6" aria-hidden="true" />
-            </span>
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold text-ink">
-                {config.congregacao || config.titulo || 'Minha congregação'}
-              </span>
-              <div className="mt-0.5 flex min-w-0 items-center gap-2">
-                <span className="truncate text-[13px] text-muted">{config.titulo}</span>
-                <span className="text-[10px] text-muted" aria-hidden="true">
-                  •
+      {visao === 'geral' ? (
+        <>
+          <div className="rounded-xl bg-card p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3.5">
+                <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
+                  <Building2 className="size-6" aria-hidden="true" />
                 </span>
-                <span className="shrink-0 rounded-full bg-success-bg px-2 py-0.5 text-[11px] font-bold text-success">
-                  Em uso
-                </span>
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-sm font-semibold text-ink">
+                    {config.congregacao || config.titulo || 'Minha congregação'}
+                  </span>
+                  <span className="mt-0.5 text-[13px] text-muted">
+                    {congregacaoNumero ? `Nº ${congregacaoNumero}` : 'Número não informado'}
+                  </span>
+                </div>
               </div>
+              {admin ? (
+                <button
+                  type="button"
+                  aria-label="Editar congregação"
+                  onClick={abrirEdicaoCongregacao}
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-teal-tint hover:text-teal"
+                >
+                  <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
+                    <path
+                      d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              ) : null}
             </div>
           </div>
-          <button
-            type="button"
-            aria-label="Editar congregação"
-            onClick={() => setEditandoCong(true)}
-            className="flex size-10 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-teal-tint hover:text-teal"
-          >
-            <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
-              <path
-                d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        </div>
+
+          <section className="space-y-2">
+            <TituloSecao titulo="Setores" descricao="Abra a configuração de cada departamento" />
+            <div className="flex flex-col gap-2">
+              {SETORES.map((setor) => {
+                const Icone =
+                  setor === 'CAMPO' ? MapPin : setor === 'AUDIO_VIDEO' ? Radio : ShoppingCart
+                return (
+                  <button
+                    key={setor}
+                    type="button"
+                    onClick={() => aoIrParaSetor?.(setor)}
+                    className="flex w-full items-center gap-3 rounded-xl bg-card p-4 text-left shadow-sm transition-colors hover:bg-canvas"
+                  >
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
+                      <Icone className="size-5" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-ink">
+                        {ROTULO_SETOR[setor]}
+                      </span>
+                      <span className="block text-[13px] text-muted">
+                        {DESCRICAO_SETOR[setor]}
+                      </span>
+                    </span>
+                    <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden="true" />
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {visao === 'campo' ? (
+        <>
+      <div className="px-1 pt-1">
+        <Kicker className="text-teal">Configurações do setor Campo</Kicker>
       </div>
 
-      <div className="px-1 pt-1">
-        <Kicker className="text-teal">Setor Campo</Kicker>
-      </div>
+      <section className="space-y-2">
+        <TituloSecao titulo="Cabeçalho da escala" descricao="Título exibido nas programações do Campo" />
+        <div className="divide-y divide-line-soft overflow-hidden rounded-xl bg-card shadow-sm">
+          <Linha
+            rotulo="Título da escala"
+            descricao={config.titulo}
+            acao={
+              <Botao variante="secundario" onClick={() => setEditandoCabecalho(true)}>
+                <FileText className="size-4" aria-hidden="true" />
+                Editar
+              </Botao>
+            }
+          />
+        </div>
+      </section>
 
       {aoIrParaLocais ? (
         <section className="space-y-2">
@@ -461,8 +583,19 @@ export default function ConfigCampos({
         />
         <div className="divide-y divide-line-soft overflow-hidden rounded-xl bg-card shadow-sm">
           <Linha
+            rotulo="Frequência mensal"
+            descricao="Limite 1x, 2x ou 3x definido na ficha de cada voluntário."
+            acao={
+              aoIrParaPessoas ? (
+                <Botao variante="secundario" onClick={aoIrParaPessoas}>
+                  Editar fichas
+                </Botao>
+              ) : null
+            }
+          />
+          <Linha
             rotulo="Evitar dias consecutivos"
-            descricao="Garante intervalo de descanso para o mesmo dirigente"
+            descricao="Garante intervalo de descanso para o mesmo voluntário"
             acao={
               <Toggle
                 rotulo="Evitar dias consecutivos"
@@ -486,7 +619,7 @@ export default function ConfigCampos({
             rotulo="Designação fixa"
             descricao={
               fixaLigada
-                ? 'Cada dia usa a pessoa fixa cadastrada nele.'
+                ? 'Cada dia usa o voluntário fixo cadastrado nele.'
                 : 'Distribui conforme a frequência de cada ficha.'
             }
             acao={
@@ -501,8 +634,8 @@ export default function ConfigCampos({
         {fixaLigada && !campos.some((c) => c.fixo) ? (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
             <p className="min-w-0 flex-1">
-              Nenhum dia tem “Quem dirige” definido: informe a pessoa fixa de cada dia na tela
-              Locais.
+              Nenhum dia tem “Quem dirige” definido: informe o voluntário fixo de cada dia na
+              tela Locais.
             </p>
             {aoIrParaLocais ? (
               <Botao variante="fantasma" className="shrink-0 text-crimson" onClick={aoIrParaLocais}>
@@ -577,13 +710,6 @@ export default function ConfigCampos({
             descricao="Copie o link da escala e envie ao grupo"
             onClick={aoCopiarLink}
           />
-          <ItemCompartilhar
-            icone={<RefreshCw className="size-6" />}
-            caixa="bg-[#e6f7fb] text-[#006877]"
-            titulo="Sincronizar Google Agenda"
-            descricao="Feed de calendário em tempo real"
-            desabilitado
-          />
         </div>
       </section>
 
@@ -635,7 +761,11 @@ export default function ConfigCampos({
           {config.disparo_hora}, e os aparelhos receberão um aviso.
         </p>
       </section>
+        </>
+      ) : null}
 
+      {visao === 'geral' ? (
+        <>
       <div className="px-1 pt-1">
         <Kicker className="text-teal">Acesso à conta</Kicker>
       </div>
@@ -806,6 +936,14 @@ export default function ConfigCampos({
                         )}
                       </button>
                     ) : null}
+                    <button
+                      type="button"
+                      aria-label="Excluir convite"
+                      onClick={() => setConviteRemovendo(convite)}
+                      className="flex size-8 items-center justify-center rounded-full text-crimson transition-colors hover:bg-crimson-bg"
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -881,27 +1019,17 @@ export default function ConfigCampos({
           {config.congregacao ? `${config.congregacao} • ` : ''}Atualizado {ATUALIZADO}
         </span>
       </footer>
+        </>
+      ) : null}
 
       <Modal
-        aberto={editandoCong}
-        aoFechar={() => setEditandoCong(false)}
+        aberto={editandoCabecalho}
+        aoFechar={() => setEditandoCabecalho(false)}
         titulo="Cabeçalho da escala"
-        descricao="Aparece no topo da programação e em toda a exportação em PDF e imagem."
+        descricao="Título exibido no topo da programação do Campo."
         largura="max-w-lg"
       >
         <div className="space-y-4 px-5 py-4">
-          <div>
-            <Rotulo htmlFor="cfg-cong">Congregação / Campo</Rotulo>
-            <Input
-              id="cfg-cong"
-              value={config.congregacao}
-              onChange={(e) => aoAlterarConfig({ congregacao: e.target.value })}
-              placeholder="Ex.: Bancários"
-              autoCapitalize="words"
-              enterKeyHint="next"
-              autoFocus
-            />
-          </div>
           <div>
             <Rotulo htmlFor="cfg-titulo">Título da escala</Rotulo>
             <Input
@@ -909,12 +1037,65 @@ export default function ConfigCampos({
               value={config.titulo}
               onChange={(e) => aoAlterarConfig({ titulo: e.target.value })}
               placeholder="Ex.: Designação de Campo"
+              autoFocus
+            />
+          </div>
+          <Botao
+            variante="primario"
+            className="w-full"
+            onClick={() => setEditandoCabecalho(false)}
+          >
+            <Check className="size-4" aria-hidden="true" />
+            Concluir
+          </Botao>
+        </div>
+      </Modal>
+
+      <Modal
+        aberto={editandoCong}
+        aoFechar={() => {
+          if (!salvandoCongregacao) setEditandoCong(false)
+        }}
+        titulo="Congregação"
+        descricao="Atualize o nome e o número da congregação."
+        largura="max-w-lg"
+      >
+        <div className="space-y-4 px-5 py-4">
+          <div>
+            <Rotulo htmlFor="cfg-cong">Nome da congregação</Rotulo>
+            <Input
+              id="cfg-cong"
+              value={nomeCongregacao}
+              onChange={(e) => setNomeCongregacao(e.target.value)}
+              placeholder="Ex.: Bancários"
+              autoCapitalize="words"
+              enterKeyHint="next"
+              autoFocus
+            />
+          </div>
+          <div>
+            <Rotulo htmlFor="cfg-numero">Número da congregação (opcional)</Rotulo>
+            <Input
+              id="cfg-numero"
+              value={numeroCongregacao}
+              onChange={(e) => setNumeroCongregacao(e.target.value)}
+              placeholder="Ex.: 12345"
               enterKeyHint="done"
             />
           </div>
-          <Botao variante="primario" className="w-full" onClick={() => setEditandoCong(false)}>
+          {erroCongregacao ? (
+            <p role="alert" className="text-sm font-semibold text-crimson">
+              {erroCongregacao}
+            </p>
+          ) : null}
+          <Botao
+            variante="primario"
+            className="w-full"
+            disabled={salvandoCongregacao}
+            onClick={salvarCongregacao}
+          >
             <Check className="size-4" aria-hidden="true" />
-            Concluir
+            {salvandoCongregacao ? 'Salvando…' : 'Salvar congregação'}
           </Botao>
         </div>
       </Modal>
@@ -948,6 +1129,35 @@ export default function ConfigCampos({
           >
             <Users className="size-4" aria-hidden="true" />
             {removendoOcupado ? 'Removendo…' : 'Remover'}
+          </Botao>
+        </div>
+      </Modal>
+
+      <Modal
+        aberto={conviteRemovendo !== null}
+        aoFechar={() => {
+          if (!conviteRemocaoOcupada) setConviteRemovendo(null)
+        }}
+        titulo="Excluir link de convite?"
+        descricao="O link deixará de funcionar imediatamente, mesmo que ainda não tenha expirado."
+        largura="max-w-sm"
+      >
+        <div className="flex gap-2 px-5 py-4">
+          <Botao
+            className="flex-1"
+            disabled={conviteRemocaoOcupada}
+            onClick={() => setConviteRemovendo(null)}
+          >
+            Cancelar
+          </Botao>
+          <Botao
+            variante="vinho"
+            className="flex-1"
+            disabled={conviteRemocaoOcupada}
+            onClick={aoConfirmarRemocaoConvite}
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+            {conviteRemocaoOcupada ? 'Excluindo…' : 'Excluir'}
           </Botao>
         </div>
       </Modal>

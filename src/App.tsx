@@ -20,13 +20,14 @@ import TelaPessoas from './components/TelaPessoas'
 import TelaTpl from './components/TelaTpl'
 import TelaTplPublica from './components/TelaTplPublica'
 import TelaVer from './components/TelaVer'
-import { Modal } from './components/ui'
 import { lerHashVer, linkDe, montarPayload } from './lib/compartilhamento'
 import { chaveMes, ocorrenciasDoMes, nomeMes } from './lib/datas'
 import { estadoInicial, registroDe } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
+import { designarDia } from './lib/rodizio'
 import { Erro401, carregarEstado, gerarEscalaRemota, salvarEstado } from './lib/api'
-import { sair as sairAuth, sessaoAtual } from './lib/authApi'
+import { atualizarCongregacao, sair as sairAuth, sessaoAtual } from './lib/authApi'
+import { baixarPdf } from './lib/export'
 
 type StatusId = 'carregando' | 'salvando' | 'sincronizado' | 'local' | 'erro'
 
@@ -76,6 +77,9 @@ const ABA_DA_TELA: Record<Tela, AbaNav> = {
   tpl: 'designacoes',
   pessoas: 'pessoas',
   ajustes: 'ajustes',
+  ajustesCampo: 'ajustes',
+  ajustesAvi: 'ajustes',
+  ajustesTpl: 'ajustes',
   locais: 'ajustes',
 }
 
@@ -90,6 +94,7 @@ export default function App() {
   const [manterManuais, setManterManuais] = useState(true)
   const [modalAberto, setModalAberto] = useState(false)
   const [tabelaAberta, setTabelaAberta] = useState(false)
+  const [pdfOcupado, setPdfOcupado] = useState(false)
   const [aviso, setAviso] = useState('')
   const [payloadVer, setPayloadVer] = useState<string | null>(() => lerHashVer())
   const [rota, setRota] = useState<RotaPublica>(() => lerRotaPublica())
@@ -99,16 +104,35 @@ export default function App() {
   const [voltaLocais, setVoltaLocais] = useState<Tela>('ajustes')
   const cardRef = useRef<HTMLDivElement>(null)
   const inicioSplash = useRef(0)
+  const filaDeGravacao = useRef<Promise<void>>(Promise.resolve())
+
+  function persistirEstado(estadoParaSalvar: Estado): Promise<void> {
+    const gravacao = filaDeGravacao.current
+      .catch(() => undefined)
+      .then(() => salvarEstado(estadoParaSalvar))
+      .then(() => undefined)
+    filaDeGravacao.current = gravacao.catch(() => undefined)
+    return gravacao
+  }
 
   const { dirigentes, config_campos: campos, escalas } = estado
   const config = escalas._config
   const chave = chaveMes(ano, mes)
   const registro = registroDe(escalas, chave)
   const podeGerenciarCampo = permiteCampo(usuario)
+  /** A escala do Campo só enxerga quem trabalha no Campo. */
+  const voluntariosCampo = useMemo(
+    () => dirigentes.filter((d) => (d.departamento ?? 'CAMPO') === 'CAMPO'),
+    [dirigentes],
+  )
 
-  const ocorrencias = useMemo(
+  const todasOcorrencias = useMemo(
     () => ocorrenciasDoMes(ano, mes, campos, config),
     [ano, mes, campos, config],
+  )
+  const ocorrencias = useMemo(
+    () => todasOcorrencias.filter((ocorrencia) => !registro.removidas?.[ocorrencia.key]),
+    [todasOcorrencias, registro.removidas],
   )
 
   const efetivas = useMemo(() => {
@@ -124,7 +148,12 @@ export default function App() {
   }, [registro])
 
   const designados = ocorrencias.filter((o) => efetivas[o.key]).length
-  const pronta = ocorrencias.length > 0 && designados === ocorrencias.length
+  const removidos = todasOcorrencias.filter((o) => registro.removidas?.[o.key]).length
+  const gerado = Boolean(registro.geradoEm)
+  const pronta =
+    gerado &&
+    todasOcorrencias.length > 0 &&
+    (removidos > 0 || designados + removidos === todasOcorrencias.length)
 
   const proximo = useMemo(() => proximoMes(ano, mes), [ano, mes])
   const proximoPronto = registroDe(escalas, proximo.chave).geradoEm != null
@@ -140,7 +169,7 @@ export default function App() {
   async function tentarSincronizar() {
     setStatus('salvando')
     try {
-      await salvarEstado(estado)
+      await persistirEstado(estado)
       setStatus('sincronizado')
     } catch (falha) {
       if (falha instanceof Erro401) {
@@ -172,11 +201,11 @@ export default function App() {
       })
     }
 
-    if (!dirigentes.length) {
+    if (!voluntariosCampo.length) {
       lista.push({
         id: 'sem-dirigentes',
-        titulo: 'Nenhum dirigente cadastrado',
-        detalhe: 'Cadastre a equipe para gerar a escala',
+        titulo: 'Nenhum voluntário do Campo cadastrado',
+        detalhe: 'Cadastre os voluntários do Campo para gerar a escala',
         tom: 'alerta',
         aoClicar: () => setTela('pessoas'),
       })
@@ -188,7 +217,7 @@ export default function App() {
         tom: 'alerta',
         aoClicar: () => setTela('locais'),
       })
-    } else if (ocorrencias.length && pendentes > 0) {
+    } else if (ocorrencias.length && pendentes > 0 && !pronta) {
       lista.push({
         id: `pend-${chave}`,
         titulo: `${pendentes} de ${ocorrencias.length} dias sem designação`,
@@ -200,7 +229,7 @@ export default function App() {
       lista.push({
         id: `pronta-${chave}`,
         titulo: `Designação de ${nomeMes(mes)} pronta`,
-        detalhe: 'Todos os dias com dirigente',
+        detalhe: 'Todos os dias com voluntário',
         tom: 'sucesso',
         aoClicar: () => setTela('campo'),
       })
@@ -293,7 +322,7 @@ export default function App() {
     const timer = setTimeout(async () => {
       setStatus('salvando')
       try {
-        await salvarEstado(estado)
+        await persistirEstado(estado)
         setStatus('sincronizado')
       } catch (falha) {
         if (falha instanceof Erro401) {
@@ -398,9 +427,91 @@ export default function App() {
     alterarRegistro(chave, { ...registro, manuaisAjudante })
   }
 
-  function limparDesignacao() {
-    alterarRegistro(chave, { auto: {}, manuais: {}, autoAjudante: {}, manuaisAjudante: {} })
-    setAviso(`Designação de ${nomeMes(mes)} de ${ano} limpa.`)
+  async function limparDesignacao() {
+    const registroLimpo: RegistroMes = {
+      auto: {},
+      manuais: {},
+      removidas: registro.removidas ?? {},
+      autoAjudante: {},
+      manuaisAjudante: {},
+      limpa: true,
+    }
+    const novoEstado: Estado = {
+      ...estado,
+      escalas: { ...estado.escalas, [chave]: registroLimpo } as Estado['escalas'],
+    }
+    setEstado(novoEstado)
+    setStatus('salvando')
+    try {
+      await persistirEstado(novoEstado)
+      setStatus('sincronizado')
+      setAviso(`Designação de ${nomeMes(mes)} de ${ano} limpa.`)
+    } catch (falha) {
+      if (falha instanceof Erro401) {
+        encerrarLocal()
+        return
+      }
+      setStatus('erro')
+      setAviso('A escala foi limpa neste aparelho, mas não foi possível salvar na nuvem.')
+    }
+  }
+
+  function alternarRemocaoDia(chaveOcorrencia: string, remover: boolean) {
+    const removidas = { ...(registro.removidas ?? {}) }
+    if (remover) {
+      removidas[chaveOcorrencia] = true
+      alterarRegistro(chave, { ...registro, removidas })
+      return
+    }
+
+    // Restaurando: o dia volta designado (não zerado/pendência).
+    delete removidas[chaveOcorrencia]
+    const auto = { ...(registro.auto ?? {}) }
+    const autoAjudante = { ...(registro.autoAjudante ?? {}) }
+    if (!efetivas[chaveOcorrencia]) {
+      const ocorrencia = ocorrencias.find((o) => o.key === chaveOcorrencia)
+      if (ocorrencia) {
+        // Conta o que já foi designado no mês (incluindo esta, ainda não removida
+        // no `efetivas`) para calibrar rodízio, folga e limite do escolhido.
+        const existentes = { ...efetivas }
+        delete existentes[chaveOcorrencia]
+        const existentesAjudante = { ...efetivasAjudante }
+        delete existentesAjudante[chaveOcorrencia]
+        const resultado = designarDia({
+          dirigentes: voluntariosCampo,
+          ocorrencia,
+          // Inclui o dia restaurado: a capacidade mensal de cada um é contada
+          // sobre todos os dias de campo do mês, não só os ativos.
+          todasOcorrencias,
+          existentes,
+          existentesAjudante,
+          semente: chave,
+          fixa: config.designacao_fixa === true,
+          regras: {
+            evitarConsecutivos: config.evitar_consecutivos,
+            equilibrarFds: config.equilibrar_fds,
+            limiteMensal: config.limite_mensal,
+          },
+        })
+        if (resultado.dirigente) auto[chaveOcorrencia] = resultado.dirigente
+        if (resultado.ajudante) autoAjudante[chaveOcorrencia] = resultado.ajudante
+      }
+    }
+
+    // Um ajuste manual "em branco" pendente não deve sobrescrever o dia restaurado.
+    const manuais = { ...(registro.manuais ?? {}) }
+    if (manuais[chaveOcorrencia] === '') delete manuais[chaveOcorrencia]
+    const manuaisAjudante = { ...(registro.manuaisAjudante ?? {}) }
+    if (manuaisAjudante[chaveOcorrencia] === '') delete manuaisAjudante[chaveOcorrencia]
+
+    alterarRegistro(chave, {
+      ...registro,
+      removidas,
+      auto,
+      autoAjudante,
+      manuais,
+      manuaisAjudante,
+    })
   }
 
   function limparManuais() {
@@ -423,7 +534,8 @@ export default function App() {
         chave,
         ocorrencias,
         designacoes: efetivas,
-        dirigentes,
+        designacoesAjudante: efetivasAjudante,
+        dirigentes: voluntariosCampo,
       })
       if (!payload.r.length) {
         setAviso('Gere a designação antes de copiar o link.')
@@ -438,9 +550,49 @@ export default function App() {
     }
   }
 
-  function voltarDoApp() {
-    window.history.replaceState(null, '', window.location.pathname + window.location.search)
-    setPayloadVer(null)
+  async function compartilharLink() {
+    try {
+      const payload = montarPayload({
+        config,
+        chave,
+        ocorrencias,
+        designacoes: efetivas,
+        designacoesAjudante: efetivasAjudante,
+        dirigentes: voluntariosCampo,
+      })
+      if (!payload.r.length) {
+        setAviso('Designe pelo menos um voluntário antes de compartilhar o link.')
+        return
+      }
+      const url = linkDe(payload)
+      if (navigator.share) {
+        await navigator.share({
+          title: `Escala de ${nomeMes(mes)} de ${ano}`,
+          text: 'Compartilhar escala de campo',
+          url,
+        })
+        setAviso('Escala compartilhada.')
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      setAviso('Link da escala copiado.')
+    } catch (falha) {
+      if (falha instanceof DOMException && falha.name === 'AbortError') return
+      setAviso('Não foi possível compartilhar o link.')
+    }
+  }
+
+  async function baixarPdfPronto() {
+    if (!gerado || !cardRef.current || pdfOcupado) return
+    setPdfOcupado(true)
+    try {
+      await baixarPdf(cardRef.current, chave)
+      setAviso('PDF baixado.')
+    } catch {
+      setAviso('Não foi possível gerar o PDF.')
+    } finally {
+      setPdfOcupado(false)
+    }
   }
 
   function aoEntrar(novoUsuario: Usuario) {
@@ -479,26 +631,34 @@ export default function App() {
             : tela === 'tpl'
               ? 'Testemunho Público Local'
               : tela === 'pessoas'
-                ? 'Pessoas'
+                ? 'Voluntários'
                 : tela === 'ajustes'
                   ? 'Ajustes'
-                  : tela === 'locais'
-                    ? 'Locais de campo'
-                    : 'Designações'
+                  : tela === 'ajustesCampo'
+                    ? 'Configurações · Campo'
+                    : tela === 'ajustesAvi'
+                      ? 'Configurações · AVI'
+                      : tela === 'ajustesTpl'
+                        ? 'Configurações · TPL'
+                              : tela === 'locais'
+                                ? 'Locais de campo'
+                                : 'Designações'
 
   const aoVoltarHeader =
     tela === 'montagem'
       ? () => setTela('campo')
       : tela === 'campo' || tela === 'avi' || tela === 'tpl'
         ? () => setTela('designacoes')
-        : tela === 'locais'
-          ? () => setTela(voltaLocais)
-          : undefined
+        : tela === 'ajustesCampo' || tela === 'ajustesAvi' || tela === 'ajustesTpl'
+          ? () => setTela('ajustes')
+          : tela === 'locais'
+            ? () => setTela(voltaLocais)
+            : undefined
 
   if (payloadVer) {
     return (
       <div className="min-h-svh">
-        <TelaVer payload={payloadVer} aoVoltar={voltarDoApp} aoAvisar={setAviso} />
+        <TelaVer payload={payloadVer} aoAvisar={setAviso} />
         {aviso ? (
           <div
             role="status"
@@ -598,17 +758,55 @@ export default function App() {
       {splash && !ehRotaPublica ? <Splash congregacao={config.congregacao} saindo={splash === 'saindo'} /> : null}
 
       <AppHeader
-        titulo={tituloHeader}
-        notificacoes={podeGerenciarCampo ? montarNotificacoes() : []}
-        aoVoltar={aoVoltarHeader}
+        titulo={tabelaAberta ? 'Tabela completa' : tituloHeader}
+        notificacoes={!tabelaAberta && podeGerenciarCampo ? montarNotificacoes() : []}
+        aoVoltar={tabelaAberta ? () => setTabelaAberta(false) : aoVoltarHeader}
         aoSair={aoSair}
       />
 
       <main
-        className={`mx-auto w-full max-w-[640px] px-4 py-5 ${
-          tela === 'campo' || tela === 'montagem' ? 'pb-40' : 'pb-28'
+        className={`mx-auto w-full px-4 py-5 ${
+          tabelaAberta
+            ? 'max-w-6xl pb-10'
+            : `max-w-[640px] ${
+                ['campo', 'montagem', 'pessoas', 'avi', 'tpl'].includes(tela)
+                  ? // Telas com barra fixa acima da Bottom Nav precisam de respiro.
+                    'pb-40'
+                  : 'pb-28'
+              }`
         }`}
       >
+        {tabelaAberta ? (
+          <TabelaEscala
+            ano={ano}
+            mes={mes}
+            config={config}
+            dirigentes={voluntariosCampo}
+            campos={campos}
+            ocorrencias={todasOcorrencias}
+            ocorrenciasAtivas={ocorrencias}
+            registro={registro}
+            efetivas={efetivas}
+            manterManuais={manterManuais}
+            aoAlterarManter={setManterManuais}
+            aoAlterarDesignacao={alterarDesignacoesLote}
+            aoAlterarAjudante={alterarAjudantesLote}
+            aoAlternarRemocao={alternarRemocaoDia}
+            efetivasAjudante={efetivasAjudante}
+            aoLimparManuais={limparManuais}
+            aoConfigurar={() => {
+              setTabelaAberta(false)
+              setVoltaLocais('campo')
+              setTela('locais')
+            }}
+            aoCadastrar={() => {
+              setTabelaAberta(false)
+              setTela('pessoas')
+            }}
+            cardRef={cardRef}
+          />
+        ) : (
+          <>
         {tela === 'designacoes' && usuario ? (
           <TelaDesignacoes
             usuario={usuario}
@@ -629,9 +827,11 @@ export default function App() {
             }}
             ocorrencias={ocorrencias}
             efetivas={efetivas}
-            dirigentes={dirigentes}
+            efetivasAjudante={efetivasAjudante}
+            dirigentes={voluntariosCampo}
             campos={campos}
             pronta={pronta}
+            gerado={gerado}
             proximoNome={nomeMes(proximo.mes)}
             proximoPronto={proximoPronto}
             aoAdiantar={adiantarProximoMes}
@@ -642,8 +842,9 @@ export default function App() {
             aoMontar={() => setTabelaAberta(true)}
             aoGerar={gerar}
             aoLimparDesignacao={limparDesignacao}
-            aoVer={exportar}
-            aoCopiarLink={copiarLink}
+            aoBaixarPdf={baixarPdfPronto}
+            pdfOcupado={pdfOcupado}
+            aoCompartilharLink={compartilharLink}
             aoConfigurar={() => {
               setVoltaLocais('campo')
               setTela('locais')
@@ -673,17 +874,40 @@ export default function App() {
         {tela === 'locais' ? (
           <Locais
             campos={campos}
-            dirigentes={dirigentes}
+            dirigentes={voluntariosCampo}
             aoAlterarCampos={(lista) => atualizar((e) => ({ ...e, config_campos: lista }))}
           />
         ) : null}
 
-        {tela === 'ajustes' ? (
+        {tela === 'ajustes' || tela === 'ajustesCampo' ? (
           <ConfigCampos
             config={config}
             campos={campos}
             admin={usuario?.papel === 'ADMIN'}
             usuarioId={usuario?.id}
+            congregacaoNumero={usuario?.congregacao.numero}
+            visao={tela === 'ajustes' ? 'geral' : 'campo'}
+            aoIrParaSetor={(setor) =>
+              setTela(
+                setor === 'CAMPO'
+                  ? 'ajustesCampo'
+                  : setor === 'AUDIO_VIDEO'
+                    ? 'ajustesAvi'
+                    : 'ajustesTpl',
+              )
+            }
+            aoIrParaPessoas={() => setTela('pessoas')}
+            aoSalvarCongregacao={async (nome, numero) => {
+              const atualizado = await atualizarCongregacao({ nome, numero })
+              setUsuario(atualizado)
+              atualizar((e) => ({
+                ...e,
+                escalas: {
+                  ...e.escalas,
+                  _config: { ...e.escalas._config, congregacao: atualizado.congregacao.nome },
+                },
+              }))
+            }}
             aoAlterarConfig={(patch) =>
               atualizar((e) => ({
                 ...e,
@@ -693,78 +917,45 @@ export default function App() {
             aoExportar={exportar}
             aoCopiarLink={copiarLink}
             aoIrParaLocais={() => {
-              setVoltaLocais('ajustes')
+              setVoltaLocais('ajustesCampo')
               setTela('locais')
             }}
             aoAvisar={setAviso}
           />
         ) : null}
 
-        {tela === 'avi' ? (
-          <TelaAvi aoAvisar={setAviso} aoIrParaPessoas={() => setTela('pessoas')} />
+        {tela === 'avi' || tela === 'ajustesAvi' ? (
+          <TelaAvi
+            modoConfiguracao={tela === 'ajustesAvi'}
+            slug={usuario?.congregacao.slug}
+            aoAvisar={setAviso}
+            aoIrParaPessoas={() => setTela('pessoas')}
+          />
         ) : null}
 
-        {tela === 'tpl' && usuario ? (
-          <TelaTpl slug={usuario.congregacao.slug} aoAvisar={setAviso} />
+        {(tela === 'tpl' || tela === 'ajustesTpl') && usuario ? (
+          <TelaTpl
+            key={tela}
+            slug={usuario.congregacao.slug}
+            aoAvisar={setAviso}
+            aoIrParaPessoas={() => setTela('pessoas')}
+            aoAbrirConfiguracao={() => setTela('ajustesTpl')}
+            modoConfiguracao={tela === 'ajustesTpl'}
+          />
         ) : null}
+          </>
+        )}
       </main>
 
-      <BottomNav
-        itens={abasDisponiveis}
-        aba={abaNav}
-        aoMudar={(id) => setTela(id)}
-      />
-
-      {tabelaAberta ? (
-        <Modal
-          aberto
-          aoFechar={() => setTabelaAberta(false)}
-          titulo="Tabela completa"
-          descricao={`${nomeMes(mes)} de ${ano}`}
-          largura="max-w-4xl"
-        >
-          <div className="px-5 py-4">
-            <TabelaEscala
-              ano={ano}
-              mes={mes}
-              config={config}
-              aoMudarData={(novoAno, novoMes) => {
-                setAno(novoAno)
-                setMes(novoMes)
-              }}
-              dirigentes={dirigentes}
-              campos={campos}
-              ocorrencias={ocorrencias}
-              registro={registro}
-              efetivas={efetivas}
-              manterManuais={manterManuais}
-              aoAlterarManter={setManterManuais}
-              aoGerar={gerar}
-              aoAlterarDesignacao={alterarDesignacoesLote}
-              aoAlterarAjudante={alterarAjudantesLote}
-              efetivasAjudante={efetivasAjudante}
-              aoLimparManuais={limparManuais}
-              aoConfigurar={() => {
-                setTabelaAberta(false)
-                setVoltaLocais('campo')
-                setTela('locais')
-              }}
-              aoCadastrar={() => {
-                setTabelaAberta(false)
-                setTela('pessoas')
-              }}
-              cardRef={cardRef}
-              pronta={pronta}
-              aoConcluir={() => {
-                setTabelaAberta(false)
-                setModalAberto(true)
-              }}
-            />
-          </div>
-        </Modal>
+      {!tabelaAberta ? (
+        <BottomNav
+          itens={abasDisponiveis}
+          aba={abaNav}
+          aoMudar={(id) => setTela(id)}
+        />
       ) : null}
 
-      {modalAberto && !tabelaAberta ? (
+      {!tabelaAberta ? (
         <div
           className="fixed left-[-10000px] top-0 w-[760px] overflow-hidden"
           aria-hidden="true"
@@ -773,7 +964,7 @@ export default function App() {
             ref={cardRef}
             config={config}
             ocorrencias={ocorrencias}
-            dirigentes={dirigentes}
+            dirigentes={voluntariosCampo}
             designacoes={efetivas}
             manuais={registro.manuais ?? {}}
             ajudantes={efetivasAjudante}
@@ -793,7 +984,8 @@ export default function App() {
           config={config}
           ocorrencias={ocorrencias}
           efetivas={efetivas}
-          dirigentes={dirigentes}
+          efetivasAjudante={efetivasAjudante}
+          dirigentes={voluntariosCampo}
           aoAvisar={setAviso}
         />
       ) : null}

@@ -23,15 +23,24 @@ export interface OpcoesGeracao {
  */
 export function gerarEscalaDoMes(estado: Estado, chave: string, { forcar = false }: OpcoesGeracao = {}): Estado {
   const registro = registroDe(estado.escalas, chave)
-  if (registro.geradoEm && !forcar) return estado
+  if ((registro.geradoEm || registro.limpa) && !forcar) return estado
 
   const { ano, mes } = lerChaveMes(chave)
-  const ocorrencias = ocorrenciasDoMes(ano, mes, estado.config_campos, estado.escalas._config)
+  const removidas = registro.removidas ?? {}
+  const ocorrencias = ocorrenciasDoMes(
+    ano,
+    mes,
+    estado.config_campos,
+    estado.escalas._config,
+  ).filter((ocorrencia) => !removidas[ocorrencia.key])
   const manuais = registro.manuais ?? {}
   const manuaisAjudante = registro.manuaisAjudante ?? {}
 
   const { auto, autoAjudante } = gerarEscala({
-    dirigentes: estado.dirigentes,
+    // Só voluntários do Campo entram no rodízio; AVI e TPL têm escalas próprias.
+    dirigentes: estado.dirigentes.filter(
+      (d) => (d.departamento ?? 'CAMPO') === 'CAMPO',
+    ),
     ocorrencias,
     manuais,
     manuaisAjudante,
@@ -47,9 +56,11 @@ export function gerarEscalaDoMes(estado: Estado, chave: string, { forcar = false
   const novoRegistro: RegistroMes = {
     auto,
     manuais,
+    removidas,
     autoAjudante,
     manuaisAjudante,
     geradoEm: new Date().toISOString(),
+    limpa: false,
   }
 
   return { ...estado, escalas: { ...estado.escalas, [chave]: novoRegistro } as Estado['escalas'] }

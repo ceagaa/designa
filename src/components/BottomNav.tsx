@@ -10,7 +10,7 @@ interface ItemNav {
 
 const ITENS: Record<AbaNav, ItemNav> = {
   designacoes: { id: 'designacoes', rotulo: 'Designações', Icone: CalendarDays },
-  pessoas: { id: 'pessoas', rotulo: 'Pessoas', Icone: Users },
+  pessoas: { id: 'pessoas', rotulo: 'Voluntários', Icone: Users },
   ajustes: { id: 'ajustes', rotulo: 'Ajustes', Icone: Settings },
 }
 

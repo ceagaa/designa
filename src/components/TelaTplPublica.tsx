@@ -1,19 +1,52 @@
 import type { DadosTpl } from '../lib/dominio'
 import type { LinhaTpl } from '../lib/tpl'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileDown, Link2, Loader2, MapPin, RefreshCcw, ShoppingCart } from 'lucide-react'
-import { MINIMO_DUPLA } from '../lib/dominio'
-import { lerChaveMes, nomeMes } from '../lib/datas'
-import { TITULO_TPL, diaTexto, linhasTplPara, normalizarDadosTpl } from '../lib/tpl'
+import { CalendarDays, FileDown, Link2, Loader2, MapPin, RefreshCcw, ShoppingCart } from 'lucide-react'
+import { chaveMes, lerChaveMes, nomeMes } from '../lib/datas'
+import { TITULO_TPL, diaTexto, linhasTplPara, mesesTpl, normalizarDadosTpl } from '../lib/tpl'
 import { baixarPdf } from '../lib/export'
 import TplCard from './TplCard'
 import { Botao, Kicker, Select } from './ui'
 
 type Estado = 'carregando' | 'pronto' | 'vazio' | 'erro'
 
+/** Meses que têm períodos cadastrados e, portanto, linhas para mostrar. */
+function mesesComConteudo(dados: DadosTpl): string[] {
+  return mesesTpl(dados).filter((chave) => {
+    const { ano, mes } = lerChaveMes(chave)
+    return linhasTplPara(dados, ano, mes).length > 0
+  })
+}
+
+function mesTemDupla(dados: DadosTpl, chave: string): boolean {
+  const { ano, mes } = lerChaveMes(chave)
+  return linhasTplPara(dados, ano, mes).some((linha) => linha.dupla.length > 0)
+}
+
+/**
+ * Escolhe o mês mais útil para abrir: o atual se já tiver duplas, depois o
+ * próximo com duplas, depois o último mês passado com duplas e, por fim, o
+ * mês mais recente que tenha estrutura para mostrar.
+ */
+function mesInicial(dados: DadosTpl, meses: string[]): string | null {
+  if (!meses.length) return null
+  const agora = new Date()
+  const atual = chaveMes(agora.getFullYear(), agora.getMonth())
+  const comDuplas = meses.filter((chave) => mesTemDupla(dados, chave))
+  const futuros = comDuplas.filter((chave) => chave >= atual)
+  const passados = comDuplas.filter((chave) => chave < atual)
+  return (
+    futuros[0] ??
+    passados[passados.length - 1] ??
+    (meses.includes(atual) ? atual : meses[meses.length - 1]) ??
+    null
+  )
+}
+
 /**
  * Rota pública /tpl/:slug — escala do TPL compartilhada por link, com filtros
- * de dia e ponto, duplas (mínimo 2) e exportação em PDF.
+ * de dia e ponto, duplas (mínimo 2) e exportação em PDF. A escala é montada
+ * manualmente no app; aqui ela é apenas exibida.
  */
 export default function TelaTplPublica({
   slug,
@@ -25,6 +58,7 @@ export default function TelaTplPublica({
   const [estado, setEstado] = useState<Estado>('carregando')
   const [dadosBrutos, setDadosBrutos] = useState<unknown>(null)
   const [congregacao, setCongregacao] = useState('')
+  const [mesesDisponiveis, setMesesDisponiveis] = useState<string[]>([])
   const [mesAtivo, setMesAtivo] = useState<string | null>(null)
   const [isoFiltro, setIsoFiltro] = useState('')
   const [pontoFiltro, setPontoFiltro] = useState('')
@@ -46,16 +80,16 @@ export default function TelaTplPublica({
           congregacao?: { nome?: string }
           dados?: unknown
         }
-        setDadosBrutos(corpo.dados ?? null)
+        const brutos = corpo.dados ?? null
+        const normalizado = normalizarDadosTpl(brutos)
+        const meses = mesesComConteudo(normalizado)
+        setDadosBrutos(brutos)
         setCongregacao(corpo.congregacao?.nome ?? '')
-        const gerados = Object.entries(corpo.dados && typeof corpo.dados === 'object' ? (corpo.dados as { escalas?: Record<string, { geradoEm?: string }> }).escalas ?? {} : {})
-          .filter(([, registro]) => Boolean(registro?.geradoEm))
-          .map(([chave]) => chave)
-          .sort()
-        setEstado(gerados.length ? 'pronto' : 'vazio')
-        setMesAtivo(gerados.length ? gerados[gerados.length - 1] : null)
+        setMesesDisponiveis(meses)
+        setMesAtivo(mesInicial(normalizado, meses))
         setIsoFiltro('')
         setPontoFiltro('')
+        setEstado(meses.length ? 'pronto' : 'vazio')
       })
       .catch(() => {
         if (vivo) setEstado('erro')
@@ -87,14 +121,6 @@ export default function TelaTplPublica({
     () => [...new Set(linhas.map((l) => l.ponto))].sort((a, b) => a.localeCompare(b)),
     [linhas],
   )
-  const mesesGerados = useMemo(
-    () =>
-      Object.entries(dados.escalas)
-        .filter(([, registro]) => Boolean(registro.geradoEm))
-        .map(([chave]) => chave)
-        .sort(),
-    [dados.escalas],
-  )
 
   const agrupadas = useMemo(() => {
     const mapa = new Map<string, LinhaTpl[]>()
@@ -107,7 +133,10 @@ export default function TelaTplPublica({
   }, [linhasFiltradas])
 
   async function aoPdf() {
-    if (!mesAtivo || !linhasFiltradas.length) return
+    if (!mesAtivo || !linhasFiltradas.length || !cardRef.current) {
+      aoAvisar('Não há uma escala para baixar neste mês.')
+      return
+    }
     try {
       await baixarPdf(cardRef.current, mesAtivo, 'tpl')
     } catch {
@@ -165,13 +194,16 @@ export default function TelaTplPublica({
         </div>
       ) : estado === 'vazio' ? (
         <div className="mt-6 rounded-xl bg-card p-5 text-center shadow-sm">
-          <p className="text-sm text-muted">Nenhuma escala publicada neste link ainda.</p>
+          <p className="text-sm text-muted">Ainda não há uma escala publicada neste link.</p>
         </div>
       ) : (
         <div className="mt-6 space-y-4">
-          {mesesGerados.length > 1 ? (
+          {mesesDisponiveis.length > 1 ? (
             <div>
-              <label htmlFor="tpl-publico-mes" className="mb-1 block text-[13px] font-semibold text-ink">
+              <label
+                htmlFor="tpl-publico-mes"
+                className="mb-1 block text-[13px] font-semibold text-ink"
+              >
                 Mês
               </label>
               <Select
@@ -183,7 +215,7 @@ export default function TelaTplPublica({
                   setPontoFiltro('')
                 }}
               >
-                {mesesGerados.map((chave) => {
+                {mesesDisponiveis.map((chave) => {
                   const { ano: a, mes: m } = lerChaveMes(chave)
                   return (
                     <option key={chave} value={chave}>
@@ -197,7 +229,10 @@ export default function TelaTplPublica({
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label htmlFor="tpl-publico-dia" className="mb-1 block text-[13px] font-semibold text-ink">
+              <label
+                htmlFor="tpl-publico-dia"
+                className="mb-1 block text-[13px] font-semibold text-ink"
+              >
                 Dia
               </label>
               <Select
@@ -217,7 +252,10 @@ export default function TelaTplPublica({
               </Select>
             </div>
             <div>
-              <label htmlFor="tpl-publico-ponto" className="mb-1 block text-[13px] font-semibold text-ink">
+              <label
+                htmlFor="tpl-publico-ponto"
+                className="mb-1 block text-[13px] font-semibold text-ink"
+              >
                 Ponto
               </label>
               <Select
@@ -239,7 +277,8 @@ export default function TelaTplPublica({
             <div className="space-y-3">
               {agrupadas.map(([iso, doDia]) => (
                 <article key={iso} className="overflow-hidden rounded-2xl bg-card shadow-sm">
-                  <h2 className="bg-wine px-4 py-2 text-sm font-bold text-white">
+                  <h2 className="flex items-center gap-2 bg-wine px-4 py-2 text-sm font-bold text-white">
+                    <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
                     {diaTexto(doDia[0].diaSemana)} · {doDia[0].dia}/
                     {String(mes + 1).padStart(2, '0')}
                   </h2>
@@ -248,10 +287,12 @@ export default function TelaTplPublica({
                       <div key={`${iso}-${linha.ponto}-${linha.turno}`} className="px-4 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-ink">
-                            {linha.ponto}{' '}
-                            <span className="font-normal text-muted">· {linha.turno}</span>
+                            Retirada: {linha.ponto}
                           </p>
-                          {linha.dupla.length < MINIMO_DUPLA || linha.incompleta ? (
+                          <p className="mt-0.5 text-[13px] text-muted">
+                            Trabalho: {linha.local || 'Local a definir'} · {linha.turno}
+                          </p>
+                          {linha.incompleta ? (
                             <span className="rounded-full bg-crimson-bg px-2.5 py-0.5 text-[11px] font-bold text-crimson">
                               dupla incompleta
                             </span>
@@ -286,17 +327,6 @@ export default function TelaTplPublica({
           )}
         </div>
       )}
-
-      <Botao
-        variante="secundario"
-        className="mx-auto mt-6 w-full max-w-md"
-        onClick={() => {
-          window.location.assign('/')
-          aoAvisar('Voltando para o app.')
-        }}
-      >
-        Ir para o app
-      </Botao>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="mx-auto flex max-w-md gap-2">

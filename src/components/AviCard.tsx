@@ -1,39 +1,27 @@
 import type { CSSProperties, Ref } from 'react'
-import type { DadosAvi, IrmaoProjecao, OcorrenciaAvi } from '../lib/dominio'
+import type { DadosAvi, IrmaoProjecao } from '../lib/dominio'
 import { Fragment, forwardRef } from 'react'
-import { CITACAO, CORES, CORES_PLANILHA, MESES, infoDia } from '../lib/constants'
+import { CITACAO, CORES_PLANILHA, MESES, infoDia } from '../lib/constants'
 import { isoDeHoje } from '../lib/datas'
 import { FUNCOES_AVI } from '../lib/dominio'
-import { TITULO_AVI, efetivasAvi, registroAviDe, slotAvi } from '../lib/avi'
+import { TITULO_AVI, efetivasAvi, ocorrenciasAvi, registroAviDe, slotAvi } from '../lib/avi'
 import CabecalhoEscala from './CabecalhoEscala'
 
 /** Data de hoje resolvida uma vez (oxlint: sem Date instável no render). */
 const HOJE_ISO = isoDeHoje()
 
-const linha: CSSProperties = { borderColor: CORES_PLANILHA.linha }
+const CORES = CORES_PLANILHA
+const borda: CSSProperties = { borderColor: CORES.linha }
+const coluna: CSSProperties = { backgroundColor: CORES.fundo, color: CORES.cabecalho, ...borda }
+const celula: CSSProperties = { backgroundColor: CORES.fundo, color: CORES.texto, ...borda }
 
-interface SecaoVisual {
-  id: 'fds' | 'meio'
-  rotulo: string
-  cabecalho: string
-  conteudo: string
-}
-
-const SECOES: readonly SecaoVisual[] = [
-  {
-    id: 'fds',
-    rotulo: 'FIM DE SEMANA',
-    cabecalho: CORES.petroleo,
-    conteudo: CORES.conteudoFimDeSemana,
-  },
-  {
-    id: 'meio',
-    rotulo: 'MEIO DE SEMANA',
-    cabecalho: CORES.vinho,
-    conteudo: CORES.conteudoSemana,
-  },
-]
-
+/**
+ * Tabela do AVI fiel à aba "Audio/Vídeo & Indicadores" da planilha base:
+ * uma tabela única em ordem cronológica (sem faixas de fim/meio de semana),
+ * cabeçalho "Dia" + funções, célula do dia em duas linhas (nome / número)
+ * com os nomes mesclados verticalmente e uma linha espaçadora entre as
+ * reuniões. O rodapé traz a citação, como no Campo.
+ */
 export interface AviCardProps {
   congregacao: string
   ano: number
@@ -44,29 +32,11 @@ export interface AviCardProps {
   vazio?: string
 }
 
-function reunioesDoMes(ano: number, mes: number, diaSemanaAlvo: number): OcorrenciaAvi[] {
-  const totalDias = new Date(ano, mes + 1, 0).getDate()
-  const lista: OcorrenciaAvi[] = []
-  for (let dia = 1; dia <= totalDias; dia += 1) {
-    const data = new Date(ano, mes, dia)
-    if (data.getDay() !== diaSemanaAlvo) continue
-    const iso = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
-    lista.push({
-      key: iso,
-      iso,
-      dia,
-      diaSemana: diaSemanaAlvo,
-      secao: diaSemanaAlvo === 0 ? 'fds' : 'meio',
-    })
-  }
-  return lista
-}
+const TOTAL_COLUNAS = FUNCOES_AVI.length + 1
+/** Largura da coluna "Dia" (A+B mescladas na planilha: 181px de ~1493px). */
+const LARGURA_DIA = '14.5%'
+const LARGURA_FUNCAO = `${(100 - 14.5) / FUNCOES_AVI.length}%`
 
-/**
- * Cartão do AVI fiel à aba "Audio/Vídeo & Indicadores" da planilha original:
- * seções de fim de semana (petróleo #045A6C / #F9FBFD) e meio de semana
- * (vinho #7E0024 / #FFF3F3), colunas das 5 funções e rodapé com a citação.
- */
 const AviCard = forwardRef(function AviCard(
   { congregacao, ano, mes, dados, irmoes, vazio }: AviCardProps,
   ref: Ref<HTMLDivElement>,
@@ -77,114 +47,121 @@ const AviCard = forwardRef(function AviCard(
   const nomes = new Map(irmoes.map((i) => [i.id, i.nome]))
   const efetivas = efetivasAvi(registro)
   const mesRotulo = MESES[mes] ?? ''
-  const meio = dados.diaSemanaMeio === 4 ? 4 : 3
+  const reunioes = ocorrenciasAvi(ano, mes, dados.diasReuniao)
 
   return (
     <div ref={ref} className="escala-card mx-auto w-[760px] bg-white">
       <CabecalhoEscala titulo={TITULO_AVI} congregacao={congregacao} mesRotulo={mesRotulo} />
 
-      {!gerado ? (
-        <div className="flex h-[120px] items-center justify-center px-6">
-          <span className="text-center text-[16px] font-semibold">
-            {vazio ?? 'Escala do mês ainda não gerada.'}
-          </span>
-        </div>
-      ) : (
-        SECOES.map((secao) => {
-          const reunioes = reunioesDoMes(ano, mes, secao.id === 'fds' ? 0 : meio)
-          return (
-            <Fragment key={secao.id}>
-              <div className="h-[8px]" aria-hidden="true" />
-              <table
-                className="w-full table-fixed border-collapse text-center text-[15px]"
-                style={{ color: CORES_PLANILHA.texto }}
+      <table
+        className="w-full table-fixed border-collapse text-center text-[15px]"
+        style={{ color: CORES.texto }}
+      >
+        <colgroup>
+          <col style={{ width: LARGURA_DIA }} />
+          {FUNCOES_AVI.map((f) => (
+            <col key={f.id} style={{ width: LARGURA_FUNCAO }} />
+          ))}
+        </colgroup>
+        <tbody>
+          <tr>
+            <th
+              scope="col"
+              className="h-[38px] px-1 font-bold"
+              style={coluna}
+            >
+              Dia
+            </th>
+            {FUNCOES_AVI.map((f) => (
+              <th
+                key={f.id}
+                scope="col"
+                className="h-[38px] px-1 font-bold leading-tight"
+                style={coluna}
               >
-                <colgroup>
-                  <col style={{ width: '13%' }} />
-                  {FUNCOES_AVI.map((f) => (
-                    <col key={f.id} style={{ width: '17.4%' }} />
-                  ))}
-                </colgroup>
-                <tbody>
-                  <tr>
-                    <th
-                      colSpan={6}
-                      scope="colgroup"
-                      className="h-[30px] px-2 text-[14px] font-bold uppercase tracking-wide text-white"
-                      style={{ backgroundColor: secao.cabecalho, ...linha }}
-                    >
-                      {secao.rotulo}
-                    </th>
-                  </tr>
-                  <tr>
-                    <th
-                      scope="col"
-                      className="h-[42px] px-1 text-[14px] font-bold text-white"
-                      style={{ backgroundColor: secao.cabecalho, ...linha }}
-                    >
-                      Dia
-                    </th>
-                    {FUNCOES_AVI.map((f) => (
-                      <th
-                        key={f.id}
-                        scope="col"
-                        className="h-[42px] px-1 text-[13px] font-bold leading-tight text-white"
-                        style={{ backgroundColor: secao.cabecalho, ...linha }}
-                      >
-                        {f.coluna}
-                        {f.subtitulo ? (
-                          <span className="block text-[11px] font-normal">{f.subtitulo}</span>
-                        ) : null}
-                      </th>
-                    ))}
-                  </tr>
+                {f.coluna}
+                {f.subtitulo ? (
+                  <span className="block text-[11px] font-normal">{f.subtitulo}</span>
+                ) : null}
+              </th>
+            ))}
+          </tr>
 
-                  {!reunioes.length ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="h-[46px] px-2 text-center text-[14px]"
-                        style={{ backgroundColor: secao.conteudo, ...linha }}
-                      >
-                        Nenhuma reunião neste período.
-                      </td>
-                    </tr>
-                  ) : (
-                    reunioes.map((oc) => (
-                      <tr key={oc.iso} style={{ backgroundColor: secao.conteudo }}>
-                        <td className="h-[46px] px-1 align-middle" style={linha}>
-                          <span className="block font-bold">{infoDia(oc.diaSemana).nome}</span>
-                          <span className="block text-[13px] font-bold">
-                            {oc.dia}
-                            {oc.iso === HOJE_ISO ? (
-                              <span className="ml-1" style={{ color: CORES_PLANILHA.mes }}>
-                                (hoje)
-                              </span>
-                            ) : null}
+          {!gerado || !reunioes.length ? (
+            <tr>
+              <td
+                colSpan={TOTAL_COLUNAS}
+                className="h-[120px] px-6 text-center text-[15px] font-semibold"
+                style={celula}
+              >
+                {gerado
+                  ? 'Nenhuma reunião AVI neste mês.'
+                  : (vazio ?? 'Escala do mês ainda não gerada.')}
+              </td>
+            </tr>
+          ) : (
+            reunioes.map((oc) => {
+              const ehHoje = oc.iso === HOJE_ISO
+              return (
+                <Fragment key={oc.iso}>
+                  {/* Linha 1: nome do dia (mesclado) + nomes designados. */}
+                  <tr style={{ backgroundColor: CORES.fundo }}>
+                    <td
+                      rowSpan={2}
+                      colSpan={2}
+                      className="h-[43px] px-1 align-middle font-bold"
+                      style={celula}
+                    >
+                      {infoDia(oc.diaSemana).nome}
+                    </td>
+                    {FUNCOES_AVI.map((f) => {
+                      const id = efetivas[slotAvi(oc.iso, f.id)]
+                      return (
+                        <td
+                          key={f.id}
+                          rowSpan={2}
+                          className="h-[43px] px-1 align-middle font-semibold"
+                          style={celula}
+                        >
+                          <span className="block break-words leading-snug">
+                            {id ? (nomes.get(id) ?? '') : ''}
                           </span>
                         </td>
-                        {FUNCOES_AVI.map((f) => {
-                          const id = efetivas[slotAvi(oc.iso, f.id)]
-                          return (
-                            <td key={f.id} className="h-[46px] px-1 align-middle" style={linha}>
-                              <span className="block break-words leading-snug font-semibold">
-                                {id ? (nomes.get(id) ?? '') : ''}
-                              </span>
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </Fragment>
-          )
-        })
-      )}
+                      )
+                    })}
+                  </tr>
+                  {/* Linha 2: número do dia. */}
+                  <tr style={{ backgroundColor: CORES.fundo }}>
+                    <td
+                      colSpan={2}
+                      className="h-[43px] px-1 align-middle font-bold"
+                      style={celula}
+                    >
+                      {oc.dia}
+                      {ehHoje ? (
+                        <span className="ml-1" style={{ color: CORES.mes }}>
+                          (hoje)
+                        </span>
+                      ) : null}
+                    </td>
+                  </tr>
+                  {/* Linha espaçadora entre reuniões (36px na planilha). */}
+                  <tr aria-hidden="true">
+                    <td
+                      colSpan={TOTAL_COLUNAS}
+                      className="p-0"
+                      style={{ border: 'none', backgroundColor: CORES.fundo, height: 36 }}
+                    />
+                  </tr>
+                </Fragment>
+              )
+            })
+          )}
+        </tbody>
+      </table>
 
       <div className="flex h-[35px] items-center justify-center px-6">
-        <p className="text-[17px] font-bold" style={{ color: CORES.vinho }}>
+        <p className="text-[19px] font-bold" style={{ color: CORES.titulo }}>
           {CITACAO}
         </p>
       </div>
