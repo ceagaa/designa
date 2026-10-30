@@ -2,7 +2,7 @@ import type { DadosTpl } from '../lib/dominio'
 import type { OcorrenciaTpl } from '../lib/tpl'
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, RefreshCcw, ShoppingCart } from 'lucide-react'
-import { chaveMes, isoDeHoje, lerChaveMes, nomeMes } from '../lib/datas'
+import { chaveMes, isoDeHoje, lerChaveMes, mesDaUrl, nomeMes } from '../lib/datas'
 import { infoDia } from '../lib/constants'
 import {
   TITULO_TPL,
@@ -14,7 +14,7 @@ import {
   turnoTexto,
 } from '../lib/tpl'
 import { MINIMO_DUPLA } from '../lib/dominio'
-import { Botao, Select } from './ui'
+import { Botao } from './ui'
 import { CardHeroTpl, LinhaTpl } from './CardsDesignacao'
 
 type Estado = 'carregando' | 'pronto' | 'vazio' | 'erro'
@@ -40,7 +40,6 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
   const [estado, setEstado] = useState<Estado>('carregando')
   const [dadosBrutos, setDadosBrutos] = useState<unknown>(null)
   const [congregacao, setCongregacao] = useState('')
-  const [mesesDisponiveis, setMesesDisponiveis] = useState<string[]>([])
   const [mesAtivo, setMesAtivo] = useState<string | null>(null)
   const [tentativa, setTentativa] = useState(0)
 
@@ -62,10 +61,10 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
         const brutos = corpo.dados ?? null
         const normalizado = normalizarDadosTpl(brutos)
         const meses = mesesComConteudo(normalizado)
+        const pedido = mesDaUrl()
         setDadosBrutos(brutos)
         setCongregacao(corpo.congregacao?.nome ?? '')
-        setMesesDisponiveis(meses)
-        setMesAtivo(mesInicial(meses))
+        setMesAtivo(pedido && meses.includes(pedido) ? pedido : mesInicial(meses))
         setEstado(meses.length ? 'pronto' : 'vazio')
       })
       .catch(() => {
@@ -169,31 +168,6 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
         </div>
       ) : (
         <div className="space-y-5">
-          {mesesDisponiveis.length > 1 ? (
-            <div>
-              <label
-                htmlFor="tpl-publico-mes"
-                className="mb-1 block text-[13px] font-semibold text-ink"
-              >
-                Mês
-              </label>
-              <Select
-                id="tpl-publico-mes"
-                value={mesAtivo ?? ''}
-                onChange={(e) => setMesAtivo(e.target.value)}
-              >
-                {mesesDisponiveis.map((chave) => {
-                  const { ano: a, mes: m } = lerChaveMes(chave)
-                  return (
-                    <option key={chave} value={chave}>
-                      {nomeMes(m)} de {a}
-                    </option>
-                  )
-                })}
-              </Select>
-            </div>
-          ) : null}
-
           {itemDestaque ? (
             <CardHeroTpl
               rotulo={ehMesAtual ? 'Próxima designação' : 'Primeira designação'}

@@ -3,6 +3,8 @@ import type {
   Campo,
   Dirigente,
   FrequenciaId,
+  RegrasDepartamento,
+  RegrasPorDepartamento,
   ReuniaoAvi,
   SetorId,
 } from '../lib/dominio'
@@ -17,8 +19,19 @@ import {
   UserPlus,
   Volume2,
 } from 'lucide-react'
-import { FUNCOES_AVI, departamentosDe } from '../lib/dominio'
-import { FREQUENCIAS, HORARIOS_PADRAO, ORDEM_DIAS, infoDia } from '../lib/constants'
+import {
+  FUNCOES_AVI,
+  REGRAS_PADRAO,
+  departamentosDe,
+  regrasDoDepartamento,
+} from '../lib/dominio'
+import {
+  FREQUENCIAS,
+  HORARIOS_PADRAO,
+  ORDEM_DIAS,
+  frequenciaValida,
+  infoDia,
+} from '../lib/constants'
 import { Botao, Chip, Input, Modal, Rotulo, Vazio } from './ui'
 import { BarraFixa } from './CabecalhoDesignacao'
 
@@ -108,17 +121,100 @@ function departamentosDaFicha(
 }
 
 function formularioVazio(frequenciaPadrao?: string): FormDirigente {
+  const frequenciaCampo = frequenciaValida(frequenciaPadrao)
   return {
     nome: '',
     ativo: true,
-    frequencia: frequenciaPadrao ?? 'quinzenal',
+    frequencia: frequenciaCampo,
     limiteMensal: 1,
+    regrasDepartamento: {
+      CAMPO: { frequencia: frequenciaCampo, limiteMensal: 1 },
+      AUDIO_VIDEO: { ...REGRAS_PADRAO.AUDIO_VIDEO },
+    },
     dias: [],
     horarios: [],
     diasAjudante: [],
     departamentos: [],
     reunioes: 'ambos',
   }
+}
+
+/**
+ * Regras iniciais da ficha: preserva o que já estava salvo e, ao adicionar um
+ * departamento novo, começa com o padrão dele (Campo segue a frequência padrão
+ * das configurações; AVI começa mensal, até 3x).
+ */
+function regrasDaFicha(
+  d: Dirigente,
+  departamentos: SetorId[],
+  frequenciaPadrao: string,
+): RegrasPorDepartamento {
+  const salvas = d.regrasDepartamento ?? {}
+  return {
+    CAMPO:
+      salvas.CAMPO || departamentos.includes('CAMPO')
+        ? regrasDoDepartamento(d, 'CAMPO')
+        : { frequencia: frequenciaValida(frequenciaPadrao), limiteMensal: 1 },
+    AUDIO_VIDEO:
+      salvas.AUDIO_VIDEO || departamentos.includes('AUDIO_VIDEO')
+        ? regrasDoDepartamento(d, 'AUDIO_VIDEO')
+        : { ...REGRAS_PADRAO.AUDIO_VIDEO },
+  }
+}
+
+/** Frequência e teto mensal do rodízio, próprios do departamento. */
+function RegrasDesignacao({
+  setor,
+  regras,
+  aoAlterar,
+}: {
+  setor: 'CAMPO' | 'AUDIO_VIDEO'
+  regras: RegrasDepartamento
+  aoAlterar: (patch: Partial<RegrasDepartamento>) => void
+}) {
+  return (
+    <div
+      data-regras={setor}
+      className="space-y-4 border-t border-line-soft pt-4"
+    >
+      <div>
+        <p className="mb-1.5 text-[13px] font-semibold text-ink">
+          Frequência de designação
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {FREQUENCIAS.map((f) => (
+            <Chip
+              key={f.id}
+              ativo={regras.frequencia === f.id}
+              onClick={() => aoAlterar({ frequencia: f.id })}
+            >
+              {f.label}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-[13px] font-semibold text-ink">
+          Frequência mensal
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {FREQUENCIAS_MENSAL.map((op) => (
+            <Chip
+              key={op.valor}
+              ativo={regras.limiteMensal === op.valor}
+              onClick={() => aoAlterar({ limiteMensal: op.valor })}
+            >
+              {op.rotulo}
+            </Chip>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[13px] text-muted">
+          Limite de designações no mês neste departamento.
+        </p>
+      </div>
+    </div>
+  )
 }
 
 /** Cabeçalho de um card de departamento na ficha do voluntário. */
@@ -224,6 +320,8 @@ export default function CadastroDirigentes({
     form?.departamentos.includes(dep.id),
   )
   const IconeDepartamento = departamentosAtuais[0]?.Icone ?? MapPin
+  const regrasCampo = form?.regrasDepartamento?.CAMPO ?? REGRAS_PADRAO.CAMPO
+  const regrasAvi = form?.regrasDepartamento?.AUDIO_VIDEO ?? REGRAS_PADRAO.AUDIO_VIDEO
 
   function abrir(novo: Dirigente | null = null) {
     setErro('')
@@ -233,9 +331,11 @@ export default function CadastroDirigentes({
       setEtapa('departamento')
       return
     }
+    const departamentos = departamentosDaFicha(novo, aptidoes)
     setForm({
       ...novo,
-      departamentos: departamentosDaFicha(novo, aptidoes),
+      departamentos,
+      regrasDepartamento: regrasDaFicha(novo, departamentos, frequenciaPadrao),
       reunioes: novo.reunioes ?? 'ambos',
       dias: [...(novo.dias ?? [])],
       horarios: [...(novo.horarios ?? [])],
@@ -252,6 +352,24 @@ export default function CadastroDirigentes({
 
   function alternar<K extends keyof FormDirigente>(campo: K, valor: FormDirigente[K]) {
     setForm((f) => (f ? { ...f, [campo]: valor } : f))
+  }
+
+  /** Altera frequência/limite de um departamento sem tocar no outro. */
+  function alterarRegras(
+    setor: 'CAMPO' | 'AUDIO_VIDEO',
+    patch: Partial<RegrasDepartamento>,
+  ) {
+    setForm((f) => {
+      if (!f) return f
+      const atual = f.regrasDepartamento?.[setor] ?? REGRAS_PADRAO[setor]
+      return {
+        ...f,
+        regrasDepartamento: {
+          ...f.regrasDepartamento,
+          [setor]: { ...atual, ...patch },
+        },
+      }
+    })
   }
 
   /** Marca/desmarca um departamento na etapa de escolha (mínimo 1). */
@@ -301,6 +419,19 @@ export default function CadastroDirigentes({
     const departamentos = ordenarDepartamentos(form.departamentos)
     const incluiCampo = departamentos.includes('CAMPO')
     const incluiAvi = departamentos.includes('AUDIO_VIDEO')
+    const regraCampo = form.regrasDepartamento?.CAMPO ?? {
+      frequencia: frequenciaValida(form.frequencia),
+      limiteMensal:
+        form.limiteMensal === 2 || form.limiteMensal === 3 ? form.limiteMensal : 1,
+    }
+    const regraAvi = form.regrasDepartamento?.AUDIO_VIDEO ?? {
+      ...REGRAS_PADRAO.AUDIO_VIDEO,
+    }
+    const regrasDepartamento: RegrasPorDepartamento = {
+      ...(incluiCampo ? { CAMPO: regraCampo } : {}),
+      ...(incluiAvi ? { AUDIO_VIDEO: regraAvi } : {}),
+    }
+    const principal = incluiCampo ? regraCampo : incluiAvi ? regraAvi : null
     const registro: Dirigente = {
       ...form,
       id,
@@ -311,8 +442,10 @@ export default function CadastroDirigentes({
       // Compatibilidade: fichas antigas leem só o departamento principal.
       departamento: departamentos[0],
       reunioes: incluiAvi ? (form.reunioes ?? 'ambos') : undefined,
-      limiteMensal:
-        form.limiteMensal === 2 || form.limiteMensal === 3 ? form.limiteMensal : 1,
+      frequencia: principal?.frequencia ?? frequenciaValida(form.frequencia),
+      limiteMensal: principal?.limiteMensal ?? 1,
+      regrasDepartamento:
+        Object.keys(regrasDepartamento).length > 0 ? regrasDepartamento : undefined,
       dias: incluiCampo ? [...form.dias].sort((a, b) => a - b) : [],
       horarios: incluiCampo ? [...form.horarios] : [],
       ajudante: incluiCampo ? form.ajudante === true : false,
@@ -540,6 +673,46 @@ export default function CadastroDirigentes({
                     ))}
                   </div>
                 </fieldset>
+
+                <RegrasDesignacao
+                  setor="CAMPO"
+                  regras={regrasCampo}
+                  aoAlterar={(patch) => alterarRegras('CAMPO', patch)}
+                />
+
+                <div className="border-t border-line-soft pt-4">
+                  <p className="mb-1.5 text-[13px] font-semibold text-ink">Ajudante</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Chip
+                      ativo={form.ajudante === true}
+                      onClick={() => alternar('ajudante', form.ajudante !== true)}
+                    >
+                      Marcar como ajudante
+                    </Chip>
+                  </div>
+                  {form.ajudante === true ? (
+                    <fieldset className="mt-3">
+                      <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                        Dias como ajudante
+                      </legend>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ORDEM_DIAS.map((idx) => (
+                          <Chip
+                            key={idx}
+                            ativo={(form.diasAjudante ?? []).includes(idx)}
+                            onClick={() => alternarNaLista('diasAjudante', idx)}
+                          >
+                            {infoDia(idx).curto}
+                          </Chip>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[13px] text-muted">
+                        Sem nenhum dia marcado, ajuda em qualquer dia. A frequência e o
+                        limite mensal acima também valem para as vezes como ajudante.
+                      </p>
+                    </fieldset>
+                  ) : null}
+                </div>
               </section>
             ) : null}
 
@@ -592,86 +765,18 @@ export default function CadastroDirigentes({
                     ))}
                   </div>
                 </div>
+
+                <RegrasDesignacao
+                  setor="AUDIO_VIDEO"
+                  regras={regrasAvi}
+                  aoAlterar={(patch) => alterarRegras('AUDIO_VIDEO', patch)}
+                />
               </section>
             ) : null}
 
             {incluiCampo || incluiAvi ? (
               <>
                 <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm">
-                  <div>
-                    <p className="mb-1.5 text-[13px] font-semibold text-ink">
-                      Frequência de designação
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {FREQUENCIAS.map((f) => (
-                        <Chip
-                          key={f.id}
-                          ativo={form.frequencia === f.id}
-                          onClick={() => alternar('frequencia', f.id)}
-                        >
-                          {f.label}
-                        </Chip>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="mb-1.5 text-[13px] font-semibold text-ink">
-                      Frequência mensal
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {FREQUENCIAS_MENSAL.map((op) => (
-                        <Chip
-                          key={op.valor}
-                          ativo={(form.limiteMensal ?? 1) === op.valor}
-                          onClick={() => alternar('limiteMensal', op.valor)}
-                        >
-                          {op.rotulo}
-                        </Chip>
-                      ))}
-                    </div>
-                    <p className="mt-1.5 text-[13px] text-muted">
-                      Aplica-se ao rodízio. Dias com voluntário fixo não contam neste limite.
-                    </p>
-                  </div>
-                </section>
-
-                <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm">
-                  {incluiCampo ? (
-                    <div>
-                      <p className="mb-1.5 text-[13px] font-semibold text-ink">Ajudante</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        <Chip
-                          ativo={form.ajudante === true}
-                          onClick={() => alternar('ajudante', form.ajudante !== true)}
-                        >
-                          Marcar como ajudante
-                        </Chip>
-                      </div>
-                      {form.ajudante === true ? (
-                        <fieldset className="mt-3">
-                          <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                            Dias como ajudante
-                          </legend>
-                          <div className="flex flex-wrap gap-1.5">
-                            {ORDEM_DIAS.map((idx) => (
-                              <Chip
-                                key={idx}
-                                ativo={(form.diasAjudante ?? []).includes(idx)}
-                                onClick={() => alternarNaLista('diasAjudante', idx)}
-                              >
-                                {infoDia(idx).curto}
-                              </Chip>
-                            ))}
-                          </div>
-                          <p className="mt-1.5 text-[13px] text-muted">
-                            Sem nenhum dia marcado, ajuda em qualquer dia.
-                          </p>
-                        </fieldset>
-                      ) : null}
-                    </div>
-                  ) : null}
-
                   <div>
                     <p className="mb-1.5 text-[13px] font-semibold text-ink">Disponibilidade</p>
                     <div className="flex flex-wrap gap-1.5">

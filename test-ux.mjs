@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const BASE = process.env.UX_BASE ?? 'http://localhost:5180'
+const BASE_API = process.env.UX_API ?? 'http://127.0.0.1:8787'
 const DIR = process.env.UX_SHOTS ?? join(tmpdir(), 'opencode', 'ux')
 const SUFIXO = Date.now().toString(36)
 const EMAIL_TESTE = `ux-${SUFIXO}@exemplo.com`
@@ -227,6 +228,22 @@ try {
   await chip(DIA_CURTO).click()
   await chip('18:30').click()
   await salvarComEspera()
+  const regrasPersistidas = await page.evaluate(async () => {
+    const resposta = await fetch('/api/estado', { cache: 'no-store' })
+    const corpo = await resposta.json()
+    const pessoa = (corpo.estado?.dirigentes ?? []).find(
+      (d) => d.nome === 'Paula Multi',
+    )
+    return pessoa?.regrasDepartamento ?? null
+  })
+  ck(
+    'voluntários: frequências persistidas por departamento',
+    regrasPersistidas?.CAMPO?.frequencia === 'semanal' &&
+      regrasPersistidas?.CAMPO?.limiteMensal === 1 &&
+      regrasPersistidas?.AUDIO_VIDEO?.frequencia === 'mensal' &&
+      regrasPersistidas?.AUDIO_VIDEO?.limiteMensal === 3,
+    JSON.stringify(regrasPersistidas),
+  )
   await page.waitForSelector('h2:has-text("Quadro de voluntários")', { timeout: 20000 })
   ck(
     'voluntários: multi-departamento no quadro',
@@ -242,6 +259,28 @@ try {
     'voluntários: cards separados por departamento',
     (await page.locator('[data-departamento="CAMPO"]').count()) === 1 &&
       (await page.locator('[data-departamento="AUDIO_VIDEO"]').count()) === 1,
+  )
+  const cardCampoMulti = page.locator('[data-departamento="CAMPO"]')
+  const cardAviMulti = page.locator('[data-departamento="AUDIO_VIDEO"]')
+  ck(
+    'voluntários: Ajudante apenas no card Campo',
+    (await cardCampoMulti.getByText('Ajudante', { exact: true }).count()) === 1 &&
+      (await cardAviMulti.getByText('Ajudante', { exact: true }).count()) === 0,
+  )
+  ck(
+    'voluntários: frequência própria de cada departamento',
+    (await cardCampoMulti
+      .locator('button[aria-pressed]:text-is("Semanal")')
+      .getAttribute('aria-pressed')) === 'true' &&
+      (await cardCampoMulti
+        .locator('button[aria-pressed]:text-is("1x no mês")')
+        .getAttribute('aria-pressed')) === 'true' &&
+      (await cardAviMulti
+        .locator('button[aria-pressed]:text-is("Mensal")')
+        .getAttribute('aria-pressed')) === 'true' &&
+      (await cardAviMulti
+        .locator('button[aria-pressed]:text-is("Até 3x")')
+        .getAttribute('aria-pressed')) === 'true',
   )
   await page.locator('button[aria-label="Voltar para voluntários"]').click()
   await page.waitForSelector('h2:has-text("Quadro de voluntários")', { timeout: 10000 })
@@ -350,12 +389,19 @@ try {
   ck('pdf: download direto da escala (Campo)', Boolean(arquivo && arquivo.suggestedFilename().endsWith('.pdf')), arquivo ? arquivo.suggestedFilename() : 'sem download')
   await shot('09-export')
 
-  // ---------- 10) Link de compartilhamento (#/ver/) ----------
+  // ---------- 10) Link público curto (/escala/:slug/CAMPO) ----------
   await page.click('button:has-text("Link")')
   await page.waitForFunction(() => Boolean(window.__shareDesigna), undefined, { timeout: 10000 })
   const link = await page.evaluate(() => window.__shareDesigna ?? '')
-  ck('link: copiado contem #/ver/', link.includes('#/ver/'), link.slice(0, 120))
-  if (link.includes('#/ver/')) {
+  ck(
+    'link: curto em /escala/:slug/CAMPO com o mês (sem #)',
+    link.includes('/escala/') &&
+      link.includes('/CAMPO') &&
+      /[?&]mes=\d{4}-\d{1,2}/.test(link) &&
+      !link.includes('#'),
+    link.slice(0, 160),
+  )
+  if (link.includes('/escala/')) {
     await page.goto(link, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForSelector('h1:has-text("Programação para serviço de campo")', { timeout: 20000 })
     ck('ver: programação compartilhada abriu', true)
@@ -536,6 +582,37 @@ try {
     { timeout: 30000 },
   )
   await dialogoBaixarPdf('AVI')
+  const limitesAvi = await page.evaluate(async () => {
+    const resposta = await fetch('/api/setor/AUDIO_VIDEO', { credentials: 'include' })
+    const corpo = await resposta.json()
+    const vitor = (corpo.dirigentes ?? []).find((d) => d.nome === 'Vitor AVI')
+    const escalas = corpo.dados?.escalas ?? {}
+    let maxMes = 0
+    let maxDia = 0
+    for (const registro of Object.values(escalas)) {
+      const porDia = {}
+      let noMes = 0
+      for (const [slot, id] of Object.entries(registro.auto ?? {})) {
+        if (id !== vitor?.id) continue
+        noMes += 1
+        const iso = String(slot).slice(0, 10)
+        porDia[iso] = (porDia[iso] ?? 0) + 1
+      }
+      maxMes = Math.max(maxMes, noMes)
+      for (const n of Object.values(porDia)) maxDia = Math.max(maxDia, n)
+    }
+    return { maxMes, maxDia, limite: vitor?.limiteMensal ?? null }
+  })
+  ck(
+    'avi: teto mensal do voluntário respeitado',
+    limitesAvi.maxMes <= (limitesAvi.limite ?? 3),
+    JSON.stringify(limitesAvi),
+  )
+  ck(
+    'avi: uma função por voluntário na mesma reunião',
+    limitesAvi.maxDia <= 1,
+    JSON.stringify(limitesAvi),
+  )
   ck(
     'avi: voluntário no cartão do PDF',
     (await page.locator('[class*="-10000px"] .escala-card:has-text("Vitor AVI")').count()) > 0,
@@ -649,6 +726,38 @@ try {
     info && info.usuario && info.usuario.congregacao && info.usuario.congregacao.slug
   ck('auth/eu expoe slug da congregacao', Boolean(slug), JSON.stringify(info).slice(0, 200))
   if (slug) {
+    const proximo = new Date()
+    proximo.setMonth(proximo.getMonth() + 1)
+    const chaveProximo = `${proximo.getFullYear()}-${proximo.getMonth() + 1}`
+    const respostaMes = await page.request.get(
+      `${BASE_API}/api/escala/publico/${encodeURIComponent(slug)}/CAMPO?mes=${chaveProximo}`,
+    )
+    const corpoMes = await respostaMes.json()
+    ck(
+      'publico CAMPO: link respeita o mês pedido',
+      corpoMes.chave === chaveProximo,
+      JSON.stringify({ pedido: chaveProximo, recebido: corpoMes.chave }),
+    )
+
+    for (const [setor, imagem] of [
+      ['CAMPO', 'og-campo.png'],
+      ['AVI', 'og-avi.png'],
+      ['TPL', 'og-tpl.png'],
+    ]) {
+      const respostaOg = await page.request.get(
+        `${BASE_API}/escala/${encodeURIComponent(slug)}/${setor}`,
+      )
+      const htmlOg = await respostaOg.text()
+      ck(
+        `og ${setor}: imagem configurada`,
+        htmlOg.includes('property="og:image"') && htmlOg.includes(imagem),
+      )
+      ck(
+        `og ${setor}: og:url sem hash`,
+        !/<meta property="og:url"[^>]*#/.test(htmlOg),
+      )
+    }
+
     await page.goto(`${BASE}/escala/${encodeURIComponent(slug)}/CAMPO`, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForSelector('h1:has-text("Programação para serviço de campo")', { timeout: 20000 })
     ck('publico CAMPO: programação abre', true)
@@ -673,6 +782,7 @@ try {
     await page.goto(`${BASE}/escala/${encodeURIComponent(slug)}/TPL`, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForSelector('text=/Próxima designação|Primeira designação|próximas designações|Ainda não há uma escala|Não há mais saídas|Não foi possível carregar/', { timeout: 20000 })
     ck('publico TPL: pagina abre', (await page.locator('h1:has-text("Testemunho Público Local")').count()) > 0)
+    ck('publico TPL: sem filtro Mês', (await page.locator('#tpl-publico-mes').count()) === 0)
     ck('publico TPL: sem botao de download', !(await page.locator('button:has-text("Baixar PDF"), button:has-text("Baixar imagem")').count()))
     ck('publico TPL: sem botao copiar link', !(await page.locator('button:has-text("Copiar link")').count()))
     ck('publico TPL: sem botao Ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) === 0)

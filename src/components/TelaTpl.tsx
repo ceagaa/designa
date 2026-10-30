@@ -330,7 +330,7 @@ export default function TelaTpl({
       aoAvisar('Slug público indisponível.')
       return
     }
-    const href = `${window.location.origin}/tpl/${encodeURIComponent(slug)}`
+    const href = `${window.location.origin}/tpl/${encodeURIComponent(slug)}?mes=${encodeURIComponent(chave)}`
     const resultado = await compartilharPagina(href, TITULO_TPL, `Escala de ${TITULO_TPL}`)
     if (resultado === 'copiado') aoAvisar('Link público copiado.')
     else if (resultado === 'falhou') aoAvisar('Não foi possível compartilhar o link.')

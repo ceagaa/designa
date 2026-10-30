@@ -21,7 +21,7 @@ import TelaPessoas from './components/TelaPessoas'
 import TelaTpl from './components/TelaTpl'
 import TelaTplPublica from './components/TelaTplPublica'
 import TelaVer from './components/TelaVer'
-import { compartilharPagina, lerHashVer, linkDe, montarPayload } from './lib/compartilhamento'
+import { compartilharPagina, lerHashVer } from './lib/compartilhamento'
 import { chaveMes, ocorrenciasDoMes, nomeMes } from './lib/datas'
 import { estadoInicial, registroDe } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
@@ -522,20 +522,18 @@ export default function App() {
 
   async function compartilharLink() {
     try {
-      const payload = montarPayload({
-        config,
-        chave,
-        ocorrencias,
-        designacoes: efetivas,
-        designacoesAjudante: efetivasAjudante,
-        dirigentes: voluntariosCampo,
-      })
-      if (!payload.r.length) {
+      if (!ocorrencias.some((oc) => efetivas[oc.key])) {
         setAviso('Designe pelo menos um voluntário antes de compartilhar o link.')
         return
       }
+      const slug = usuario?.congregacao.slug
+      if (!slug) {
+        setAviso('Não foi possível identificar o link público do Campo.')
+        return
+      }
+      const url = `${window.location.origin}/escala/${encodeURIComponent(slug)}/CAMPO?mes=${encodeURIComponent(chave)}`
       const resultado = await compartilharPagina(
-        linkDe(payload),
+        url,
         `Escala de ${nomeMes(mes)} de ${ano}`,
         'Compartilhar escala de campo',
       )
@@ -695,7 +693,7 @@ export default function App() {
   if (sessao === 'verificando') {
     return (
       <div className="min-h-svh">
-        {splash ? <Splash congregacao={config.congregacao} saindo={splash === 'saindo'} /> : null}
+        {splash ? <Splash saindo={splash === 'saindo'} /> : null}
       </div>
     )
   }
@@ -703,7 +701,7 @@ export default function App() {
   if (sessao === 'sem' || !usuario) {
     return (
       <div className="min-h-svh">
-        {splash ? <Splash congregacao={config.congregacao} saindo={splash === 'saindo'} /> : null}
+        {splash ? <Splash saindo={splash === 'saindo'} /> : null}
         <TelaLogin aoEntrar={aoEntrar} />
         {aviso ? (
           <div
@@ -720,7 +718,7 @@ export default function App() {
 
   return (
     <div className="min-h-svh">
-      {splash && !ehRotaPublica ? <Splash congregacao={config.congregacao} saindo={splash === 'saindo'} /> : null}
+      {splash && !ehRotaPublica ? <Splash saindo={splash === 'saindo'} /> : null}
 
       <AppHeader
         titulo={tabelaAberta ? 'Tabela completa' : tituloHeader}
@@ -947,8 +945,8 @@ export default function App() {
           config={config}
           ocorrencias={ocorrencias}
           efetivas={efetivas}
-          efetivasAjudante={efetivasAjudante}
           dirigentes={voluntariosCampo}
+          slug={usuario?.congregacao.slug}
           aoAvisar={setAviso}
         />
       ) : null}

@@ -1,6 +1,13 @@
-import type { Campo, Dirigente, Estado, Escalas, RegistroMes } from './dominio'
+import type {
+  Campo,
+  Dirigente,
+  Estado,
+  Escalas,
+  RegrasPorDepartamento,
+  RegistroMes,
+} from './dominio'
 import { CONGREGACAO_PADRAO, TITULO_PADRAO, frequenciaValida } from './constants'
-import { SETORES } from './dominio'
+import { REGRAS_PADRAO, SETORES } from './dominio'
 
 export const CHAVE_LOCAL = 'dirigentes:estado:v1'
 
@@ -183,11 +190,37 @@ export function normalizarEstado(bruto: unknown): Estado {
       ajudanteFixo: c.ajudanteFixo || null,
     }))
 
+  const normalizarRegras = (bruto: unknown): RegrasPorDepartamento | undefined => {
+    if (!bruto || typeof bruto !== 'object') return undefined
+    const dados = bruto as Record<string, unknown>
+    const saida: RegrasPorDepartamento = {}
+    for (const setor of ['CAMPO', 'AUDIO_VIDEO'] as const) {
+      const valor = dados[setor]
+      if (!valor || typeof valor !== 'object') continue
+      const regra = valor as { frequencia?: unknown; limiteMensal?: unknown }
+      const padrao = REGRAS_PADRAO[setor]
+      saida[setor] = {
+        frequencia: frequenciaValida(
+          typeof regra.frequencia === 'string' ? regra.frequencia : undefined,
+          padrao.frequencia,
+        ),
+        limiteMensal:
+          regra.limiteMensal === 1 ||
+          regra.limiteMensal === 2 ||
+          regra.limiteMensal === 3
+            ? regra.limiteMensal
+            : padrao.limiteMensal,
+      }
+    }
+    return Object.keys(saida).length ? saida : undefined
+  }
+
   const normalizarDirigentes = (lista: Dirigente[]): Dirigente[] =>
     lista.map((d) => ({
       ...d,
       limiteMensal:
         d.limiteMensal === 2 || d.limiteMensal === 3 ? d.limiteMensal : 1,
+      regrasDepartamento: normalizarRegras(d.regrasDepartamento),
       // Fichas novas podem ter vários departamentos; fichas antigas seguem com um.
       departamentos: Array.isArray(d.departamentos)
         ? [...new Set(d.departamentos.filter((s) => SETORES.includes(s)))]

@@ -10,7 +10,7 @@ import {
   ocorrenciasAvi,
   registroAviDe,
 } from '../lib/avi'
-import { isoDeHoje, lerChaveMes, nomeMes } from '../lib/datas'
+import { isoDeHoje, lerChaveMes, mesDaUrl, nomeMes } from '../lib/datas'
 import { nomeDiaCurto } from '../lib/constants'
 import { Botao, Select } from './ui'
 import { CardHeroAvi, LinhaAvi } from './CardsDesignacao'
@@ -67,7 +67,14 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
           .filter(([, registro]) => Boolean(registro?.geradoEm))
           .map(([chave]) => chave)
           .sort()
-        setMesAtivo(gerados.length ? gerados[gerados.length - 1] : null)
+        const pedido = mesDaUrl()
+        setMesAtivo(
+          pedido && gerados.includes(pedido)
+            ? pedido
+            : gerados.length
+              ? gerados[gerados.length - 1]
+              : null,
+        )
         setEstado(gerados.length ? 'pronto' : 'vazio')
       })
       .catch(() => {

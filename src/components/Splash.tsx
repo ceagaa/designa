@@ -1,4 +1,4 @@
-export default function Splash({ congregacao, saindo }: { congregacao: string; saindo: boolean }) {
+export default function Splash({ saindo }: { saindo: boolean }) {
   return (
     <div
       className={`fixed inset-0 z-[60] flex flex-col items-center justify-center bg-teal px-6 text-center text-white splash ${
@@ -13,7 +13,6 @@ export default function Splash({ congregacao, saindo }: { congregacao: string; s
           draggable={false}
         />
       </h1>
-      <p className="mt-5 max-w-sm text-sm font-semibold text-white/85">{congregacao}</p>
     </div>
   )
 }

@@ -2,6 +2,18 @@
 
 export type FrequenciaId = 'semanal' | 'quinzenal' | 'mensal' | 'bimestral'
 
+/** Regras de rodízio próprias de um departamento. */
+export interface RegrasDepartamento {
+  frequencia: FrequenciaId
+  /** Máximo de designações por mês neste departamento. */
+  limiteMensal: 1 | 2 | 3
+}
+
+/** Regras por departamento; TPL não tem configuração de designação. */
+export type RegrasPorDepartamento = Partial<
+  Record<'CAMPO' | 'AUDIO_VIDEO', RegrasDepartamento>
+>
+
 /** Ids de dirigente ("dir-…") ou de campo ("campo-…"). */
 export type Identificador = string
 
@@ -13,6 +25,8 @@ export interface Dirigente {
   frequencia: FrequenciaId | string
   /** Máximo de designações não fixas por mês (padrão 1). */
   limiteMensal?: 1 | 2 | 3
+  /** Frequência e teto mensal próprios de cada departamento. */
+  regrasDepartamento?: RegrasPorDepartamento
   dias: number[]
   horarios: string[]
   /** Habilita a pessoa para sair como ajudante. */
@@ -188,6 +202,64 @@ export function pertenceAoSetor(
   const deps = departamentosDe(d)
   if (deps.length) return deps.includes(setor)
   return setor === 'CAMPO'
+}
+
+/** Padrões de rodízio por departamento (novas fichas). */
+export const REGRAS_PADRAO: Record<'CAMPO' | 'AUDIO_VIDEO', RegrasDepartamento> = {
+  CAMPO: { frequencia: 'quinzenal', limiteMensal: 1 },
+  AUDIO_VIDEO: { frequencia: 'mensal', limiteMensal: 3 },
+}
+
+const FREQUENCIAS_VALIDAS: readonly FrequenciaId[] = [
+  'semanal',
+  'quinzenal',
+  'mensal',
+  'bimestral',
+]
+
+interface RegraBruta {
+  frequencia?: string
+  limiteMensal?: number
+}
+
+function normalizarRegra(
+  regra: RegraBruta | undefined,
+  padrao: RegrasDepartamento,
+): RegrasDepartamento {
+  return {
+    frequencia:
+      FREQUENCIAS_VALIDAS.find((f) => f === regra?.frequencia) ?? padrao.frequencia,
+    limiteMensal:
+      regra?.limiteMensal === 1 ||
+      regra?.limiteMensal === 2 ||
+      regra?.limiteMensal === 3
+        ? regra.limiteMensal
+        : padrao.limiteMensal,
+  }
+}
+
+/**
+ * Regras de rodízio do voluntário naquele departamento. Fichas antigas (uma
+ * única frequência/limite) continuam valendo para o Campo; no AVI, valem
+ * quando a pessoa é exclusivamente AVI. Fichas novas usam `regrasDepartamento`
+ * e, sem ele, os padrões do setor.
+ */
+export function regrasDoDepartamento(d: Dirigente, setor: SetorId): RegrasDepartamento {
+  if (setor === 'TPL') return { ...REGRAS_PADRAO.CAMPO }
+  const padrao = REGRAS_PADRAO[setor]
+  const salva = d.regrasDepartamento?.[setor]
+  if (salva) return normalizarRegra(salva, padrao)
+
+  const deps = departamentosDe(d)
+  const exclusivo = deps.length === 1 && deps[0] === setor
+  const campoLegado = setor === 'CAMPO' && (deps.length === 0 || deps.includes('CAMPO'))
+  if (exclusivo || campoLegado) {
+    return normalizarRegra(
+      { frequencia: d.frequencia, limiteMensal: d.limiteMensal },
+      padrao,
+    )
+  }
+  return { ...padrao }
 }
 
 /** Usuário autenticado (sessão) com a congregação dele. */

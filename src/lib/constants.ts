@@ -121,6 +121,9 @@ export function frequenciaDe(id: string | undefined): Frequencia {
   return FREQUENCIAS.find((f) => f.id === id) ?? FREQUENCIAS[0]
 }
 
-export function frequenciaValida(id: string | undefined): FrequenciaId {
-  return FREQUENCIAS.some((f) => f.id === id) ? (id as FrequenciaId) : 'quinzenal'
+export function frequenciaValida(
+  id: string | undefined,
+  padrao: FrequenciaId = 'quinzenal',
+): FrequenciaId {
+  return FREQUENCIAS.some((f) => f.id === id) ? (id as FrequenciaId) : padrao
 }

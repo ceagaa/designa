@@ -1,4 +1,4 @@
-import type { AptidaoId, DadosAvi, ReuniaoAvi } from '../lib/dominio'
+import type { AptidaoId, DadosAvi, IrmaoProjecao } from '../lib/dominio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
@@ -99,9 +99,7 @@ export default function TelaAvi({
   slug?: string
 }) {
   const [dadosBrutos, setDadosBrutos] = useState<unknown>(null)
-  const [irmoes, setIrmoes] = useState<
-    Array<{ id: string; nome: string; ativo: boolean; reunioes?: ReuniaoAvi }>
-  >([])
+  const [irmoes, setIrmoes] = useState<IrmaoProjecao[]>([])
   const [congregacao, setCongregacao] = useState(CONGREGACAO_PADRAO)
   const [carregado, setCarregado] = useState(false)
   const [falhaCarga, setFalhaCarga] = useState(false)
@@ -412,7 +410,7 @@ export default function TelaAvi({
       aoAvisar('Não foi possível identificar o link público deste setor.')
       return
     }
-    const url = `${window.location.origin}/escala/${encodeURIComponent(slug)}/AVI`
+    const url = `${window.location.origin}/escala/${encodeURIComponent(slug)}/AVI?mes=${encodeURIComponent(chave)}`
     const resultado = await compartilharPagina(
       url,
       TITULO_AVI,

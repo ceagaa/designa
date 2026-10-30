@@ -197,6 +197,10 @@ export interface IrmaoProjecao {
   id: string
   nome: string
   ativo: boolean
+  departamento?: SetorId
+  reunioes?: 'semana' | 'fds' | 'ambos'
+  frequencia?: string
+  limiteMensal?: 1 | 2 | 3
 }
 
 /**

@@ -120,11 +120,10 @@ export function montarPayload({
   }
 }
 
-export function linkDe(payload: PayloadCompartilhado): string {
-  const base = `${window.location.origin}${window.location.pathname}`
-  return `${base}#/ver/${codificar(payload)}`
-}
-
+/**
+ * Compatibilidade: links antigos compartilhavam a escala inteira no hash
+ * (`#/ver/...`). Novos links usam a rota curta `/escala/:slug/:setor`.
+ */
 export function lerHashVer(): string | null {
   const hash = window.location.hash || ''
   const inicio = '#/ver/'

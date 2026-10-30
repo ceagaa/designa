@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Dirigente, Estado } from './lib/dominio'
-import { departamentosDe, pertenceAoSetor } from './lib/dominio'
+import { departamentosDe, pertenceAoSetor, regrasDoDepartamento } from './lib/dominio'
 import { estadoVazio, normalizarEstado, registroDe } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
 import { chaveMes, lerChaveMes, ocorrenciasDoMes } from './lib/datas'
@@ -583,14 +583,15 @@ function voluntariosDoSetor(
 }
 
 function projetarIrmao(d: Dirigente) {
+  const regras = regrasDoDepartamento(d, 'AUDIO_VIDEO')
   return {
     id: d.id,
     nome: d.nome,
     ativo: d.ativo !== false,
     departamento: departamentosDe(d)[0] ?? 'CAMPO',
     reunioes: d.reunioes ?? 'ambos',
-    frequencia: d.frequencia,
-    limiteMensal: d.limiteMensal ?? 1,
+    frequencia: regras.frequencia,
+    limiteMensal: regras.limiteMensal,
   }
 }
 
@@ -692,10 +693,21 @@ function setorPublico(bruto: string): SetorPublico | null {
   return null
 }
 
+/** Normaliza o `?mes=` da rota pública para a mesma chave usada no estado. */
+function mesPublico(bruto: string | undefined): string | null {
+  const casamento = bruto?.match(/^(\d{4})-(\d{1,2})$/)
+  if (!casamento) return null
+  const ano = Number(casamento[1])
+  const mes = Number(casamento[2])
+  if (mes < 1 || mes > 12) return null
+  return chaveMes(ano, mes - 1)
+}
+
 async function publicoPorSlug(
   env: Env,
   slug: string,
   setor: SetorPublico,
+  mesPedido: string | null = null,
 ): Promise<{ status: number; corpo: Record<string, unknown> }> {
   const congregacao = await env.DB
     .prepare('SELECT id, nome FROM congregacoes WHERE slug = ?')
@@ -735,19 +747,22 @@ async function publicoPorSlug(
     }
   }
 
-  // CAMPO: prefere o mês atual; se ainda não foi gerado, mostra o próximo.
+  // CAMPO: usa o mês pedido no link; sem ele, prefere o mês atual; se ainda
+  // não foi gerado, mostra o próximo.
   const chaves = Object.keys(estado.escalas)
     .filter((k) => k !== '_config' && /^\d{4}-\d{1,2}$/.test(k))
     .sort()
   const geradas = chaves.filter((k) => registroDe(estado.escalas, k).geradoEm != null)
   const agora = new Date()
   const atual = chaveMes(agora.getFullYear(), agora.getMonth())
-  const chave = geradas.includes(atual)
-    ? atual
-    : geradas.find((k) => k > atual) ??
-      geradas[geradas.length - 1] ??
-      chaves[chaves.length - 1] ??
-      atual
+  const chave =
+    mesPedido ??
+    (geradas.includes(atual)
+      ? atual
+      : geradas.find((k) => k > atual) ??
+        geradas[geradas.length - 1] ??
+        chaves[chaves.length - 1] ??
+        atual)
   const { ano, mes } = lerChaveMes(chave)
   const registro = registroDe(estado.escalas, chave)
   const efetivas: Record<string, string> = {
@@ -783,6 +798,7 @@ app.get('/api/tpl/publico/:slug', async (c) => {
       c.env,
       c.req.param('slug') ?? '',
       'TPL',
+      mesPublico(c.req.query('mes')),
     )
     return c.json(corpo, status as 200 | 404 | 500)
   } catch {
@@ -798,7 +814,12 @@ app.get('/api/escala/publico/:slug/:setor', async (c) => {
   const setor = setorPublico(c.req.param('setor') ?? '')
   if (!setor) return c.json({ erro: 'setor_invalido' }, 400)
   try {
-    const { status, corpo } = await publicoPorSlug(c.env, c.req.param('slug') ?? '', setor)
+    const { status, corpo } = await publicoPorSlug(
+      c.env,
+      c.req.param('slug') ?? '',
+      setor,
+      mesPublico(c.req.query('mes')),
+    )
     return c.json(corpo, status as 200 | 404 | 500)
   } catch {
     return c.json({ erro: 'falha_leitura' }, 500)

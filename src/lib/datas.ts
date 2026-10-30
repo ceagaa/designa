@@ -6,6 +6,20 @@ export function chaveMes(ano: number, mes: number): string {
   return `${ano}-${mes + 1}`
 }
 
+/**
+ * Mês (`AAAA-M`) pedido na URL pública (`?mes=`). Devolve null quando ausente
+ * ou inválido. Usado para o link compartilhado abrir exatamente o mês visível.
+ */
+export function mesDaUrl(): string | null {
+  const valor = new URLSearchParams(window.location.search).get('mes')
+  const casamento = valor?.match(/^(\d{4})-(\d{1,2})$/)
+  if (!casamento) return null
+  const ano = Number(casamento[1])
+  const mes = Number(casamento[2])
+  if (mes < 1 || mes > 12) return null
+  return chaveMes(ano, mes - 1)
+}
+
 /** Data de hoje no formato ISO (YYYY-MM-DD). */
 export function isoDeHoje(): string {
   const d = new Date()

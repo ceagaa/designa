@@ -2,7 +2,6 @@ import type { RefObject } from 'react'
 import type { ConfigEscala, Dirigente, Ocorrencia } from '../lib/dominio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ClipboardCopy, FileDown, ImageDown, Link as LinkIcon, Loader2, Share2 } from 'lucide-react'
-import { linkDe, montarPayload } from '../lib/compartilhamento'
 import {
   baixarImagem,
   baixarPdf,
@@ -23,8 +22,9 @@ interface ExportModalProps {
   config: ConfigEscala
   ocorrencias: Ocorrencia[]
   efetivas: Record<string, string>
-  efetivasAjudante?: Record<string, string>
   dirigentes: Dirigente[]
+  /** Slug da congregação para o link público curto do Campo. */
+  slug?: string
   aoAvisar: (mensagem: string) => void
 }
 
@@ -38,8 +38,8 @@ export default function ExportModal({
   config,
   ocorrencias,
   efetivas,
-  efetivasAjudante,
   dirigentes,
+  slug,
   aoAvisar,
 }: ExportModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -53,20 +53,12 @@ export default function ExportModal({
   )
 
   const link = useMemo(() => {
-    try {
-      const payload = montarPayload({
-        config,
-        chave,
-        ocorrencias,
-        designacoes: efetivas,
-        designacoesAjudante: efetivasAjudante,
-        dirigentes,
-      })
-      return payload.r.length ? linkDe(payload) : ''
-    } catch {
-      return ''
-    }
-  }, [config, chave, ocorrencias, efetivas, efetivasAjudante, dirigentes])
+    if (!slug) return ''
+    const temDesignacao = ocorrencias.some((oc) => efetivas[oc.key])
+    return temDesignacao
+      ? `${window.location.origin}/escala/${encodeURIComponent(slug)}/CAMPO?mes=${encodeURIComponent(chave)}`
+      : ''
+  }, [slug, chave, ocorrencias, efetivas])
 
   useEffect(() => {
     if (!aberto) return undefined

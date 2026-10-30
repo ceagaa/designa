@@ -222,29 +222,31 @@ export function gerarEscalaAvi({
     chave: string,
     secao: 'fds' | 'meio',
   ): string | null {
+    const iso = chave.slice(0, 10)
+    const dataAtual = Date.parse(`${iso}T12:00:00Z`)
     const candidatos = (aptosPorFuncao.get(funcao) ?? []).filter((id) => {
       const irmao = porId.get(id)
       return Boolean(irmao && aceitaSecao(irmao, secao))
     })
-    if (!candidatos.length) return null
+    // Uma pessoa não pode acumular duas funções na mesma reunião.
+    const livres = candidatos.filter((id) => ultimoTs.get(id) !== dataAtual)
+    if (!livres.length) return null
 
-    // Limite mensal é uma preferência: se todos estouraram, ainda escolhe alguém.
-    const dentroDoLimite = candidatos.filter((id) => {
+    // Teto mensal do departamento é regra: não designa acima do configurado.
+    const dentroDoLimite = livres.filter((id) => {
       const limite = porId.get(id)?.limiteMensal ?? 3
       return (total.get(id) ?? 0) < limite
     })
-    const base = dentroDoLimite.length ? dentroDoLimite : candidatos
+    if (!dentroDoLimite.length) return null
 
     // Folga da frequência também é preferência; sem ninguém elegível, relaxa.
-    const iso = chave.slice(0, 10)
-    const dataAtual = Date.parse(`${iso}T12:00:00Z`)
-    const comFolga = base.filter((id) => {
+    const comFolga = dentroDoLimite.filter((id) => {
       const ultimo = ultimoTs.get(id)
       if (!ultimo) return true
       const dias = DIAS_POR_FREQUENCIA[porId.get(id)?.frequencia ?? ''] ?? 7
       return dataAtual - ultimo >= dias * 86_400_000
     })
-    const elegiveis = comFolga.length ? comFolga : base
+    const elegiveis = comFolga.length ? comFolga : dentroDoLimite
 
     const ordenados = [...elegiveis].sort((a, b) => {
       const placarA = [total.get(a) ?? 0, ultimoTs.get(a) ?? 0, hash(`${semente}|${chave}|${a}`)]

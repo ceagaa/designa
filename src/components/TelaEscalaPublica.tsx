@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, RefreshCcw } from 'lucide-react'
 import { Botao } from './ui'
 import TelaVer from './TelaVer'
+import { mesDaUrl } from '../lib/datas'
 
 type Estado = 'carregando' | 'pronto' | 'erro'
 
@@ -13,10 +14,12 @@ export default function TelaEscalaPublica({ slug }: { slug: string }) {
   const [estado, setEstado] = useState<Estado>('carregando')
   const [payload, setPayload] = useState<string | null>(null)
   const [tentativa, setTentativa] = useState(0)
+  const mesPedido = mesDaUrl()
 
   useEffect(() => {
     let vivo = true
-    fetch(`/api/escala/publico/${encodeURIComponent(slug)}/CAMPO`)
+    const consulta = mesPedido ? `?mes=${encodeURIComponent(mesPedido)}` : ''
+    fetch(`/api/escala/publico/${encodeURIComponent(slug)}/CAMPO${consulta}`)
       .then(async (resposta) => {
         if (!vivo) return
         if (!resposta.ok) {
@@ -37,7 +40,7 @@ export default function TelaEscalaPublica({ slug }: { slug: string }) {
     return () => {
       vivo = false
     }
-  }, [slug, tentativa])
+  }, [slug, mesPedido, tentativa])
 
   if (estado === 'pronto' && payload) {
     return <TelaVer payload={payload} />
