@@ -1,7 +1,7 @@
 import type { DadosTpl } from '../lib/dominio'
 import type { OcorrenciaTpl } from '../lib/tpl'
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, RefreshCcw, ShoppingCart } from 'lucide-react'
+import { BookOpen, Loader2, RefreshCcw } from 'lucide-react'
 import { chaveMes, isoDeHoje, lerChaveMes, mesDaUrl, nomeMes } from '../lib/datas'
 import { infoDia } from '../lib/constants'
 import {
@@ -127,7 +127,7 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
           className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal text-white shadow-sm"
           aria-hidden="true"
         >
-          <ShoppingCart className="size-5" />
+          <BookOpen className="size-5" />
         </span>
         <div className="min-w-0">
           <h1 className="text-base font-bold leading-snug tracking-tight text-ink">

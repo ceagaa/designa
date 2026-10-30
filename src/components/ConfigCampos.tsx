@@ -3,6 +3,7 @@ import { ROTULO_SETOR, SETORES } from '../lib/dominio'
 import { useEffect, useState } from 'react'
 import {
   Bell,
+  BookOpen,
   Building2,
   Check,
   ChevronRight,
@@ -15,7 +16,6 @@ import {
   Send,
   ShieldCheck,
   Trash2,
-  ShoppingCart,
   UserPlus,
   Users,
 } from 'lucide-react'
@@ -448,7 +448,7 @@ export default function ConfigCampos({
             <div className="flex flex-col gap-2">
               {SETORES.map((setor) => {
                 const Icone =
-                  setor === 'CAMPO' ? MapPin : setor === 'AUDIO_VIDEO' ? Radio : ShoppingCart
+                  setor === 'CAMPO' ? MapPin : setor === 'AUDIO_VIDEO' ? Radio : BookOpen
                 return (
                   <button
                     key={setor}

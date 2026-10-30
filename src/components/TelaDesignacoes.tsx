@@ -26,7 +26,7 @@ interface CardSetor {
 const CARDS: Record<SetorId, CardSetor> = {
   CAMPO: { setor: 'CAMPO', icone: MapPin, cor: 'bg-teal text-white' },
   AUDIO_VIDEO: { setor: 'AUDIO_VIDEO', icone: Radio, cor: 'bg-petrol text-white' },
-  TPL: { setor: 'TPL', icone: BookOpen, cor: 'bg-wine text-white' },
+  TPL: { setor: 'TPL', icone: BookOpen, cor: 'bg-teal text-white' },
 }
 
 const ROTULO_STATUS: Record<StatusSetor, string> = {

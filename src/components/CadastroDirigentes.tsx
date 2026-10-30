@@ -10,11 +10,11 @@ import type {
 } from '../lib/dominio'
 import { useMemo, useState } from 'react'
 import {
+  BookOpen,
   Check,
   ChevronLeft,
   CircleAlert,
   MapPin,
-  Megaphone,
   Trash,
   UserPlus,
   Volume2,
@@ -67,7 +67,7 @@ const DEPARTAMENTOS: ReadonlyArray<{
     id: 'TPL',
     rotulo: 'TPL',
     descricao: 'Testemunho Público Local com o carrinho.',
-    Icone: Megaphone,
+    Icone: BookOpen,
   },
 ]
 
