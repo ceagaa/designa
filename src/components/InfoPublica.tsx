@@ -5,12 +5,13 @@ import { temaSalvo } from '../lib/tema'
 import ModalInfo from './ModalInfo'
 
 /**
- * Botão de informação das páginas públicas: abre o sheet "Sobre o app"
- * (versão, finalidade, privacidade e tema claro/escuro/automático).
+ * Botão de informação das páginas públicas: abre o sheet "Sobre o app" —
+ * lista de opções (Para que serve, Política, Aparência, Versão), cada uma
+ * abrindo a própria página dentro do sheet.
  *
  * Autocontido — cada página pública só o renderiza no cabeçalho. O tema já é
  * aplicado no documento pelo `iniciarTema()` de main.tsx, então aqui basta
- * ler a escolha salva para marcar o botão ativo.
+ * ler a escolha salva para o modal abrir marcado.
  */
 export default function InfoPublica({ className = '' }: { className?: string }) {
   const [aberto, setAberto] = useState(false)

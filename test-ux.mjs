@@ -794,6 +794,39 @@ try {
     ck('publico CAMPO: sem botão Ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) === 0)
     await shot('15-publico-campo')
 
+    // Modal de info: lista de opções e subpáginas.
+    await page.locator('button[aria-label="Sobre o app"]').first().click()
+    await page.locator('[role=dialog]').waitFor({ timeout: 10000 })
+    ck(
+      'info: lista com as 4 opções',
+      (await page.locator('[role=dialog] button:has-text("Para que serve")').count()) > 0 &&
+        (await page.locator('[role=dialog] button:has-text("Política de privacidade")').count()) > 0 &&
+        (await page.locator('[role=dialog] button:has-text("Aparência")').count()) > 0 &&
+        (await page.locator('[role=dialog] button:has-text("Versão")').count()) > 0,
+    )
+    await page.locator('[role=dialog] button:has-text("Para que serve")').click()
+    ck('info: subpágina Para que serve abre', (await page.locator('[role=dialog]').getByText(/montar a escala da congregação/).count()) > 0)
+    await page.locator('[role=dialog] button:has-text("Voltar")').click()
+    await page.locator('[role=dialog] button:has-text("Política de privacidade")').click()
+    ck('info: subpágina Política abre', (await page.locator('[role=dialog]').getByText(/Nada de anúncio/).count()) > 0)
+    await page.locator('[role=dialog] button:has-text("Voltar")').click()
+    await page.locator('[role=dialog] button:has-text("Aparência")').click()
+    ck(
+      'info: Aparência oferece os 3 temas',
+      (await page.locator('[role=dialog] button:has-text("Claro")').count()) > 0 &&
+        (await page.locator('[role=dialog] button:has-text("Escuro")').count()) > 0 &&
+        (await page.locator('[role=dialog] button:has-text("Automático")').count()) > 0,
+    )
+    await page.locator('[role=dialog] button:has-text("Escuro")').click()
+    ck('info: tema escuro aplica no documento', await page.evaluate(() => document.documentElement.classList.contains('dark')))
+    await page.locator('[role=dialog] button:has-text("Automático")').click()
+    await shot('15b-info-aparencia')
+    await page.locator('[role=dialog] button[aria-label="Fechar"]').click()
+    await page.locator('[role=dialog]').waitFor({ state: 'detached', timeout: 10000 })
+    await page.locator('button[aria-label="Sobre o app"]').first().click()
+    ck('info: ao reabrir volta para a lista', (await page.locator('[role=dialog] button:has-text("Para que serve")').count()) > 0)
+    await page.locator('[role=dialog] button[aria-label="Fechar"]').click()
+
     await page.goto(`${BASE}/escala/${encodeURIComponent(slug)}/AVI`, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForSelector('text=/Próxima reunião|Primeira reunião|próximas designações|Não há mais reuniões|Nenhuma escala publicada|Não foi possível carregar/', { timeout: 20000 })
     ck('publico AVI: pagina abre', (await page.locator('h1:has-text("Audio/Vídeo & Indicadores")').count()) > 0)

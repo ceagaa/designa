@@ -2,6 +2,23 @@
 
 @theme {
   /*
+   * Raio de borda mais generoso (referência: cards ~24px, sheet ~32px,
+   * botões pílula). Sobrescrever os tokens muda TODAS as utilidades
+   * rounded-* do app de uma vez, sem tocar em cada componente.
+   */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+  --radius-4xl: 2.5rem;
+
+  /* Respiro maior em paddings/gaps: +10% na escala inteira. */
+  --spacing: 0.275rem;
+
+  /*
    * Paleta da escala impressa (hex puro para fidelidade no html2canvas).
    * Não usar em componentes de UI — viva em lib/constants (CORES_PLANILHA).
    */
