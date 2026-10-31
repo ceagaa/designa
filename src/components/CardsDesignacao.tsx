@@ -349,12 +349,12 @@ export function LinhaAvi({ item }: { item: ItemListaAvi }) {
 
 /* -------------------------------- TPL -------------------------------- */
 
-/** Card de destaque do TPL: a próxima saída, a dupla, a retirada e o trabalho. */
+/** Card de destaque do TPL: a próxima saída, a dupla, a retirada, o turno e o local. */
 export function CardHeroTpl({
   rotulo,
   dia,
   ehHoje,
-  ponto,
+  retirada,
   turno,
   local,
   nomes,
@@ -362,7 +362,7 @@ export function CardHeroTpl({
   rotulo: string
   dia: string
   ehHoje: boolean
-  ponto: string
+  retirada: string
   turno: string
   local: string | null
   nomes: Array<string | null>
@@ -399,8 +399,9 @@ export function CardHeroTpl({
           destaque
           className="col-span-2"
         />
-        <Bloco rotulo="Retirada" valor={ponto} destaque />
-        <Bloco rotulo="Trabalho" valor={`${turno}${local ? ` · ${local}` : ''}`} destaque />
+        <Bloco rotulo="Retirada" valor={retirada} destaque />
+        <Bloco rotulo="Turno" valor={turno} destaque />
+        <Bloco rotulo="Local" valor={local || 'A definir'} destaque className="col-span-2" />
       </div>
     </section>
   )
@@ -410,10 +411,12 @@ export interface ItemListaTpl {
   key: string
   iso: string
   diaSemana: number
-  /** Retirada e turno (ex.: "Praça Central · Manhã"). */
-  detalhe: string
-  /** Local de trabalho, no lugar do antigo contador de duplas. */
-  trabalho: string
+  /** Turno pronto (Manhã/Tarde/Noite) ou horário específico. */
+  turno: string
+  /** Retirada: ponto de apoio onde a equipe pega o carrinho. */
+  retirada: string
+  /** Local, abaixo dos nomes. */
+  local: string
   nomes: Array<string | null>
 }
 
@@ -441,16 +444,15 @@ export function LinhaTpl({ item }: { item: ItemListaTpl }) {
           <span className="font-semibold text-ink">
             {nomeDiaCurto(item.diaSemana)}, {ddMm(item.iso)}
           </span>
-          <span className="ml-auto flex min-w-0 items-baseline gap-1">
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted">
-              Trabalho
-            </span>
-            <span className="truncate text-[13px] font-semibold text-ink">
-              {item.trabalho || 'A definir'}
-            </span>
+          <span className="ml-auto shrink-0 text-[13px] font-semibold text-ink">
+            {item.turno}
           </span>
         </span>
-        <span className="mt-1 block text-[13px] leading-snug text-muted">{item.detalhe}</span>
+
+        <span className="mt-1.5 block truncate text-[13px] font-semibold leading-snug text-ink">
+          {item.retirada}
+        </span>
+
         <span
           className={`mt-0.5 block break-words text-[15px] leading-snug ${
             dupla.length ? 'font-bold text-teal' : 'font-bold text-crimson'
@@ -458,6 +460,12 @@ export function LinhaTpl({ item }: { item: ItemListaTpl }) {
         >
           {dupla.length ? dupla.join(' / ') : 'Sem designação'}
         </span>
+
+        {item.local ? (
+          <span className="mt-0.5 block truncate text-[13px] leading-snug text-muted">
+            {item.local}
+          </span>
+        ) : null}
       </span>
     </article>
   )

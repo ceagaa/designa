@@ -1,6 +1,6 @@
 import type { AbaNav, Estado, RegistroMes, Tela, Usuario } from './lib/dominio'
 import { pertenceAoSetor } from './lib/dominio'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AppHeader from './components/AppHeader'
 import type { Notificacao } from './components/SinoNotificacoes'
 import BottomNav from './components/BottomNav'
@@ -106,6 +106,11 @@ export default function App() {
   const cardRef = useRef<HTMLDivElement>(null)
   const inicioSplash = useRef(0)
   const filaDeGravacao = useRef<Promise<void>>(Promise.resolve())
+  /** "Voltar" do editor "Ajustar escala" (AVI/TPL), registrado pela tela de setor. */
+  const voltarAjuste = useRef<(() => void) | null>(null)
+  const aoRegistrarVoltarAjuste = useCallback((aoVoltar: (() => void) | null) => {
+    voltarAjuste.current = aoVoltar
+  }, [])
 
   function persistirEstado(estadoParaSalvar: Estado): Promise<void> {
     const gravacao = filaDeGravacao.current
@@ -610,13 +615,15 @@ export default function App() {
   const aoVoltarHeader =
     tela === 'montagem'
       ? () => setTela('campo')
-      : tela === 'campo' || tela === 'avi' || tela === 'tpl'
+      : tela === 'campo'
         ? () => setTela('designacoes')
-        : tela === 'ajustesCampo' || tela === 'ajustesAvi' || tela === 'ajustesTpl'
-          ? () => setTela('ajustes')
-          : tela === 'locais'
-            ? () => setTela(voltaLocais)
-            : undefined
+        : tela === 'avi' || tela === 'tpl'
+          ? () => (voltarAjuste.current ? voltarAjuste.current() : setTela('designacoes'))
+          : tela === 'ajustesCampo' || tela === 'ajustesAvi' || tela === 'ajustesTpl'
+            ? () => setTela('ajustes')
+            : tela === 'locais'
+              ? () => setTela(voltaLocais)
+              : undefined
 
   if (payloadVer) {
     return (
@@ -891,6 +898,7 @@ export default function App() {
             slug={usuario?.congregacao.slug}
             aoAvisar={setAviso}
             aoIrParaPessoas={() => setTela('pessoas')}
+            aoRegistrarVoltar={aoRegistrarVoltarAjuste}
           />
         ) : null}
 
@@ -901,6 +909,7 @@ export default function App() {
             aoAvisar={setAviso}
             aoIrParaPessoas={() => setTela('pessoas')}
             aoAbrirConfiguracao={() => setTela('ajustesTpl')}
+            aoRegistrarVoltar={aoRegistrarVoltarAjuste}
             modoConfiguracao={tela === 'ajustesTpl'}
           />
         ) : null}

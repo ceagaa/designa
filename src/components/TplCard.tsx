@@ -79,7 +79,7 @@ const TplCard = forwardRef(function TplCard(
                 <td className="h-[50px] px-2" style={borda}>
                   <span className="block font-semibold">{linha.ponto}</span>
                   {linha.local ? (
-                    <span className="block text-[12px]">Trabalho: {linha.local}</span>
+                    <span className="block text-[12px]">Local: {linha.local}</span>
                   ) : null}
                 </td>
                 <td className="h-[50px] px-2" style={borda}>

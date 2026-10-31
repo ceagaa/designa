@@ -352,7 +352,7 @@ export interface PontoTpl {
   nome: string
 }
 
-/** Local de trabalho atendido com o carrinho. */
+/** Local (de trabalho) atendido com o carrinho. */
 export interface LocalTpl {
   id: Identificador
   nome: string

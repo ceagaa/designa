@@ -10,9 +10,6 @@ import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
-  ChevronLeft,
-  Copy,
-  FileDown,
   ListPlus,
   LogOut,
   MapPin,
@@ -20,7 +17,6 @@ import {
   PencilLine,
   Plus,
   RefreshCcw,
-  Share2,
   Trash2,
 } from 'lucide-react'
 import { MINIMO_DUPLA } from '../lib/dominio'
@@ -155,7 +151,7 @@ function CartaoSecao({
 /**
  * Tela do setor TPL. A escala é manual: o administrador monta as duplas
  * escolhendo os voluntários do TPL. A configuração fica separada, apenas com
- * pontos de apoio, locais de trabalho, períodos e dias.
+ * pontos de apoio, locais, períodos e dias.
  */
 export default function TelaTpl({
   slug,
@@ -163,6 +159,7 @@ export default function TelaTpl({
   aoSair,
   aoIrParaPessoas,
   aoAbrirConfiguracao,
+  aoRegistrarVoltar,
   modoConfiguracao = false,
 }: {
   slug: string
@@ -171,6 +168,8 @@ export default function TelaTpl({
   aoIrParaPessoas?: () => void
   /** Abre a configuração do TPL (a estrutura mora em Ajustes). */
   aoAbrirConfiguracao?: () => void
+  /** Diz ao header global como "voltar" dentro da tela (fecha o editor de escala). */
+  aoRegistrarVoltar?: (aoVoltar: (() => void) | null) => void
   /** Em Ajustes, mostra a estrutura do setor; fora dele, a escala. */
   modoConfiguracao?: boolean
 }) {
@@ -191,6 +190,12 @@ export default function TelaTpl({
   /** Abre a escala do mês (montar as duplas) — igual ao "Ajustar escala" do Campo. */
   const [ajustando, setAjustando] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
+
+  /** O botão voltar do header global fecha o editor antes de sair da tela. */
+  useEffect(() => {
+    aoRegistrarVoltar?.(ajustando ? () => setAjustando(false) : null)
+    return () => aoRegistrarVoltar?.(null)
+  }, [ajustando, aoRegistrarVoltar])
 
   const dados: DadosTpl = useMemo(() => normalizarDadosTpl(dadosBrutos), [dadosBrutos])
   const chave = chaveMes(ano, mes)
@@ -393,7 +398,7 @@ export default function TelaTpl({
     } else if (form.tipo === 'local') {
       const nome = form.nome.trim()
       if (!nome) {
-        setErroForm('Informe o local de trabalho.')
+        setErroForm('Informe o nome do local.')
         return
       }
       const local: LocalTpl = { id: form.id ?? novoId('local'), nome }
@@ -515,7 +520,7 @@ export default function TelaTpl({
 
   const nomesDestaque = destaque ? nomesDe(efetivas[destaque.key]?.ids ?? []) : []
   const rotuloDestaque = 'Próxima designação'
-  const pontoDestaque = destaque
+  const retiradaDestaque = destaque
     ? (dados.pontos.find((p) => p.id === destaque.periodo.pontoId)?.nome ?? 'Ponto')
     : ''
   const turnoDestaque = destaque ? turnoTexto(destaque.periodo) : ''
@@ -531,22 +536,11 @@ export default function TelaTpl({
       {!modoConfiguracao ? (
         ajustando ? (
           <>
-            <header className="flex items-center gap-2">
-              <button
-                type="button"
-                aria-label="Voltar"
-                onClick={() => setAjustando(false)}
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-card text-teal shadow-sm transition-all hover:bg-teal-tint active:scale-95"
-              >
-                <ChevronLeft className="size-5" aria-hidden="true" />
-              </button>
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-lg font-bold text-ink">Ajustar escala</h2>
-                <p className="truncate text-[13px] text-muted">
-                  {nomeMes(mes)} de {ano}
-                </p>
-              </div>
-            </header>
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-bold text-ink">
+                {nomeMes(mes)} de {ano}
+              </h2>
+            </div>
 
           {falhaCarga ? (
             <p className="flex items-center justify-between gap-2 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
@@ -592,21 +586,6 @@ export default function TelaTpl({
               ) : null}
             </div>
           ) : null}
-
-          <div className="flex flex-wrap gap-2">
-            <Botao variante="secundario" onClick={aoPdf} disabled={!temDuplas}>
-              <FileDown className="size-4" aria-hidden="true" />
-              Baixar PDF
-            </Botao>
-            <Botao variante="secundario" onClick={compartilharLink}>
-              {typeof navigator.share === 'function' ? (
-                <Share2 className="size-4" aria-hidden="true" />
-              ) : (
-                <Copy className="size-4" aria-hidden="true" />
-              )}
-              Compartilhar link
-            </Botao>
-          </div>
 
           {!ocorrencias.length ? (
             <Vazio
@@ -810,7 +789,7 @@ export default function TelaTpl({
                 rotulo={rotuloDestaque}
                 dia={diaDestaque}
                 ehHoje={ehHoje}
-                ponto={pontoDestaque}
+                retirada={retiradaDestaque}
                 turno={turnoDestaque}
                 local={localDestaque}
                 nomes={nomesDestaque}
@@ -838,8 +817,9 @@ export default function TelaTpl({
                           key: oc.key,
                           iso: oc.iso,
                           diaSemana: oc.diaSemana,
-                          detalhe: `${ponto?.nome ?? 'Ponto'} · ${turnoTexto(oc.periodo)}`,
-                          trabalho: local?.nome ?? '',
+                          retirada: ponto?.nome ?? 'Ponto',
+                          turno: turnoTexto(oc.periodo),
+                          local: local?.nome ?? '',
                           nomes,
                         }}
                       />
@@ -950,15 +930,15 @@ export default function TelaTpl({
           </CartaoSecao>
 
           <CartaoSecao
-            titulo="Locais de trabalho"
+            titulo="Locais"
             descricao="Onde a equipe trabalha com o carrinho"
             icone={MapPin}
             quantidade={dados.locais.length}
             aoNovo={novoLocal}
             desabilitado={!carregado}
             vazio={{
-              texto: 'Nenhum local de trabalho. Cadastre onde a equipe vai trabalhar com o carrinho.',
-              rotulo: 'Adicionar local de trabalho',
+              texto: 'Nenhum local cadastrado. Cadastre onde a equipe vai trabalhar com o carrinho.',
+              rotulo: 'Adicionar local',
             }}
           >
             <ul className="divide-y divide-line-soft">
@@ -1031,8 +1011,8 @@ export default function TelaTpl({
                         </span>{' '}
                         <span className="text-muted">
                           {turnoTexto(p)} · Retirada:{' '}
-                          {ponto?.nome ?? 'Ponto removido'} · Trabalho:{' '}
-                          {local?.nome ?? 'Local a definir'}
+                          {ponto?.nome ?? 'Ponto removido'} · Local:{' '}
+                          {local?.nome ?? 'A definir'}
                         </span>
                       </span>
                       <MenuKebab
@@ -1094,8 +1074,8 @@ export default function TelaTpl({
                 : 'Novo ponto'
               : form.tipo === 'local'
                 ? form.id
-                  ? 'Editar local de trabalho'
-                  : 'Novo local de trabalho'
+                  ? 'Editar local'
+                  : 'Novo local'
                 : form.id
                   ? 'Editar período'
                   : 'Novo período'
@@ -1117,7 +1097,7 @@ export default function TelaTpl({
               </div>
             ) : form.tipo === 'local' ? (
               <div>
-                <Rotulo htmlFor="tpl-local-nome">Local de trabalho</Rotulo>
+                <Rotulo htmlFor="tpl-local-nome">Local</Rotulo>
                 <Input
                   id="tpl-local-nome"
                   value={form.nome}
@@ -1143,7 +1123,7 @@ export default function TelaTpl({
                   </Select>
                 </div>
                 <div>
-                  <Rotulo htmlFor="tpl-periodo-local">Local de trabalho</Rotulo>
+                  <Rotulo htmlFor="tpl-periodo-local">Local</Rotulo>
                   <Select
                     id="tpl-periodo-local"
                     value={form.localId}

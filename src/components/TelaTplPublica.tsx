@@ -32,8 +32,8 @@ function mesesComConteudo(dados: DadosTpl): string[] {
 
 /**
  * Rota pública /tpl/:slug — mesma visão do administrador: cabeçalho do setor,
- * card "Próxima designação" (data, voluntários, retirada e trabalho) e a lista
- * de "Próximos dias". Sem botões de PDF/link: aqui só se consulta a escala.
+ * card "Próxima designação" (data, voluntários, retirada, turno e local) e a
+ * lista de "Próximos dias". Sem botões de PDF/link: aqui só se consulta a escala.
  */
 export default function TelaTplPublica({ slug }: { slug: string }) {
   const [estado, setEstado] = useState<Estado>('carregando')
@@ -106,11 +106,9 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
       key: oc.key,
       iso: oc.iso,
       diaSemana: oc.diaSemana,
-      ponto: ponto?.nome ?? 'Ponto',
+      retirada: ponto?.nome ?? 'Ponto',
       turno: turnoTexto(oc.periodo),
-      local: local?.nome ?? null,
-      detalhe: `${ponto?.nome ?? 'Ponto'} · ${turnoTexto(oc.periodo)}`,
-      trabalho: local?.nome ?? '',
+      local: local?.nome ?? '',
       nomes,
     }
   }
@@ -172,7 +170,7 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
               rotulo="Próxima designação"
               dia={`${infoDia(itemDestaque.diaSemana).curto}, ${itemDestaque.iso.slice(8, 10)}/${itemDestaque.iso.slice(5, 7)}`}
               ehHoje={ehHoje}
-              ponto={itemDestaque.ponto}
+              retirada={itemDestaque.retirada}
               turno={itemDestaque.turno}
               local={itemDestaque.local}
               nomes={itemDestaque.nomes}

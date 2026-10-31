@@ -113,23 +113,17 @@ async function salvarComEspera({ setor = false } = {}) {
   await puts
 }
 
-async function dialogoBaixarPdf(tela) {
-  const baixar = page.locator('button:has-text("Baixar PDF")')
-  if (!(await baixar.first().isVisible().catch(() => false))) {
-    const dlg = page.locator('[role=dialog]')
-    if (await dlg.isVisible().catch(() => false)) {
-      const gerar = dlg.locator('button:has-text("Gerar")')
-      if (await gerar.count()) await gerar.click()
-      await page.waitForTimeout(800)
-      if (await dlg.isVisible().catch(() => false)) {
-        await dlg.locator('button[aria-label="Fechar"]').click().catch(() => page.keyboard.press('Escape'))
-        await page.waitForTimeout(400)
-      }
-    }
-  }
-  await page.waitForSelector('button:has-text("Baixar PDF")', { timeout: 25000 })
+/**
+ * O editor "Ajustar escala" não tem mais PDF/Link: sai dele pelo voltar do
+ * header e baixa pelo botão da barra fixa do resumo do mês.
+ */
+async function baixarPdfDoResumo(tela, seletorEditor) {
+  await page.locator('header button[aria-label="Voltar"]').click()
+  await page.waitForSelector(seletorEditor, { state: 'detached', timeout: 20000 })
+  const pdf = page.locator('button:has-text("PDF")')
+  await pdf.first().waitFor({ timeout: 20000 })
   const dl = page.waitForEvent('download', { timeout: 30000 }).catch(() => null)
-  await page.locator('button:has-text("Baixar PDF")').last().click()
+  await pdf.last().click()
   const arquivo = await dl
   ck(`pdf: download da tabela (${tela})`, Boolean(arquivo && arquivo.suggestedFilename().endsWith('.pdf')), arquivo ? arquivo.suggestedFilename() : 'sem download')
 }
@@ -567,12 +561,8 @@ try {
   await page.click('button:has-text("Áudio, Vídeo & Indicadores")')
   await page.waitForSelector('button:has-text("Ajustar escala")', { timeout: 15000 })
   await page.waitForSelector('section.h-\\[15rem\\]', { state: 'hidden', timeout: 20000 })
-  await page.locator('button:has-text("Ajustar escala")').first().click()
-  await page.waitForSelector('select[id^="avi-"]', { timeout: 15000 })
-  ck('avi: botao Designações AVI', (await page.locator('button:has-text("Designações AVI")').count()) > 0)
-  await page.locator('button:has-text("Gerar escala")').first().click()
-  // Confirma o modal (se abrir) e espera a geração terminar: o AVI recarrega o
-  // setor antes de gerar, então o download só tem sentido depois disso.
+  // A geração acontece na barra fixa do resumo; o editor só ajusta os slots.
+  await page.locator('button:has-text("Gerar")').first().click()
   const dlgAvi = page.locator('[role=dialog]')
   if (await dlgAvi.isVisible().catch(() => false)) {
     await dlgAvi.locator('button:has-text("Gerar")').first().click().catch(() => {})
@@ -582,7 +572,19 @@ try {
     undefined,
     { timeout: 30000 },
   )
-  await dialogoBaixarPdf('AVI')
+  await page.locator('button:has-text("Ajustar escala")').first().click()
+  await page.waitForSelector('select[id^="avi-"]', { timeout: 15000 })
+  ck(
+    'avi: editor sem Designações AVI/Gerar/PNG',
+    (await page.locator(
+      'button:has-text("Designações AVI"), button:has-text("Gerar escala"), button:has-text("Gerar novamente"), button:has-text("Baixar PNG")',
+    ).count()) === 0,
+  )
+  ck(
+    'avi: editor sem botões PDF/Link',
+    (await page.locator('button:has-text("Baixar PDF"), button:has-text("Compartilhar")').count()) === 0,
+  )
+  await baixarPdfDoResumo('AVI', 'select[id^="avi-"]')
   const limitesAvi = await page.evaluate(async () => {
     const resposta = await fetch('/api/setor/AUDIO_VIDEO', { credentials: 'include' })
     const corpo = await resposta.json()
@@ -725,7 +727,11 @@ try {
   await selectsTpl.first().selectOption({ label: 'Ana TPL' })
   await selectsTpl.nth(1).selectOption({ label: 'Beto TPL' })
   ck('tpl: dupla manual atribuída', (await page.locator('text=manual').count()) > 0)
-  await dialogoBaixarPdf('TPL')
+  ck(
+    'tpl: editor sem botões PDF/Link',
+    (await page.locator('button:has-text("Baixar PDF"), button:has-text("Compartilhar link")').count()) === 0,
+  )
+  await baixarPdfDoResumo('TPL', 'select[id^="tpl-"]')
   await shot('14-tpl')
   await shotCard('tpl')
 

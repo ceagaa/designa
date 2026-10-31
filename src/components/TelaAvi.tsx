@@ -2,18 +2,13 @@ import type { AptidaoId, DadosAvi, IrmaoProjecao } from '../lib/dominio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
-  ChevronLeft,
-  FileDown,
-  ImageDown,
   PencilLine,
   RefreshCcw,
-  Share2,
   Sparkles,
   Trash2,
 } from 'lucide-react'
 import { FUNCOES_AVI } from '../lib/dominio'
 import {
-  CITACAO,
   CONGREGACAO_PADRAO,
   DIAS_SEMANA,
   infoDia,
@@ -32,7 +27,7 @@ import {
   slotAvi,
 } from '../lib/avi'
 import { carregarSetorExtenso, ErroAuth, salvarDadosSetor } from '../lib/authApi'
-import { baixarImagem, baixarPdf, capturarNo, compartilhar } from '../lib/export'
+import { baixarPdf } from '../lib/export'
 import AviCard from './AviCard'
 import { Botao, Chip, Modal, Select, Toggle, Vazio } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
@@ -78,7 +73,6 @@ function atendeReuniao(
   return secao === 'meio' ? reunioes === 'semana' : reunioes === 'fds'
 }
 
-const TITULO_CARTAO = TITULO_AVI
 const DIAS_DISPARO = Array.from({ length: 31 }, (_, i) => i + 1)
 const HORARIOS_DISPARO = Array.from(
   { length: 48 },
@@ -89,12 +83,15 @@ const HORARIOS_DISPARO = Array.from(
 export default function TelaAvi({
   aoAvisar,
   aoIrParaPessoas,
+  aoRegistrarVoltar,
   modoConfiguracao = false,
   slug,
 }: {
   aoAvisar: (texto: string) => void
   /** Abre a tela Voluntários (designações AVI) — administrador. */
   aoIrParaPessoas?: () => void
+  /** Diz ao header global como "voltar" dentro da tela (fecha o editor de escala). */
+  aoRegistrarVoltar?: (aoVoltar: (() => void) | null) => void
   modoConfiguracao?: boolean
   slug?: string
 }) {
@@ -107,12 +104,18 @@ export default function TelaAvi({
   const [ano, setAno] = useState(() => new Date().getFullYear())
   const [mes, setMes] = useState(() => new Date().getMonth())
   const [confirmando, setConfirmando] = useState<
-    'gerar' | 'adiantar' | 'limparAjustes' | 'limparEscala' | null
+    'gerar' | 'adiantar' | 'limparEscala' | null
   >(null)
   const [ocupado, setOcupado] = useState(false)
   /** Abre a tabela do mês (ajuste dia a dia) — igual ao "Ajustar escala" do Campo. */
   const [ajustando, setAjustando] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
+
+  /** O botão voltar do header global fecha o editor antes de sair da tela. */
+  useEffect(() => {
+    aoRegistrarVoltar?.(ajustando ? () => setAjustando(false) : null)
+    return () => aoRegistrarVoltar?.(null)
+  }, [ajustando, aoRegistrarVoltar])
 
   const dados: DadosAvi = useMemo(() => normalizarDadosAvi(dadosBrutos), [dadosBrutos])
   const chave = chaveMes(ano, mes)
@@ -360,14 +363,6 @@ export default function TelaAvi({
     })
   }
 
-  function limparAjustes() {
-    void persistir({
-      ...dados,
-      escalas: { ...dados.escalas, [chave]: { ...registro, manuais: {} } },
-    }).then(() => aoAvisar('Ajustes manuais removidos.'))
-    setConfirmando(null)
-  }
-
   function limparEscala() {
     const escalas = { ...dados.escalas }
     delete escalas[chave]
@@ -421,52 +416,11 @@ export default function TelaAvi({
     else if (resultado === 'falhou') aoAvisar('Não foi possível compartilhar o link.')
   }
 
-  function textoCompartilhado(): string {
-    const linhas = [`*${TITULO_CARTAO}*`, `${congregacao} — ${nomeMes(mes)} de ${ano}`, '']
-    for (const secao of SECOES) {
-      for (const oc of ocorrencias) {
-        if (oc.secao !== secao.id) continue
-        linhas.push(`*${infoDia(oc.diaSemana).nome} ${oc.dia}*`)
-        const partes = FUNCOES_AVI.map((f) => {
-          const id = efetivas[slotAvi(oc.iso, f.id)]
-          return `${f.rotulo}: ${id ? (porId.get(id)?.nome ?? '') : '—'}`
-        })
-        linhas.push(`> ${partes.join(' · ')}`)
-      }
-    }
-    linhas.push('', `_${CITACAO}_`)
-    return linhas.join('\n')
-  }
-
-  async function aoCompartilhar() {
-    try {
-      const canvas = await capturarNo(cardRef.current)
-      const resultado = await compartilhar({
-        canvas,
-        chave,
-        texto: textoCompartilhado(),
-        prefixo: 'avi',
-        titulo: `AVI de ${nomeMes(mes)} de ${ano}`,
-      })
-      if (resultado === 'copiado') aoAvisar('Texto da escala copiado.')
-    } catch {
-      aoAvisar('Não foi possível compartilhar agora.')
-    }
-  }
-
   async function aoPdf() {
     try {
       await baixarPdf(cardRef.current, chave, 'avi')
     } catch {
       aoAvisar('Não foi possível gerar o PDF.')
-    }
-  }
-
-  async function aoPng() {
-    try {
-      await baixarImagem(cardRef.current, chave, 'avi')
-    } catch {
-      aoAvisar('Não foi possível gerar a imagem.')
     }
   }
 
@@ -571,33 +525,11 @@ export default function TelaAvi({
     <div className="space-y-5">
       {ajustando ? (
         <header className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Voltar"
-            onClick={() => setAjustando(false)}
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-card text-teal shadow-sm transition-all hover:bg-teal-tint active:scale-95"
-          >
-            <ChevronLeft className="size-5" aria-hidden="true" />
-          </button>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-bold text-ink">Ajustar escala</h2>
-            <p className="truncate text-[13px] text-muted">
+            <h2 className="truncate text-lg font-bold text-ink">
               {nomeMes(mes)} de {ano}
-            </p>
+            </h2>
           </div>
-          {aoIrParaPessoas ? (
-            <Botao
-              variante="fantasma"
-              className="shrink-0 px-2.5 py-1.5 text-[13px]"
-              onClick={aoIrParaPessoas}
-            >
-              Designações AVI
-            </Botao>
-          ) : (
-            <span className="max-w-[55%] text-right text-[13px] text-muted">
-              As designações ficam em Voluntários.
-            </span>
-          )}
         </header>
       ) : (
         <CabecalhoDesignacao
@@ -630,40 +562,6 @@ export default function TelaAvi({
               Nenhum irmão apto para: {funcoesSemApto.map((f) => f.rotulo).join(', ')}. Marque as
               designações em Voluntários.
             </p>
-          ) : null}
-
-          <div className="flex flex-wrap gap-2">
-            <Botao
-              variante="primario"
-              onClick={pedirGeracao}
-              disabled={ocupado || !ocorrencias.length}
-            >
-              <Sparkles className="size-4" aria-hidden="true" />
-              {gerado ? 'Gerar novamente' : 'Gerar escala'}
-            </Botao>
-            {temManuais ? (
-              <Botao variante="secundario" onClick={() => setConfirmando('limparAjustes')}>
-                <RefreshCcw className="size-4" aria-hidden="true" />
-                Limpar ajustes
-              </Botao>
-            ) : null}
-          </div>
-
-          {gerado ? (
-            <div className="flex flex-wrap gap-2">
-              <Botao variante="secundario" onClick={aoPdf}>
-                <FileDown className="size-4" aria-hidden="true" />
-                Baixar PDF
-              </Botao>
-              <Botao variante="secundario" onClick={aoPng}>
-                <ImageDown className="size-4" aria-hidden="true" />
-                Baixar PNG
-              </Botao>
-              <Botao variante="secundario" onClick={aoCompartilhar}>
-                <Share2 className="size-4" aria-hidden="true" />
-                Compartilhar
-              </Botao>
-            </div>
           ) : null}
 
           {!ocorrencias.length ? (
@@ -843,18 +741,14 @@ export default function TelaAvi({
             ? 'Gerar novamente?'
             : confirmando === 'adiantar'
               ? `Adiantar escala de ${proximoNome}?`
-              : confirmando === 'limparAjustes'
-                ? 'Limpar ajustes manuais?'
-                : 'Limpar escala do mês?'
+              : 'Limpar escala do mês?'
         }
         descricao={
           confirmando === 'gerar'
             ? `A escala de ${nomeMes(mes)} de ${ano} será refeita. Os ajustes manuais são preservados.`
             : confirmando === 'adiantar'
               ? `A escala de ${proximoNome} de ${proximo.ano} será gerada agora pelo rodízio.`
-              : confirmando === 'limparAjustes'
-                ? 'Todas as linhas voltam ao rodízio automático.'
-                : 'A escala deste mês será apagada. Esta ação não pode ser desfeita.'
+              : 'A escala deste mês será apagada. Esta ação não pode ser desfeita.'
         }
         largura="max-w-sm"
       >
@@ -868,7 +762,6 @@ export default function TelaAvi({
             onClick={() => {
               if (confirmando === 'gerar') executarGeracao()
               else if (confirmando === 'adiantar') adiantarProximoMes()
-              else if (confirmando === 'limparAjustes') limparAjustes()
               else if (confirmando === 'limparEscala') limparEscala()
             }}
           >

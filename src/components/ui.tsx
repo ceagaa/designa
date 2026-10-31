@@ -118,12 +118,12 @@ export function MenuKebab({ rotulo, itens }: { rotulo: string; itens: ItemMenuKe
             aria-label="Fechar menu"
             tabIndex={-1}
             onClick={() => setAberto(false)}
-            className="fixed inset-0 z-20 cursor-default"
+            className="fixed inset-0 z-40 cursor-default"
           />
           <div
             role="menu"
             aria-label={rotulo}
-            className="absolute right-0 top-full z-30 mt-1 w-40 divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-card py-0.5 shadow-xl"
+            className="absolute right-0 top-full z-50 mt-1 w-40 divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-card py-0.5 shadow-xl"
           >
             {itens.map((item, i) => (
               <button

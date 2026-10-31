@@ -123,12 +123,12 @@ export function CabecalhoDesignacao({
               aria-label="Fechar menu"
               tabIndex={-1}
               onClick={() => setMenuAberto(false)}
-              className="fixed inset-0 z-20 cursor-default"
+              className="fixed inset-0 z-40 cursor-default"
             />
             <div
               role="menu"
               aria-label={rotuloMenu}
-              className="absolute right-0 top-full z-30 mt-1.5 w-[17rem] divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-card py-0.5 shadow-xl"
+              className="absolute right-0 top-full z-50 mt-1.5 w-[17rem] divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-card py-0.5 shadow-xl"
             >
               {acoes.map((acao, i) => (
                 <ItemMenu key={i} acao={acao} aoFecharMenu={() => setMenuAberto(false)} />
