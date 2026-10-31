@@ -245,8 +245,9 @@ function escolherAjudante(
 }
 
 /**
- * Apoio do dia: usa o ajudante fixo quando configurado e elegível; se o campo
- * estiver em branco ou o fixo já atingiu a frequência/limite, cai no rodízio.
+ * Apoio do dia: usa o ajudante fixo quando configurado e elegível. Se o fixo
+ * já atingiu a frequência/limite, o dia fica sem ajudante (a cota é preservada
+ * para os dias não fixos). Sem fixo definido, cai no rodízio dos habilitados.
  */
 function escolherApoio({
   stats,
@@ -263,13 +264,11 @@ function escolherApoio({
 }): Estatistica | null {
   if (fixo) {
     const fixoStats = porId.get(fixo)
-    if (
-      fixoStats &&
+    return fixoStats &&
       fixoStats.id !== contexto.dirigente &&
       podeAjudar(fixoStats, contexto.dataTs)
-    ) {
-      return fixoStats
-    }
+      ? fixoStats
+      : null
   }
   return escolherAjudante(stats, habilitados, contexto)
 }
@@ -362,8 +361,6 @@ export function gerarEscala({
       regras: regrasNorm,
     }
 
-    let designado: string | null = null
-
     if (manuais[oc.key]) {
       // Calcula o que o rodízio teria escolhido (para poder desfazer o ajuste)
       // e considera essa sugestão nas contagens, mantendo o mapa automático coerente.
@@ -372,7 +369,6 @@ export function gerarEscala({
         auto[oc.key] = sugestao.id
         if (sugestao.id !== manuais[oc.key]) comprometer(sugestao, oc)
       }
-      designado = manuais[oc.key]
     } else {
       const fixo = fixa ? oc.campo?.fixo ?? null : null
       const estatisticaFixa = fixo ? porId.get(fixo) : null
@@ -380,40 +376,60 @@ export function gerarEscala({
         auto[oc.key] = fixo
         designacoes[oc.key] = fixo
         comprometer(estatisticaFixa, oc, false)
-        designado = fixo
       } else {
         const escolhido = cascata(candidatos, contexto)
         if (escolhido) {
           auto[oc.key] = escolhido.id
           designacoes[oc.key] = escolhido.id
           comprometer(escolhido, oc)
-          designado = escolhido.id
         }
       }
     }
+  }
 
-    // Ajudante: usa o fixo quando configurado e elegível; em branco (ou se o
-    // fixo esgotou a frequência/limite), cai no rodízio dos habilitados.
-    const ajusteAjudante = manuaisAjudante[oc.key]
-    if (ajusteAjudante === undefined && designado) {
-      const habilitados = ajudantesPorDia.get(oc.diaSemana) ?? new Set<string>()
-      const ajudante = escolherApoio({
-        stats,
-        porId,
-        habilitados,
-        contexto: {
-          chave: oc.key,
-          semente,
-          dirigente: designado,
-          dataTs: oc.data.getTime(),
-        },
-        fixo: fixa ? (oc.campo?.ajudanteFixo ?? null) : null,
-      })
-      if (ajudante) {
-        autoAjudante[oc.key] = ajudante.id
-        ajudante.ajudou += 1
-        ajudante.ultimoAjudouTs = oc.data.getTime()
-      }
+  // Ajudantes em uma segunda passada: dias com ajudante fixo explícito primeiro,
+  // depois os dias não fixos (começando pelos dias com menos ajudantes elegíveis)
+  // e, por último, os fixos sem ajudante definido. Assim a cota de 1x é
+  // preservada para os dias que dependem do rodízio.
+  const prioridadeApoio = (oc: Ocorrencia): number => {
+    if (fixa && oc.campo?.ajudanteFixo) return 0
+    if (!oc.campo?.fixo) return 1
+    return 2
+  }
+  const ordemApoio = [...ocorrencias].sort((a, b) => {
+    const pa = prioridadeApoio(a)
+    const pb = prioridadeApoio(b)
+    if (pa !== pb) return pa - pb
+    if (pa === 1) {
+      const ea = ajudantesPorDia.get(a.diaSemana)?.size ?? 0
+      const eb = ajudantesPorDia.get(b.diaSemana)?.size ?? 0
+      if (ea !== eb) return ea - eb
+    }
+    return a.data.getTime() - b.data.getTime()
+  })
+
+  for (const oc of ordemApoio) {
+    if (manuaisAjudante[oc.key] !== undefined) continue
+    const designado = designacoes[oc.key]
+    if (!designado) continue
+
+    const habilitados = ajudantesPorDia.get(oc.diaSemana) ?? new Set<string>()
+    const ajudante = escolherApoio({
+      stats,
+      porId,
+      habilitados,
+      contexto: {
+        chave: oc.key,
+        semente,
+        dirigente: designado,
+        dataTs: oc.data.getTime(),
+      },
+      fixo: fixa ? (oc.campo?.ajudanteFixo ?? null) : null,
+    })
+    if (ajudante) {
+      autoAjudante[oc.key] = ajudante.id
+      ajudante.ajudou += 1
+      ajudante.ultimoAjudouTs = oc.data.getTime()
     }
   }
 
