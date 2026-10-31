@@ -762,6 +762,11 @@ try {
     await page.goto(`${BASE}/escala/${encodeURIComponent(slug)}/CAMPO`, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForSelector('h1:has-text("Programação para serviço de campo")', { timeout: 20000 })
     ck('publico CAMPO: programação abre', true)
+    ck(
+      'publico CAMPO: aviso Territórios Em breve',
+      (await page.getByText('Territórios', { exact: true }).count()) > 0 &&
+        (await page.getByText('Em breve', { exact: true }).count()) > 0,
+    )
     ck('publico CAMPO: sem chamadas de somente leitura', !(await page.locator('text=/somente leitura/i').count()))
     ck('publico CAMPO: sem botões de download', !(await page.locator('button:has-text("Baixar PDF"), button:has-text("Baixar imagem")').count()))
     if ((await page.locator('.escala-hoje-branco').count()) > 0) {

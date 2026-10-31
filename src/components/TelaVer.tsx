@@ -4,7 +4,7 @@ import { decodificar } from '../lib/compartilhamento'
 import { ddMm, isoDeHoje } from '../lib/datas'
 import { ehFeriado, ehUltimoDomingo, rotuloEspecial } from '../lib/feriados'
 import { MESES, nomeDiaCurto } from '../lib/constants'
-import { CardHeroCampo, LinhaCampo } from './CardsDesignacao'
+import { AvisoTerritorios, CardHeroCampo, LinhaCampo } from './CardsDesignacao'
 
 /** Data de hoje resolvida uma vez (evita Date instável no render). */
 const HOJE_ISO = isoDeHoje()
@@ -117,6 +117,7 @@ export default function TelaVer({ payload }: { payload: string }) {
           local={destaque.local}
           horario={destaque.horario}
           ehHoje={destaque.iso === HOJE_ISO}
+          rodape={<AvisoTerritorios />}
         />
       ) : (
         <section className="rounded-2xl border border-dashed border-line bg-card px-6 py-9 text-center">

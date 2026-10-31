@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { CalendarDays, Clock, MapPin } from 'lucide-react'
+import { CalendarDays, Clock, Map as Mapa, MapPin } from 'lucide-react'
 import { ddMm, isoDeHoje } from '../lib/datas'
 import { nomeDiaCurto } from '../lib/constants'
 import { Kicker } from './ui'
@@ -38,6 +38,19 @@ function Bloco({
 }
 
 /* ------------------------------- CAMPO ------------------------------- */
+
+/** Aviso do bloco Territórios, compartilhado entre admin e página pública. */
+export function AvisoTerritorios() {
+  return (
+    <div className="relative z-10 mt-2 flex items-center gap-2 rounded-xl border border-dashed border-white/45 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
+      <Mapa className="size-4 shrink-0" aria-hidden="true" />
+      <span className="text-sm font-semibold">Territórios</span>
+      <span className="ml-auto rounded-full bg-white/25 px-2.5 py-0.5 text-[11px] font-bold tracking-wide">
+        Em breve
+      </span>
+    </div>
+  )
+}
 
 /** Card de destaque do Campo: quem dirige a próxima (ou a atual) saída. */
 export function CardHeroCampo({

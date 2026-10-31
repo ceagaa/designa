@@ -1,13 +1,13 @@
 import type { Campo, Dirigente, Ocorrencia } from '../lib/dominio'
 import { useState } from 'react'
-import { CalendarDays, CalendarPlus, Map as Mapa, PencilLine, Sparkles, Trash2 } from 'lucide-react'
+import { CalendarDays, CalendarPlus, PencilLine, Sparkles, Trash2 } from 'lucide-react'
 import { MESES, nomeDiaCurto } from '../lib/constants'
 import { ddMm, isoDeHoje } from '../lib/datas'
 import { rotuloEspecial } from '../lib/feriados'
 import { Botao, Modal } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
 import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
-import { CardHeroCampo, LinhaCampo } from './CardsDesignacao'
+import { AvisoTerritorios, CardHeroCampo, LinhaCampo } from './CardsDesignacao'
 
 /** Data de hoje resolvida uma vez (evita chamada instável de Date no render). */
 const HOJE_ISO = isoDeHoje()
@@ -175,15 +175,7 @@ export default function ResumoDesignacao({
           local={destaque.campo.local}
           horario={destaque.campo.horario}
           ehHoje={Boolean(deHoje)}
-          rodape={
-            <div className="relative z-10 mt-2 flex items-center gap-2 rounded-xl border border-dashed border-white/45 bg-white/10 px-3 py-2.5 backdrop-blur-sm">
-              <Mapa className="size-4 shrink-0" aria-hidden="true" />
-              <span className="text-sm font-semibold">Territórios</span>
-              <span className="ml-auto rounded-full bg-white/25 px-2.5 py-0.5 text-[11px] font-bold tracking-wide">
-                Em breve
-              </span>
-            </div>
-          }
+          rodape={<AvisoTerritorios />}
         />
       ) : (
         <section className="rounded-2xl border border-dashed border-line bg-card px-6 py-9 text-center">
