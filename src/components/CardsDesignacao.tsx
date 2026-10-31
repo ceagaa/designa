@@ -349,7 +349,7 @@ export function LinhaAvi({ item }: { item: ItemListaAvi }) {
 
 /* -------------------------------- TPL -------------------------------- */
 
-/** Card de destaque do TPL: a próxima saída, o ponto e quem forma a dupla. */
+/** Card de destaque do TPL: a próxima saída, a dupla, a retirada e o trabalho. */
 export function CardHeroTpl({
   rotulo,
   dia,
@@ -358,8 +358,6 @@ export function CardHeroTpl({
   turno,
   local,
   nomes,
-  designadas,
-  total,
 }: {
   rotulo: string
   dia: string
@@ -368,8 +366,6 @@ export function CardHeroTpl({
   turno: string
   local: string | null
   nomes: Array<string | null>
-  designadas: number
-  total: number
 }) {
   const dupla = nomes.filter((n): n is string => Boolean(n))
   return (
@@ -392,23 +388,19 @@ export function CardHeroTpl({
             </span>
           ) : null}
           <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-bold tracking-wide text-white">
-            {designadas}/{total}
+            {dia}
           </span>
         </span>
       </div>
       <div className="relative z-10 mt-4 grid grid-cols-2 gap-2">
-        <Bloco rotulo="Data" valor={dia} destaque />
-        <Bloco rotulo="Retirada" valor={ponto} destaque />
-        <Bloco
-          rotulo="Trabalho"
-          valor={`${turno}${local ? ` · ${local}` : ''}`}
-          className="col-span-2"
-        />
         <Bloco
           rotulo="Voluntários"
           valor={dupla.length ? dupla.join(' & ') : 'Sem designação'}
+          destaque
           className="col-span-2"
         />
+        <Bloco rotulo="Retirada" valor={ponto} destaque />
+        <Bloco rotulo="Trabalho" valor={`${turno}${local ? ` · ${local}` : ''}`} destaque />
       </div>
     </section>
   )
@@ -418,16 +410,16 @@ export interface ItemListaTpl {
   key: string
   iso: string
   diaSemana: number
+  /** Retirada e turno (ex.: "Praça Central · Manhã"). */
   detalhe: string
+  /** Local de trabalho, no lugar do antigo contador de duplas. */
+  trabalho: string
   nomes: Array<string | null>
-  designadas: number
-  total: number
 }
 
 /** Linha de "Próximos dias" do TPL (idêntica no admin e na página pública). */
 export function LinhaTpl({ item }: { item: ItemListaTpl }) {
   const ehHoje = item.iso === HOJE_ISO
-  const incompleta = item.designadas < item.total
   const dupla = item.nomes.filter((n): n is string => Boolean(n))
   return (
     <article
@@ -449,12 +441,13 @@ export function LinhaTpl({ item }: { item: ItemListaTpl }) {
           <span className="font-semibold text-ink">
             {nomeDiaCurto(item.diaSemana)}, {ddMm(item.iso)}
           </span>
-          <span
-            className={`ml-auto shrink-0 text-[12px] font-bold ${
-              incompleta ? 'text-crimson' : 'text-success'
-            }`}
-          >
-            {item.designadas}/{item.total}
+          <span className="ml-auto flex min-w-0 items-baseline gap-1">
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted">
+              Trabalho
+            </span>
+            <span className="truncate text-[13px] font-semibold text-ink">
+              {item.trabalho || 'A definir'}
+            </span>
           </span>
         </span>
         <span className="mt-1 block text-[13px] leading-snug text-muted">{item.detalhe}</span>

@@ -676,6 +676,7 @@ try {
   await page.locator('section:has(h3:text-is("Períodos e dias")) button:has-text("Adicionar período")').click()
   await page.waitForSelector('#tpl-periodo-inicio', { timeout: 10000 })
   await page.locator('[role=dialog] button:text-is("Sex")').click()
+  await page.locator('[role=dialog] button:has-text("Adicionar horário específico")').click()
   await page.fill('#tpl-periodo-inicio', '09:00')
   await page.fill('#tpl-periodo-fim', '12:00')
   await page.locator('[role=dialog] button:has-text("Salvar")').click()
@@ -684,6 +685,14 @@ try {
   await page.waitForSelector(
     'section:has(h3:text-is("Períodos e dias")) li:has-text("Sexta-Feira")',
     { timeout: 15000 },
+  )
+  ck(
+    'tpl: item cadastrado com menu ⋮ (editar/excluir)',
+    (await page.locator('section:has(h3:text-is("Períodos e dias")) button[aria-label^="Opções de"]').count()) > 0,
+  )
+  ck(
+    'tpl: período com horário específico mostra o horário',
+    (await page.locator('section:has(h3:text-is("Períodos e dias")) li:has-text("09:00 – 12:00")').count()) > 0,
   )
   await shot('13-tpl-estrutura')
 

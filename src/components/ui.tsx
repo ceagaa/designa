@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import type { VarianteBotao } from '../lib/dominio'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { ChevronDown, Minus, Plus } from 'lucide-react'
+import { ChevronDown, Minus, MoreVertical, Plus } from 'lucide-react'
 
 const VARIA: Record<VarianteBotao, string> = {
   primario: 'bg-teal text-white hover:bg-teal-deep border border-teal hover:border-teal-deep',
@@ -80,6 +80,74 @@ export function Chip({ ativo, children, ...props }: ChipProps) {
     >
       {children}
     </button>
+  )
+}
+
+/** Item do menu ⋮ de uma linha de configuração (editar, excluir…). */
+export interface ItemMenuKebab {
+  rotulo: string
+  icone: ReactNode
+  perigo?: boolean
+  onClick: () => void
+}
+
+/**
+ * Menu ⋮ discreto para cada item cadastrado: abre as opções da linha
+ * (editar/excluir) sem poluir a lista com botões sempre visíveis.
+ */
+export function MenuKebab({ rotulo, itens }: { rotulo: string; itens: ItemMenuKebab[] }) {
+  const [aberto, setAberto] = useState(false)
+
+  return (
+    <span className="relative shrink-0">
+      <button
+        type="button"
+        aria-label={rotulo}
+        aria-haspopup="menu"
+        aria-expanded={aberto}
+        onClick={() => setAberto((atual) => !atual)}
+        className="rounded-lg p-2 text-muted transition-colors hover:bg-canvas hover:text-ink"
+      >
+        <MoreVertical className="size-4" aria-hidden="true" />
+      </button>
+
+      {aberto ? (
+        <>
+          <button
+            type="button"
+            aria-label="Fechar menu"
+            tabIndex={-1}
+            onClick={() => setAberto(false)}
+            className="fixed inset-0 z-20 cursor-default"
+          />
+          <div
+            role="menu"
+            aria-label={rotulo}
+            className="absolute right-0 top-full z-30 mt-1 w-40 divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-card py-0.5 shadow-xl"
+          >
+            {itens.map((item, i) => (
+              <button
+                key={i}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setAberto(false)
+                  item.onClick()
+                }}
+                className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:bg-canvas ${
+                  item.perigo ? 'text-crimson' : 'text-ink'
+                }`}
+              >
+                <span className="shrink-0" aria-hidden="true">
+                  {item.icone}
+                </span>
+                <span className="min-w-0 truncate">{item.rotulo}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </span>
   )
 }
 

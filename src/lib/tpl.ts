@@ -10,9 +10,29 @@ export function slotTpl(iso: string, periodoId: string): string {
   return `${iso}_${periodoId}`
 }
 
-/** Turno legível (ex.: "08:00 – 10:00"). */
+/** Turno pronto do TPL: o administrador escolhe Manhã, Tarde ou Noite. */
+export interface TurnoTpl {
+  id: 'manha' | 'tarde' | 'noite'
+  rotulo: string
+  inicio: string
+  fim: string
+}
+
+export const TURNOS_TPL: TurnoTpl[] = [
+  { id: 'manha', rotulo: 'Manhã', inicio: '08:00', fim: '11:00' },
+  { id: 'tarde', rotulo: 'Tarde', inicio: '13:00', fim: '17:00' },
+  { id: 'noite', rotulo: 'Noite', inicio: '18:00', fim: '21:00' },
+]
+
+/** Turno pronto correspondente ao período (null quando é horário específico). */
+export function turnoProntoDe(periodo: Pick<PeriodoTpl, 'inicio' | 'fim'>): TurnoTpl | null {
+  return TURNOS_TPL.find((t) => t.inicio === periodo.inicio && t.fim === periodo.fim) ?? null
+}
+
+/** Turno legível: nome quando usa um turno pronto (ex.: "Manhã"), senão o horário. */
 export function turnoTexto(periodo: PeriodoTpl): string {
-  return `${periodo.inicio} – ${periodo.fim}`
+  const pronto = turnoProntoDe(periodo)
+  return pronto ? pronto.rotulo : `${periodo.inicio} – ${periodo.fim}`
 }
 
 /** Rótulo do dia (ex.: "Domingo"). */

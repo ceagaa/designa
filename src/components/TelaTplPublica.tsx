@@ -13,7 +13,6 @@ import {
   registroTplDe,
   turnoTexto,
 } from '../lib/tpl'
-import { MINIMO_DUPLA } from '../lib/dominio'
 import { Botao } from './ui'
 import { CardHeroTpl, LinhaTpl } from './CardsDesignacao'
 
@@ -33,7 +32,7 @@ function mesesComConteudo(dados: DadosTpl): string[] {
 
 /**
  * Rota pública /tpl/:slug — mesma visão do administrador: cabeçalho do setor,
- * card "Próxima designação" (Data/Retirada, Trabalho e Voluntários) e a lista
+ * card "Próxima designação" (data, voluntários, retirada e trabalho) e a lista
  * de "Próximos dias". Sem botões de PDF/link: aqui só se consulta a escala.
  */
 export default function TelaTplPublica({ slug }: { slug: string }) {
@@ -103,18 +102,16 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
     const nomes = (efetivas[oc.key]?.ids ?? []).map((id) =>
       id ? (porId.get(id)?.nome ?? null) : null,
     )
-    const turno = turnoTexto(oc.periodo)
     return {
       key: oc.key,
       iso: oc.iso,
       diaSemana: oc.diaSemana,
       ponto: ponto?.nome ?? 'Ponto',
-      turno,
+      turno: turnoTexto(oc.periodo),
       local: local?.nome ?? null,
-      detalhe: `${ponto?.nome ?? 'Ponto'} · ${turno}${local ? ` · ${local.nome}` : ''}`,
+      detalhe: `${ponto?.nome ?? 'Ponto'} · ${turnoTexto(oc.periodo)}`,
+      trabalho: local?.nome ?? '',
       nomes,
-      designadas: nomes.filter(Boolean).length,
-      total: MINIMO_DUPLA,
     }
   }
 
@@ -172,15 +169,13 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
         <div className="space-y-5">
           {itemDestaque ? (
             <CardHeroTpl
-              rotulo={ehMesAtual ? 'Próxima designação' : 'Primeira designação'}
+              rotulo="Próxima designação"
               dia={`${infoDia(itemDestaque.diaSemana).curto}, ${itemDestaque.iso.slice(8, 10)}/${itemDestaque.iso.slice(5, 7)}`}
               ehHoje={ehHoje}
               ponto={itemDestaque.ponto}
               turno={itemDestaque.turno}
               local={itemDestaque.local}
               nomes={itemDestaque.nomes}
-              designadas={itemDestaque.designadas}
-              total={itemDestaque.total}
             />
           ) : (
             <section className="rounded-2xl border border-dashed border-line bg-card px-6 py-9 text-center">

@@ -18,6 +18,7 @@ import {
   MapPin,
   Pencil,
   PencilLine,
+  Plus,
   RefreshCcw,
   Share2,
   Trash2,
@@ -27,18 +28,20 @@ import { ORDEM_DIAS, infoDia } from '../lib/constants'
 import { chaveMes, isoDeHoje, nomeMes } from '../lib/datas'
 import {
   TITULO_TPL,
+  TURNOS_TPL,
   efetivasTpl,
   linhasTplPara,
   normalizarDadosTpl,
   ocorrenciasTpl,
   registroTplDe,
+  turnoProntoDe,
   turnoTexto,
 } from '../lib/tpl'
 import { ErroAuth, carregarSetorExtenso, salvarDadosSetor } from '../lib/authApi'
 import { compartilharPagina } from '../lib/compartilhamento'
 import { baixarPdf } from '../lib/export'
 import TplCard from './TplCard'
-import { Botao, Chip, Input, Modal, Rotulo, Select, Vazio } from './ui'
+import { Botao, Chip, Input, MenuKebab, Modal, Rotulo, Select, Vazio } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
 import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
 import { CardHeroTpl, LinhaTpl } from './CardsDesignacao'
@@ -73,13 +76,14 @@ interface VoluntarioTpl {
 }
 
 function periodoForm(dados: DadosTpl): FormPeriodo {
+  const padrao = TURNOS_TPL[0]
   return {
     tipo: 'periodo',
     pontoId: dados.pontos[0]?.id ?? '',
     localId: dados.locais[0]?.id ?? '',
     diaSemana: 3,
-    inicio: '08:00',
-    fim: '10:00',
+    inicio: padrao.inicio,
+    fim: padrao.fim,
   }
 }
 
@@ -114,15 +118,16 @@ function CartaoSecao({
           <p className="mt-0.5 text-[13px] text-muted">{descricao}</p>
         </div>
         {quantidade ? (
-          <Botao
-            variante="secundario"
-            className="shrink-0"
+          <button
+            type="button"
+            aria-label={vazio.rotulo}
+            title={vazio.rotulo}
             onClick={aoNovo}
             disabled={desabilitado}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-teal text-white shadow-sm transition-all hover:bg-teal-deep active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <ListPlus className="size-4" aria-hidden="true" />
-            Novo
-          </Botao>
+            <Plus className="size-5" aria-hidden="true" />
+          </button>
         ) : null}
       </div>
       <div className="rounded-2xl bg-card p-4 shadow-sm">
@@ -179,6 +184,8 @@ export default function TelaTpl({
   const [mes, setMes] = useState(() => new Date().getMonth())
   const [form, setForm] = useState<Formulario>(null)
   const [erroForm, setErroForm] = useState('')
+  /** Período com horário manual (início/fim) em vez de um turno pronto. */
+  const [horarioEspecifico, setHorarioEspecifico] = useState(false)
   const [excluindo, setExcluindo] = useState<Excluindo>(null)
   const [confirmandoLimpeza, setConfirmandoLimpeza] = useState(false)
   /** Abre a escala do mês (montar as duplas) — igual ao "Ajustar escala" do Campo. */
@@ -350,7 +357,23 @@ export default function TelaTpl({
 
   function novoPeriodo() {
     setErroForm('')
+    setHorarioEspecifico(false)
     setForm(periodoForm(dados))
+  }
+
+  /** Editar período: turno pronto já vem marcado; horário manual abre os campos. */
+  function editarPeriodo(p: PeriodoTpl) {
+    setErroForm('')
+    setHorarioEspecifico(turnoProntoDe(p) === null)
+    setForm({
+      tipo: 'periodo',
+      id: p.id,
+      pontoId: p.pontoId,
+      localId: p.localId ?? '',
+      diaSemana: p.diaSemana,
+      inicio: p.inicio,
+      fim: p.fim,
+    })
   }
 
   async function salvarFormulario() {
@@ -491,8 +514,7 @@ export default function TelaTpl({
   }
 
   const nomesDestaque = destaque ? nomesDe(efetivas[destaque.key]?.ids ?? []) : []
-  const designadasDestaque = nomesDestaque.filter(Boolean).length
-  const rotuloDestaque = ehMesAtual ? 'Próxima designação' : 'Primeira designação'
+  const rotuloDestaque = 'Próxima designação'
   const pontoDestaque = destaque
     ? (dados.pontos.find((p) => p.id === destaque.periodo.pontoId)?.nome ?? 'Ponto')
     : ''
@@ -792,8 +814,6 @@ export default function TelaTpl({
                 turno={turnoDestaque}
                 local={localDestaque}
                 nomes={nomesDestaque}
-                designadas={designadasDestaque}
-                total={MINIMO_DUPLA}
               />
             ) : null}
 
@@ -818,12 +838,9 @@ export default function TelaTpl({
                           key: oc.key,
                           iso: oc.iso,
                           diaSemana: oc.diaSemana,
-                          detalhe: `${ponto?.nome ?? 'Ponto'} · ${turnoTexto(oc.periodo)}${
-                            local ? ` · ${local.nome}` : ''
-                          }`,
+                          detalhe: `${ponto?.nome ?? 'Ponto'} · ${turnoTexto(oc.periodo)}`,
+                          trabalho: local?.nome ?? '',
                           nomes,
-                          designadas: nomes.filter(Boolean).length,
-                          total: MINIMO_DUPLA,
                         }}
                       />
                     )
@@ -907,29 +924,26 @@ export default function TelaTpl({
                   <span className="min-w-0 truncate text-sm font-semibold text-ink">
                     {p.nome}
                   </span>
-                  <span className="flex shrink-0 gap-1">
-                    <button
-                      type="button"
-                      aria-label={`Editar ${p.nome}`}
-                      className="rounded-lg p-2 text-muted hover:bg-canvas hover:text-teal"
-                      onClick={() => {
-                        setErroForm('')
-                        setForm({ tipo: 'ponto', id: p.id, nome: p.nome })
-                      }}
-                    >
-                      <Pencil className="size-4" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Excluir ${p.nome}`}
-                      className="rounded-lg p-2 text-muted hover:bg-crimson-bg hover:text-crimson"
-                      onClick={() =>
-                        setExcluindo({ tipo: 'ponto', id: p.id, nome: p.nome })
-                      }
-                    >
-                      <Trash2 className="size-4" aria-hidden="true" />
-                    </button>
-                  </span>
+                  <MenuKebab
+                    rotulo={`Opções de ${p.nome}`}
+                    itens={[
+                      {
+                        rotulo: 'Editar',
+                        icone: <Pencil className="size-4" aria-hidden="true" />,
+                        onClick: () => {
+                          setErroForm('')
+                          setForm({ tipo: 'ponto', id: p.id, nome: p.nome })
+                        },
+                      },
+                      {
+                        rotulo: 'Excluir',
+                        icone: <Trash2 className="size-4" aria-hidden="true" />,
+                        perigo: true,
+                        onClick: () =>
+                          setExcluindo({ tipo: 'ponto', id: p.id, nome: p.nome }),
+                      },
+                    ]}
+                  />
                 </li>
               ))}
             </ul>
@@ -956,33 +970,26 @@ export default function TelaTpl({
                   <span className="min-w-0 truncate text-sm font-semibold text-ink">
                     {local.nome}
                   </span>
-                  <span className="flex shrink-0 gap-1">
-                    <button
-                      type="button"
-                      aria-label={`Editar ${local.nome}`}
-                      className="rounded-lg p-2 text-muted hover:bg-canvas hover:text-teal"
-                      onClick={() => {
-                        setErroForm('')
-                        setForm({ tipo: 'local', id: local.id, nome: local.nome })
-                      }}
-                    >
-                      <Pencil className="size-4" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Excluir ${local.nome}`}
-                      className="rounded-lg p-2 text-muted hover:bg-crimson-bg hover:text-crimson"
-                      onClick={() =>
-                        setExcluindo({
-                          tipo: 'local',
-                          id: local.id,
-                          nome: local.nome,
-                        })
-                      }
-                    >
-                      <Trash2 className="size-4" aria-hidden="true" />
-                    </button>
-                  </span>
+                  <MenuKebab
+                    rotulo={`Opções de ${local.nome}`}
+                    itens={[
+                      {
+                        rotulo: 'Editar',
+                        icone: <Pencil className="size-4" aria-hidden="true" />,
+                        onClick: () => {
+                          setErroForm('')
+                          setForm({ tipo: 'local', id: local.id, nome: local.nome })
+                        },
+                      },
+                      {
+                        rotulo: 'Excluir',
+                        icone: <Trash2 className="size-4" aria-hidden="true" />,
+                        perigo: true,
+                        onClick: () =>
+                          setExcluindo({ tipo: 'local', id: local.id, nome: local.nome }),
+                      },
+                    ]}
+                  />
                 </li>
               ))}
             </ul>
@@ -997,7 +1004,7 @@ export default function TelaTpl({
             desabilitado={!carregado}
             vazio={{
               texto: dados.pontos.length
-                ? 'Nenhum período. Defina dias da semana e turnos (ex.: Quinta 08:00–10:00).'
+                ? 'Nenhum período. Defina o dia da semana e o turno (ex.: Quinta · Manhã).'
                 : 'Cadastre um ponto de apoio antes de criar períodos.',
               rotulo: 'Adicionar período',
               desabilitado: !dados.pontos.length,
@@ -1012,6 +1019,7 @@ export default function TelaTpl({
                 .map((p) => {
                   const ponto = dados.pontos.find((x) => x.id === p.pontoId)
                   const local = dados.locais.find((x) => x.id === p.localId)
+                  const rotuloPeriodo = `${infoDia(p.diaSemana).nome} ${turnoTexto(p)}`
                   return (
                     <li
                       key={p.id}
@@ -1022,46 +1030,28 @@ export default function TelaTpl({
                           {infoDia(p.diaSemana).nome}
                         </span>{' '}
                         <span className="text-muted">
-                          {p.inicio}–{p.fim} · Retirada:{' '}
+                          {turnoTexto(p)} · Retirada:{' '}
                           {ponto?.nome ?? 'Ponto removido'} · Trabalho:{' '}
                           {local?.nome ?? 'Local a definir'}
                         </span>
                       </span>
-                      <span className="flex shrink-0 gap-1">
-                        <button
-                          type="button"
-                          aria-label="Editar período"
-                          className="rounded-lg p-2 text-muted hover:bg-canvas hover:text-teal"
-                          onClick={() => {
-                            setErroForm('')
-                            setForm({
-                              tipo: 'periodo',
-                              id: p.id,
-                              pontoId: p.pontoId,
-                              localId: p.localId ?? '',
-                              diaSemana: p.diaSemana,
-                              inicio: p.inicio,
-                              fim: p.fim,
-                            })
-                          }}
-                        >
-                          <Pencil className="size-4" aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Excluir período"
-                          className="rounded-lg p-2 text-muted hover:bg-crimson-bg hover:text-crimson"
-                          onClick={() =>
-                            setExcluindo({
-                              tipo: 'periodo',
-                              id: p.id,
-                              nome: `${infoDia(p.diaSemana).nome} ${p.inicio}–${p.fim}`,
-                            })
-                          }
-                        >
-                          <Trash2 className="size-4" aria-hidden="true" />
-                        </button>
-                      </span>
+                      <MenuKebab
+                        rotulo={`Opções de ${rotuloPeriodo}`}
+                        itens={[
+                          {
+                            rotulo: 'Editar',
+                            icone: <Pencil className="size-4" aria-hidden="true" />,
+                            onClick: () => editarPeriodo(p),
+                          },
+                          {
+                            rotulo: 'Excluir',
+                            icone: <Trash2 className="size-4" aria-hidden="true" />,
+                            perigo: true,
+                            onClick: () =>
+                              setExcluindo({ tipo: 'periodo', id: p.id, nome: rotuloPeriodo }),
+                          },
+                        ]}
+                      />
                     </li>
                   )
                 })}
@@ -1110,7 +1100,6 @@ export default function TelaTpl({
                   ? 'Editar período'
                   : 'Novo período'
         }
-        descricao="A estrutura alimenta a escala manual do TPL."
         largura="max-w-md"
       >
         {form ? (
@@ -1184,26 +1173,57 @@ export default function TelaTpl({
                     ))}
                   </div>
                 </fieldset>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Rotulo htmlFor="tpl-periodo-inicio">Início</Rotulo>
-                    <Input
-                      id="tpl-periodo-inicio"
-                      type="time"
-                      value={form.inicio}
-                      onChange={(e) => setForm({ ...form, inicio: e.target.value })}
-                    />
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink">Turno</legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TURNOS_TPL.map((turno) => (
+                      <Chip
+                        key={turno.id}
+                        ativo={
+                          !horarioEspecifico &&
+                          form.inicio === turno.inicio &&
+                          form.fim === turno.fim
+                        }
+                        onClick={() => {
+                          setHorarioEspecifico(false)
+                          setForm({ ...form, inicio: turno.inicio, fim: turno.fim })
+                        }}
+                      >
+                        {turno.rotulo}
+                      </Chip>
+                    ))}
                   </div>
-                  <div>
-                    <Rotulo htmlFor="tpl-periodo-fim">Fim</Rotulo>
-                    <Input
-                      id="tpl-periodo-fim"
-                      type="time"
-                      value={form.fim}
-                      onChange={(e) => setForm({ ...form, fim: e.target.value })}
-                    />
+                </fieldset>
+                {horarioEspecifico ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Rotulo htmlFor="tpl-periodo-inicio">Início</Rotulo>
+                      <Input
+                        id="tpl-periodo-inicio"
+                        type="time"
+                        value={form.inicio}
+                        onChange={(e) => setForm({ ...form, inicio: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Rotulo htmlFor="tpl-periodo-fim">Fim</Rotulo>
+                      <Input
+                        id="tpl-periodo-fim"
+                        type="time"
+                        value={form.fim}
+                        onChange={(e) => setForm({ ...form, fim: e.target.value })}
+                      />
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setHorarioEspecifico(true)}
+                    className="text-[13px] font-semibold text-muted underline decoration-dotted underline-offset-4 transition-colors hover:text-teal"
+                  >
+                    Adicionar horário específico
+                  </button>
+                )}
               </>
             )}
 
