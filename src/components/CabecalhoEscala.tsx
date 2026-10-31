@@ -21,10 +21,10 @@ export default function CabecalhoEscala({
   const tamTitulo = titulo.length > 38 ? 24 : titulo.length > 30 ? 28 : 34
   return (
     <>
-      <div className="flex h-[43px] border-b border-l border-t" style={borda}>
+      <div className="flex h-[56px] border-b border-l border-t" style={borda}>
         <div className="flex w-[81.4%] items-center justify-center overflow-hidden px-3">
           <span
-            className="truncate font-bold leading-none"
+            className="whitespace-nowrap font-bold leading-normal"
             style={{ color: CORES.titulo, fontSize: tamTitulo }}
           >
             {titulo}
@@ -34,17 +34,17 @@ export default function CabecalhoEscala({
           className="flex w-[18.6%] items-center justify-center overflow-hidden"
           style={{ backgroundColor: CORES.mes }}
         >
-          <span className="truncate px-1 text-[28px] font-bold leading-none text-white">
+          <span className="whitespace-nowrap px-1.5 text-[26px] font-bold leading-normal text-white">
             {mesRotulo || '\u00a0'}
           </span>
         </div>
       </div>
 
       <div
-        className="flex h-[27px] items-center justify-center overflow-hidden border-b border-l px-3"
+        className="flex h-[29px] items-center justify-center overflow-hidden border-b border-l px-3"
         style={{ borderLeftColor: CORES.linha, borderBottomColor: CORES.sublinha }}
       >
-        <span className="truncate text-[13px] font-bold" style={{ color: CORES.titulo }}>
+        <span className="whitespace-nowrap text-[13px] font-bold leading-normal" style={{ color: CORES.titulo }}>
           {congregacao}
         </span>
       </div>
