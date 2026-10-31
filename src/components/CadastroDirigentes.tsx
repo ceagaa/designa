@@ -707,8 +707,9 @@ export default function CadastroDirigentes({
                         ))}
                       </div>
                       <p className="mt-1.5 text-[13px] text-muted">
-                        Sem nenhum dia marcado, ajuda em qualquer dia. A frequência e o
-                        limite mensal acima também valem para as vezes como ajudante.
+                        Sem nenhum dia marcado, ajuda em qualquer dia. No rodízio, a
+                        frequência e o limite mensal acima também valem para as vezes como
+                        ajudante.
                       </p>
                     </fieldset>
                   ) : null}

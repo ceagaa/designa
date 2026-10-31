@@ -271,10 +271,8 @@ export default function Locais({ campos, dirigentes, aoAlterarCampos }: LocaisPr
                 ))}
               </Select>
               <p className="mt-1.5 text-[13px] text-muted">
-                Com a designação fixa ligada, este voluntário é a primeira escolha para
-                ajudar nas datas deste dia. Em branco, o rodízio escolhe um ajudante.
-                Se o fixo atingir a frequência ou o limite, o dia fica sem ajudante e a
-                cota é preservada para os dias não fixos.
+                Com a designação fixa ligada, este voluntário ajuda em todas as datas
+                deste dia. Em branco, o rodízio escolhe um ajudante elegível.
               </p>
             </div>
 

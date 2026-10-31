@@ -245,9 +245,9 @@ function escolherAjudante(
 }
 
 /**
- * Apoio do dia: usa o ajudante fixo quando configurado e elegível. Se o fixo
- * já atingiu a frequência/limite, o dia fica sem ajudante (a cota é preservada
- * para os dias não fixos). Sem fixo definido, cai no rodízio dos habilitados.
+ * Apoio do dia: o ajudante fixo explícito ajuda em todas as datas daquele dia,
+ * independentemente da frequência/limite (ele é uma exceção manual, como o
+ * dirigente fixo). Sem fixo definido, cai no rodízio dos habilitados.
  */
 function escolherApoio({
   stats,
@@ -264,11 +264,7 @@ function escolherApoio({
 }): Estatistica | null {
   if (fixo) {
     const fixoStats = porId.get(fixo)
-    return fixoStats &&
-      fixoStats.id !== contexto.dirigente &&
-      podeAjudar(fixoStats, contexto.dataTs)
-      ? fixoStats
-      : null
+    return fixoStats && fixoStats.id !== contexto.dirigente ? fixoStats : null
   }
   return escolherAjudante(stats, habilitados, contexto)
 }
