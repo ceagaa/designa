@@ -28,6 +28,7 @@ export default function TelaConvite({
   const [fase, setFase] = useState<Fase>({ id: 'verificando' })
   const [nome, setNome] = useState('')
   const [sobrenome, setSobrenome] = useState('')
+  const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
@@ -56,8 +57,13 @@ export default function TelaConvite({
     evento.preventDefault()
     setErro(null)
     const completo = `${nome.trim()} ${sobrenome.trim()}`.trim()
+    const emailLimpo = email.trim().toLowerCase()
     if (completo.length < 3) {
       setErro('Informe nome e sobrenome.')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailLimpo)) {
+      setErro('Informe um e-mail válido.')
       return
     }
     if (senha.length < 6) {
@@ -66,11 +72,18 @@ export default function TelaConvite({
     }
     setOcupado(true)
     try {
-      const resultado = await aceitarConvite({ token, nome: completo, senha })
+      const resultado = await aceitarConvite({
+        token,
+        nome: completo,
+        email: emailLimpo,
+        senha,
+      })
       setFase({ id: 'pronto', usuario: resultado.usuario, email: resultado.email })
     } catch (falha) {
       if (falha instanceof ErroAuth && (falha.status === 404 || falha.status === 410)) {
         setFase({ id: 'erro', codigo: falha.codigo })
+      } else if (falha instanceof ErroAuth && falha.codigo === 'email_em_uso') {
+        setErro('Já existe uma conta com este e-mail. Faça login ou use outro.')
       } else {
         setErro(falha instanceof ErroAuth ? textoErroAuth(falha.codigo) : 'Falha de conexão — tente novamente.')
       }
@@ -112,7 +125,8 @@ export default function TelaConvite({
         <div>
           <h1 className="text-xl font-bold text-ink">Conta criada!</h1>
           <p className="mt-1 text-sm text-muted">
-            Acesso liberado ao setor {ROTULO_SETOR[fase.usuario.setor ?? 'CAMPO']}.
+            Acesso completo ao setor {ROTULO_SETOR[fase.usuario.setor ?? 'CAMPO']}, incluindo
+            cadastro de voluntários e configuração do departamento.
           </p>
         </div>
         <div className="w-full rounded-xl border border-line bg-card p-4 text-left shadow-sm">
@@ -122,7 +136,7 @@ export default function TelaConvite({
             {fase.email}
           </p>
           <p className="mt-1.5 text-[12px] text-muted">
-            Guarde este e-mail: é com ele (e esta senha) que você entra depois, neste mesmo
+            Use este e-mail e a senha que você escolheu para entrar de novo, neste
             aparelho ou em outro.
           </p>
         </div>
@@ -182,6 +196,25 @@ export default function TelaConvite({
             </div>
           </div>
           <div>
+            <Rotulo htmlFor="cv-email">E-mail</Rotulo>
+            <Input
+              id="cv-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="email"
+              placeholder="voce@exemplo.com"
+              enterKeyHint="next"
+            />
+            <p className="mt-1 text-[12px] text-muted">
+              É com este e-mail que você entra depois, neste aparelho ou em outro.
+            </p>
+          </div>
+          <div>
             <Rotulo htmlFor="cv-senha">Senha</Rotulo>
             <div className="relative">
               <Input
@@ -227,7 +260,8 @@ export default function TelaConvite({
         </form>
 
         <p className="mt-4 text-center text-[12px] text-muted">
-          Acesso restrito ao setor {ROTULO_SETOR[info.setor]}.
+          Você terá acesso completo ao setor {ROTULO_SETOR[info.setor]}: escala, voluntários e
+          configuração do departamento.
         </p>
       </div>
     </div>

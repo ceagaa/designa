@@ -17,7 +17,6 @@ import {
   cookieLimpar,
   cookieSessao,
   criarSessao,
-  emailDeConvite,
   emailValido,
   encerrarSessao,
   ehSetor,
@@ -27,6 +26,7 @@ import {
   novoToken,
   podeAcessarSetor,
   podeCampo,
+  podeGerenciarEstado,
   senhaFantasma,
   sessaoPorToken,
   slugBase,
@@ -385,34 +385,43 @@ app.get('/api/convites/:token', async (c) => {
   }
 })
 
-/** Convidado cria a conta do ajudante e entra já autenticado. */
+/** Convidado cria a conta do ajudante (com o próprio e-mail) e entra autenticado. */
 app.post('/api/convites/aceitar', async (c) => {
   if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
   try {
-    const corpo = await c.req.json<{ token?: unknown; nome?: unknown; senha?: unknown }>()
+    const corpo = await c.req.json<{
+      token?: unknown
+      nome?: unknown
+      email?: unknown
+      senha?: unknown
+    }>()
     const token = String(corpo.token ?? '')
     const nome = String(corpo.nome ?? '').trim()
+    const email = normalizarEmail(String(corpo.email ?? ''))
     const senha = String(corpo.senha ?? '')
     if (nome.length < 3) return c.json({ erro: 'nome_invalido' }, 400)
+    if (!emailValido(email)) return c.json({ erro: 'email_invalido' }, 400)
     if (senha.length < TAMANHO_MINIMO_SENHA) return c.json({ erro: 'senha_curta' }, 400)
 
     const convite = await c.env.DB
       .prepare(
-        `SELECT v.token, v.congregacao_id, v.setor, v.expira_em, v.usado_em, c.slug AS slug_congregacao
-           FROM convites v JOIN congregacoes c ON c.id = v.congregacao_id
+        `SELECT v.token, v.congregacao_id, v.setor, v.expira_em, v.usado_em
+           FROM convites v
           WHERE v.token = ?`,
       )
       .bind(token)
-      .first<{ token: string; congregacao_id: string; setor: string; expira_em: string; usado_em: string | null; slug_congregacao: string }>()
+      .first<{ token: string; congregacao_id: string; setor: string; expira_em: string; usado_em: string | null }>()
     if (!convite) return c.json({ erro: 'convite_invalido' }, 404)
     if (convite.usado_em) return c.json({ erro: 'convite_usado' }, 410)
     if (convite.expira_em <= new Date().toISOString()) return c.json({ erro: 'convite_expirado' }, 410)
     if (!ehSetor(convite.setor)) return c.json({ erro: 'convite_invalido' }, 404)
 
-    const email = await emailDeConvite(nome, convite.slug_congregacao, async (candidato) => {
-      const achou = await c.env.DB.prepare('SELECT 1 AS ok FROM usuarios WHERE email = ?').bind(candidato).first()
-      return !achou
-    })
+    // O e-mail é o do próprio convidado: ele entra depois com esta credencial.
+    const jaExiste = await c.env.DB
+      .prepare('SELECT 1 AS ok FROM usuarios WHERE email = ?')
+      .bind(email)
+      .first()
+    if (jaExiste) return c.json({ erro: 'email_em_uso' }, 409)
 
     const agora = new Date().toISOString()
     const usuarioId = novoId('usr')
@@ -510,7 +519,9 @@ app.get('/api/estado', async (c) => {
   if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
   const usuario = await sessaoDe(c)
   if (!usuario) return semSessao(c)
-  if (!podeCampo(usuario)) return semPermissao(c)
+  // Voluntários são da congregação inteira: quem entrou por convite também
+  // cadastra e edita fichas (do próprio departamento em diante).
+  if (!podeGerenciarEstado(usuario)) return semPermissao(c)
   try {
     const estado = await carregarEstado(c.env.DB, usuario)
     return c.json({ estado })
@@ -523,7 +534,7 @@ app.put('/api/estado', async (c) => {
   if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
   const usuario = await sessaoDe(c)
   if (!usuario) return semSessao(c)
-  if (!podeCampo(usuario)) return semPermissao(c)
+  if (!podeGerenciarEstado(usuario)) return semPermissao(c)
   try {
     const corpo = await c.req.json<{ estado?: unknown }>()
     const estado = normalizarEstado(corpo.estado)

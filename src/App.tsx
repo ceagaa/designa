@@ -61,6 +61,16 @@ function lerRotaPublica(): RotaPublica {
   return null
 }
 
+/**
+ * Pode mexer no estado da congregação (voluntários e escala).
+ * Todo membro com conta pode: quem entrou por convite gerencia os voluntários
+ * e a configuração do próprio departamento. Espelha `podeGerenciarEstado`.
+ */
+function permiteEstado(usuario: Usuario | null): boolean {
+  return Boolean(usuario && (usuario.papel === 'ADMIN' || usuario.setor !== null))
+}
+
+/** Pode abrir a tela e a escala do setor Campo. */
 function permiteCampo(usuario: Usuario | null): boolean {
   return Boolean(usuario && (usuario.papel === 'ADMIN' || usuario.setor === 'CAMPO'))
 }
@@ -279,9 +289,9 @@ export default function App() {
     }
   }, [])
 
-  // Carrega o estado (setor Campo) somente com sessão válida.
+  // Carrega o estado (voluntários + escala) com sessão válida.
   useEffect(() => {
-    if (sessao !== 'ok' || !usuario || !permiteCampo(usuario)) return undefined
+    if (sessao !== 'ok' || !usuario || !permiteEstado(usuario)) return undefined
     let vivo = true
     carregarEstado()
       .then(({ estado: carregado, origem }) => {
@@ -301,7 +311,7 @@ export default function App() {
 
   const sessaoResolvida = sessao !== 'verificando'
   const prontoParaSair =
-    sessaoResolvida && (sessao !== 'ok' || pronto || !permiteCampo(usuario))
+    sessaoResolvida && (sessao !== 'ok' || pronto || !permiteEstado(usuario))
 
   useEffect(() => {
     if (!prontoParaSair || splash !== 'ativo') return undefined
@@ -324,7 +334,7 @@ export default function App() {
   }, [tela])
 
   useEffect(() => {
-    if (!pronto || sessao !== 'ok' || !permiteCampo(usuario)) return undefined
+    if (!pronto || sessao !== 'ok' || !permiteEstado(usuario)) return undefined
     const timer = setTimeout(async () => {
       setStatus('salvando')
       try {
@@ -582,8 +592,10 @@ export default function App() {
     ? []
     : usuario.papel === 'ADMIN'
       ? ['designacoes', 'pessoas', 'ajustes']
-      : usuario.setor === 'CAMPO'
-        ? ['designacoes', 'pessoas']
+      : usuario.setor
+        ? // Convidado por link: vê o próprio departamento, os voluntários e a
+          // configuração dele (as seções de admin continuam escondidas).
+          ['designacoes', 'pessoas', 'ajustes']
         : ['designacoes']
 
   const abaNav: AbaNav = ABA_DA_TELA[tela] ?? 'designacoes'
@@ -854,6 +866,7 @@ export default function App() {
             config={config}
             campos={campos}
             admin={usuario?.papel === 'ADMIN'}
+            setor={usuario?.setor ?? null}
             usuarioId={usuario?.id}
             congregacaoNumero={usuario?.congregacao.numero}
             visao={tela === 'ajustes' ? 'geral' : 'campo'}

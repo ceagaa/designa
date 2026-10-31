@@ -14,6 +14,7 @@ import {
   turnoTexto,
 } from '../lib/tpl'
 import { Botao } from './ui'
+import InfoPublica from './InfoPublica'
 import { CardHeroTpl, LinhaTpl } from './CardsDesignacao'
 
 type Estado = 'carregando' | 'pronto' | 'vazio' | 'erro'
@@ -124,7 +125,7 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
         >
           <BookOpen className="size-5" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-base font-bold leading-snug tracking-tight text-ink">
             {TITULO_TPL}
             {congregacao ? ` - ${congregacao}` : ''}
@@ -133,6 +134,7 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
             {mesAtivo ? `${nomeMes(mes)} de ${ano}` : 'Escala do setor'}
           </p>
         </div>
+        <InfoPublica />
       </header>
 
       {estado === 'carregando' ? (

@@ -280,7 +280,6 @@ export interface ItemListaAvi {
 /** Linha de "Designações futuras" do AVI (idêntica no admin e na página pública). */
 export function LinhaAvi({ item }: { item: ItemListaAvi }) {
   const ehHoje = item.iso === HOJE_ISO
-  const completo = item.designadas === item.total
   return (
     <article
       className={`flex w-full items-start gap-3.5 rounded-xl bg-card p-5 shadow-sm ${
@@ -300,13 +299,6 @@ export function LinhaAvi({ item }: { item: ItemListaAvi }) {
           ) : null}
           <span className="text-[15px] font-bold leading-tight text-ink">
             {nomeDiaCurto(item.diaSemana)}, {ddMm(item.iso)}
-          </span>
-          <span
-            className={`ml-auto shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide ${
-              completo ? 'bg-teal-tint text-teal' : 'bg-crimson-bg text-crimson'
-            }`}
-          >
-            {item.designadas}/{item.total}
           </span>
         </span>
 

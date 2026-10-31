@@ -138,6 +138,8 @@ interface ConfigCamposProps {
   campos: Campo[]
   /** Exibe as seções de convites e equipe (somente administrador). */
   admin?: boolean
+  /** Setor do convidado: fora do admin, só a configuração dele aparece. */
+  setor?: SetorId | null
   /** Id da conta logada (evita remover a própria conta na tela). */
   usuarioId?: string
   congregacaoNumero?: string
@@ -176,6 +178,7 @@ export default function ConfigCampos({
   config,
   campos,
   admin = false,
+  setor = null,
   usuarioId,
   congregacaoNumero = '',
   visao = 'geral',
@@ -186,6 +189,8 @@ export default function ConfigCampos({
   aoIrParaLocais,
   aoAvisar,
 }: ConfigCamposProps) {
+  // Quem entrou por link (não-admin) só enxerga a configuração do próprio setor.
+  const setoresVisiveis: SetorId[] = admin || !setor ? [...SETORES] : [setor]
   const [editandoCong, setEditandoCong] = useState(false)
   const [nomeCongregacao, setNomeCongregacao] = useState(config.congregacao)
   const [numeroCongregacao, setNumeroCongregacao] = useState(congregacaoNumero)
@@ -446,7 +451,7 @@ export default function ConfigCampos({
           <section className="space-y-2">
             <TituloSecao titulo="Setores" descricao="Abra a configuração de cada departamento" />
             <div className="flex flex-col gap-2">
-              {SETORES.map((setor) => {
+              {setoresVisiveis.map((setor) => {
                 const Icone =
                   setor === 'CAMPO' ? MapPin : setor === 'AUDIO_VIDEO' ? Radio : BookOpen
                 return (

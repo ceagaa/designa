@@ -129,6 +129,7 @@ export async function infoConvite(token: string): Promise<InfoConvite> {
 export async function aceitarConvite(dados: {
   token: string
   nome: string
+  email: string
   senha: string
 }): Promise<{ usuario: Usuario; email: string }> {
   const resposta = await pedir<{ usuario: Usuario; email: string }>('/api/convites/aceitar', {
@@ -205,7 +206,7 @@ export interface IrmaoProjecao {
 
 /**
  * Carga estendida do setor: dados do módulo + projeção de irmãos (AVI) e
- * cabeçalho da congregação. O ajudante de setor não acessa /api/estado.
+ * cabeçalho da congregação. Útil para a home/resumo sem puxar o estado inteiro.
  */
 export async function carregarSetorExtenso(setor: SetorId): Promise<{
   dados: Record<string, unknown>

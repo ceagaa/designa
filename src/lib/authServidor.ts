@@ -256,6 +256,15 @@ export function podeAcessarSetor(usuario: UsuarioSessao, setor: SetorId): boolea
 
 export const podeCampo = (usuario: UsuarioSessao): boolean => podeAcessarSetor(usuario, 'CAMPO')
 
+/**
+ * Acessa o estado da congregação (voluntários + escala do Campo).
+ * Todo membro com conta pode: quem entra por convite gerencia os voluntários
+ * e a configuração do próprio departamento.
+ */
+export function podeGerenciarEstado(usuario: UsuarioSessao): boolean {
+  return usuario.papel === 'ADMIN' || usuario.setor !== null
+}
+
 export function emailValido(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
 }
@@ -291,16 +300,4 @@ export async function slugUnico(db: Banco, base: string): Promise<string> {
     if (!existe) return candidato
   }
   return `${base}-${novoToken().slice(0, 6)}`
-}
-
-/** E-mail interno gerado pelo convite (o formulário do convidado não pede e-mail). */
-export function emailDeConvite(nome: string, slugCongregacao: string, disponivel: (email: string) => Promise<boolean>): Promise<string> {
-  return (async () => {
-    const base = `${slugificar(nome.replace(/\s+/g, '.'))}.${slugificar(slugCongregacao)}`
-    for (let tentativa = 1; tentativa <= 50; tentativa += 1) {
-      const email = `${tentativa === 1 ? base : `${base}${tentativa}`}@dirigentes.app`
-      if (await disponivel(email)) return email
-    }
-    return `${base}-${novoToken().slice(0, 6)}@dirigentes.app`
-  })()
 }

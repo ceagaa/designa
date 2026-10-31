@@ -676,9 +676,11 @@ try {
   )
 
   await page.locator('section:has(h3:text-is("Períodos e dias")) button:has-text("Adicionar período")').click()
-  await page.waitForSelector('#tpl-periodo-inicio', { timeout: 10000 })
+  // O modal abre com os turnos prontos; o horário manual (início/fim) só
+  // aparece depois de marcar o dia e pedir "horário específico".
   await page.locator('[role=dialog] button:text-is("Sex")').click()
   await page.locator('[role=dialog] button:has-text("Adicionar horário específico")').click()
+  await page.waitForSelector('#tpl-periodo-inicio', { timeout: 10000 })
   await page.fill('#tpl-periodo-inicio', '09:00')
   await page.fill('#tpl-periodo-fim', '12:00')
   await page.locator('[role=dialog] button:has-text("Salvar")').click()

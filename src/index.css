@@ -223,3 +223,50 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Tema escuro: sobrescreve os tokens do @theme quando o <html> ganha a classe
+ * `.dark` (definida por src/lib/tema.ts). Como as utilidades do Tailwind v4
+ * referenciam as variáveis --color-*, trocar os valores aqui repinta o app
+ * inteiro sem precisar de sufixos `dark:` em cada componente.
+ */
+html.dark {
+  --color-surface: #0d1618;
+  --color-card: #152225;
+  --color-paper: #152225;
+  --color-canvas: #0d1618;
+
+  --color-ink: #e8f0f1;
+  --color-ink-soft: #a7bdc1;
+  --color-muted: #a7bdc1;
+  --color-faint: #7d9599;
+
+  --color-line: #24363a;
+  --color-line-soft: #1c2c30;
+
+  --color-teal: #3aa7b8;
+  --color-teal-deep: #0a4b56;
+  --color-teal-light: #5fc4d3;
+  --color-teal-tint: #14343a;
+
+  --color-success: #3fb98c;
+  --color-success-bg: #0f2a23;
+  --color-success-line: #1d4f40;
+  --color-crimson: #e38a8a;
+  --color-crimson-bg: #2c1a1a;
+  --color-crimson-line: #5a2f2f;
+
+  --color-wine: #c9536f;
+  --color-wine-dark: #a13c56;
+  --color-wine-soft: #2c161d;
+
+  /* Na tela escura o "branco" dos heroes vira um fundo escuro suave. */
+  color-scheme: dark;
+}
+
+/* Textos sobre os heroes teal/gradiente continuam brancos nos dois temas. */
+html.dark .escala-card {
+  /* O cartão impresso é sempre claro (fidelidade à planilha e ao PDF). */
+  background-color: #ffffff;
+}
+
