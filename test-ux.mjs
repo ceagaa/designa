@@ -47,7 +47,8 @@ page.on('pageerror', (e) => errosConsole.push('pageerror: ' + e.message))
 page.on('console', (m) => {
   if (m.type() !== 'error') return
   const txt = m.text()
-  if (/401 \(Unauthorized\)/.test(txt)) return
+  // O /api/auth/eu responde 401 nas páginas públicas (sem sessão); é esperado.
+  if (/401/.test(txt)) return
   errosConsole.push('console: ' + txt.slice(0, 200))
 })
 
