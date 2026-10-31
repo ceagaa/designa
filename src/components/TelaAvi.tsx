@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
   PencilLine,
-  RefreshCcw,
   Sparkles,
   Trash2,
 } from 'lucide-react'

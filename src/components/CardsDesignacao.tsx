@@ -228,26 +228,20 @@ export function CardHeroAvi({
       />
       <div className="relative z-10 flex items-center justify-between gap-3">
         <Kicker className="text-white/80">{rotulo}</Kicker>
-        <span className="flex shrink-0 items-center gap-2">
-          {ehHoje ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-teal-deep">
-              <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
-              HOJE
-            </span>
-          ) : null}
-          <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-bold tracking-wide text-white">
-            {designadas}/{total}
+        {ehHoje ? (
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-teal-deep">
+            <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
+            HOJE
           </span>
-        </span>
+        ) : null}
       </div>
       <div className="relative z-10 mt-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-white/60">Data</p>
         <p className="text-[34px] font-extrabold leading-tight sm:text-4xl">{dia}</p>
-        <p className="mt-1 text-sm text-white/75">
-          {faltam
-            ? `${faltam} funç${faltam === 1 ? 'ão' : 'ões'} ainda sem designação.`
-            : 'Todas as funções estão designadas para esta reunião.'}
-        </p>
+        {faltam ? (
+          <p className="mt-1.5 text-sm text-white/75">
+            {faltam} funç{faltam === 1 ? 'ão' : 'ões'} ainda sem designação.
+          </p>
+        ) : null}
       </div>
       <div className="relative z-10 mt-4 grid grid-cols-2 gap-2">
         {linhas.map((linha) => (
@@ -289,27 +283,27 @@ export function LinhaAvi({ item }: { item: ItemListaAvi }) {
   const completo = item.designadas === item.total
   return (
     <article
-      className={`flex w-full items-start gap-3 rounded-xl bg-card p-4 shadow-sm ${
+      className={`flex w-full items-start gap-3.5 rounded-xl bg-card p-5 shadow-sm ${
         ehHoje ? 'escala-hoje' : ''
       }`}
     >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
         <CalendarDays className="size-5" aria-hidden="true" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           {ehHoje ? (
             <span className="flex items-center gap-1 rounded-full bg-teal px-2 py-0.5 text-[11px] font-bold text-white">
               <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
               HOJE
             </span>
           ) : null}
-          <span className="font-semibold text-ink">
+          <span className="text-[15px] font-bold leading-tight text-ink">
             {nomeDiaCurto(item.diaSemana)}, {ddMm(item.iso)}
           </span>
           <span
-            className={`ml-auto shrink-0 text-[12px] font-bold ${
-              completo ? 'text-success' : 'text-crimson'
+            className={`ml-auto shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide ${
+              completo ? 'bg-teal-tint text-teal' : 'bg-crimson-bg text-crimson'
             }`}
           >
             {item.designadas}/{item.total}
@@ -317,14 +311,14 @@ export function LinhaAvi({ item }: { item: ItemListaAvi }) {
         </span>
 
         {item.funcoes?.length ? (
-          <span className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2">
+          <span className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2.5">
             {item.funcoes.map((funcao) => (
               <span key={funcao.id} className="flex min-w-0 flex-col">
                 <span className="truncate text-[10px] font-bold uppercase tracking-wide text-muted">
                   {funcao.rotulo}
                 </span>
                 <span
-                  className={`truncate text-[13px] font-semibold leading-snug ${
+                  className={`truncate text-sm font-semibold leading-snug ${
                     funcao.nome ? 'text-ink' : 'text-faint'
                   }`}
                 >
@@ -335,7 +329,7 @@ export function LinhaAvi({ item }: { item: ItemListaAvi }) {
           </span>
         ) : (
           <span
-            className={`mt-1 block break-words text-[13px] leading-snug ${
+            className={`mt-2 block break-words text-[13px] leading-snug ${
               item.resumo ? 'text-muted' : 'text-crimson'
             }`}
           >
