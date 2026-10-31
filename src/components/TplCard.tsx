@@ -49,16 +49,16 @@ const TplCard = forwardRef(function TplCard(
           </colgroup>
           <tbody>
             <tr>
-              <th scope="col" className="h-[40px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
+              <th scope="col" className="h-[44px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
                 Dia
               </th>
-              <th scope="col" className="h-[40px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
+              <th scope="col" className="h-[44px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
                 Retirada / local
               </th>
-              <th scope="col" className="h-[40px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
+              <th scope="col" className="h-[44px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
                 Turno
               </th>
-              <th scope="col" className="h-[40px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
+              <th scope="col" className="h-[44px] px-2 text-[15px] font-bold text-white" style={{ backgroundColor: CORES_PLANILHA.mes, ...borda }}>
                 Dupla
               </th>
             </tr>
@@ -68,7 +68,7 @@ const TplCard = forwardRef(function TplCard(
                 key={`${linha.iso}-${linha.ponto}-${linha.turno}`}
                 style={{ backgroundColor: i % 2 === 0 ? '#FFFFFF' : '#F9FBFD' }}
               >
-                <td className="h-[38px] px-2 font-bold" style={borda}>
+                <td className="h-[50px] px-2 font-bold" style={borda}>
                   {diaTexto(linha.diaSemana)} {linha.dia}
                   {linha.iso === HOJE_ISO ? (
                     <span className="ml-1" style={{ color: CORES_PLANILHA.mes }}>
@@ -76,16 +76,16 @@ const TplCard = forwardRef(function TplCard(
                     </span>
                   ) : null}
                 </td>
-                <td className="h-[38px] px-2" style={borda}>
+                <td className="h-[50px] px-2" style={borda}>
                   <span className="block font-semibold">{linha.ponto}</span>
                   {linha.local ? (
                     <span className="block text-[12px]">Trabalho: {linha.local}</span>
                   ) : null}
                 </td>
-                <td className="h-[38px] px-2" style={borda}>
+                <td className="h-[50px] px-2" style={borda}>
                   {linha.turno}
                 </td>
-                <td className="h-[38px] px-2 font-semibold" style={borda}>
+                <td className="h-[50px] px-2 font-semibold" style={borda}>
                   {linha.dupla.length ? (
                     <span className="block break-words leading-snug">
                       {linha.dupla.join(' · ')}

@@ -200,6 +200,7 @@ export default function TelaAvi({
         .filter((l) => l.nome)
         .map((l) => `${l.rotulo}: ${l.nome}`)
         .join(' · '),
+      funcoes: linhas,
       designadas: linhas.filter((l) => l.nome).length,
       total: FUNCOES_AVI.length,
     }

@@ -266,6 +266,8 @@ export interface ItemListaAvi {
   resumo: string
   designadas: number
   total: number
+  /** Funções da reunião, na ordem da planilha, para a lista hierárquica. */
+  funcoes?: Array<{ id: string; rotulo: string; nome: string | null }>
 }
 
 /** Linha de "Designações futuras" do AVI (idêntica no admin e na página pública). */
@@ -300,13 +302,33 @@ export function LinhaAvi({ item }: { item: ItemListaAvi }) {
             {item.designadas}/{item.total}
           </span>
         </span>
-        <span
-          className={`mt-1 block break-words text-[13px] leading-snug ${
-            item.resumo ? 'text-muted' : 'text-crimson'
-          }`}
-        >
-          {item.resumo || 'Sem designação'}
-        </span>
+
+        {item.funcoes?.length ? (
+          <span className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2">
+            {item.funcoes.map((funcao) => (
+              <span key={funcao.id} className="flex min-w-0 flex-col">
+                <span className="truncate text-[10px] font-bold uppercase tracking-wide text-muted">
+                  {funcao.rotulo}
+                </span>
+                <span
+                  className={`truncate text-[13px] font-semibold leading-snug ${
+                    funcao.nome ? 'text-ink' : 'text-faint'
+                  }`}
+                >
+                  {funcao.nome ?? '—'}
+                </span>
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span
+            className={`mt-1 block break-words text-[13px] leading-snug ${
+              item.resumo ? 'text-muted' : 'text-crimson'
+            }`}
+          >
+            {item.resumo || 'Sem designação'}
+          </span>
+        )}
       </span>
     </article>
   )

@@ -67,7 +67,7 @@ const AviCard = forwardRef(function AviCard(
           <tr>
             <th
               scope="col"
-              className="h-[38px] px-1 font-bold"
+              className="h-[52px] px-1 font-bold"
               style={coluna}
             >
               Dia
@@ -76,7 +76,7 @@ const AviCard = forwardRef(function AviCard(
               <th
                 key={f.id}
                 scope="col"
-                className="h-[38px] px-1 font-bold leading-tight"
+                className="h-[52px] px-1 font-bold leading-tight"
                 style={coluna}
               >
                 {f.coluna}

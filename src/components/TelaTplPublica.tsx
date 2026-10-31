@@ -141,10 +141,12 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
       </header>
 
       {estado === 'carregando' ? (
-        <p className="flex items-center justify-center gap-2 rounded-xl bg-card p-5 text-sm text-muted shadow-sm">
+        <div
+          className="flex items-center justify-center rounded-xl bg-card p-5 shadow-sm"
+          aria-label="Carregando"
+        >
           <Loader2 className="size-4 animate-spin text-teal" aria-hidden="true" />
-          Carregando escala…
-        </p>
+        </div>
       ) : estado === 'erro' ? (
         <div className="rounded-xl bg-card p-5 text-center shadow-sm">
           <p className="text-sm text-muted">

@@ -778,12 +778,21 @@ try {
     ck('publico AVI: sem botao de download', !(await page.locator('button:has-text("Baixar PDF"), button:has-text("Baixar imagem")').count()))
     ck('publico AVI: sem botao copiar link', !(await page.locator('button:has-text("Copiar link")').count()))
     ck('publico AVI: sem botao Ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) === 0)
+    ck('publico AVI: sem filtro Mês', (await page.locator('#avi-publico-mes').count()) === 0)
+    if (await page.locator('article').count()) {
+      ck(
+        'publico AVI: lista com funções hierarquizadas',
+        (await page.locator('article').first().getByText(/operador áudio/i).count()) > 0,
+      )
+    }
+    ck('publico AVI: sem texto Carregando', (await page.locator('text=/Carregando/').count()) === 0)
     await shot('16-publico-avi')
 
     await page.goto(`${BASE}/escala/${encodeURIComponent(slug)}/TPL`, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForSelector('text=/Próxima designação|Primeira designação|próximas designações|Ainda não há uma escala|Não há mais saídas|Não foi possível carregar/', { timeout: 20000 })
     ck('publico TPL: pagina abre', (await page.locator('h1:has-text("Testemunho Público Local")').count()) > 0)
     ck('publico TPL: sem filtro Mês', (await page.locator('#tpl-publico-mes').count()) === 0)
+    ck('publico TPL: sem texto Carregando', (await page.locator('text=/Carregando/').count()) === 0)
     ck('publico TPL: sem botao de download', !(await page.locator('button:has-text("Baixar PDF"), button:has-text("Baixar imagem")').count()))
     ck('publico TPL: sem botao copiar link', !(await page.locator('button:has-text("Copiar link")').count()))
     ck('publico TPL: sem botao Ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) === 0)

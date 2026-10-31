@@ -12,7 +12,7 @@ import {
 } from '../lib/avi'
 import { isoDeHoje, lerChaveMes, mesDaUrl, nomeMes } from '../lib/datas'
 import { nomeDiaCurto } from '../lib/constants'
-import { Botao, Select } from './ui'
+import { Botao } from './ui'
 import { CardHeroAvi, LinhaAvi } from './CardsDesignacao'
 
 type Estado = 'carregando' | 'pronto' | 'vazio' | 'erro'
@@ -87,15 +87,6 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
 
   const { ano, mes } = mesAtivo ? lerChaveMes(mesAtivo) : { ano: 0, mes: 0 }
 
-  const mesesGerados = useMemo(
-    () =>
-      Object.entries(dados.escalas)
-        .filter(([, registro]) => Boolean(registro.geradoEm))
-        .map(([chave]) => chave)
-        .sort(),
-    [dados.escalas],
-  )
-
   const porId = useMemo(() => new Map(irmoes.map((i) => [i.id, i])), [irmoes])
 
   const ocorrencias = useMemo(
@@ -126,6 +117,7 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
         .filter((l) => l.nome)
         .map((l) => `${l.rotulo}: ${l.nome}`)
         .join(' · '),
+      funcoes: linhas,
       designadas: linhas.filter((l) => l.nome).length,
       total: FUNCOES_AVI.length,
     }
@@ -159,10 +151,12 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
       </header>
 
       {estado === 'carregando' ? (
-        <p className="flex items-center justify-center gap-2 rounded-xl bg-card p-5 text-sm text-muted shadow-sm">
+        <div
+          className="flex items-center justify-center rounded-xl bg-card p-5 shadow-sm"
+          aria-label="Carregando"
+        >
           <Loader2 className="size-4 animate-spin text-teal" aria-hidden="true" />
-          Carregando escala…
-        </p>
+        </div>
       ) : estado === 'erro' ? (
         <div className="rounded-xl bg-card p-5 text-center shadow-sm">
           <p className="text-sm text-muted">
@@ -187,31 +181,6 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
         </div>
       ) : (
         <div className="space-y-5">
-          {mesesGerados.length > 1 ? (
-            <div>
-              <label
-                htmlFor="avi-publico-mes"
-                className="mb-1 block text-[13px] font-semibold text-ink"
-              >
-                Mês
-              </label>
-              <Select
-                id="avi-publico-mes"
-                value={mesAtivo ?? ''}
-                onChange={(e) => setMesAtivo(e.target.value)}
-              >
-                {mesesGerados.map((chave) => {
-                  const { ano: a, mes: m } = lerChaveMes(chave)
-                  return (
-                    <option key={chave} value={chave}>
-                      {nomeMes(m)} de {a}
-                    </option>
-                  )
-                })}
-              </Select>
-            </div>
-          ) : null}
-
           {destaque ? (
             <CardHeroAvi
               rotulo={rotuloDestaque}
@@ -236,8 +205,8 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
               <div className="flex items-end justify-between gap-2 px-1">
                 <h2 className="text-lg font-semibold text-ink">Designações futuras</h2>
                 <p className="text-[13px] text-muted">
-                  {futuras.length} próxima{futuras.length === 1 ? '' : 's'} reunião
-                  {futuras.length === 1 ? '' : 'ões'}
+                  {futuras.length}{' '}
+                  {futuras.length === 1 ? 'próxima reunião' : 'próximas reuniões'}
                 </p>
               </div>
               <div className="flex flex-col gap-2">
