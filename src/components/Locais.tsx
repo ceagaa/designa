@@ -179,7 +179,7 @@ export default function Locais({ campos, dirigentes, aoAlterarCampos }: LocaisPr
         <p className="px-1 text-[13px] text-muted">
           Cada linha daqui vira uma data na escala do mês. Com a designação fixa ligada em
           Configurações, o voluntário de “Quem dirige” sai em todas as datas deste dia e o de
-          “Quem ajuda” acompanha como ajudante — deixando em branco, o dia sai sem ajudante. Sem
+          “Quem ajuda” acompanha como ajudante, e deixando em branco, o dia sai sem ajudante. Sem
           a designação fixa, voluntário e ajudante continuam em rodízio.
         </p>
       </section>

@@ -68,7 +68,7 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
             })
       aoEntrar(usuario)
     } catch (falha) {
-      setErro(falha instanceof ErroAuth ? textoErroAuth(falha.codigo) : 'Falha de conexão — tente novamente.')
+      setErro(falha instanceof ErroAuth ? textoErroAuth(falha.codigo) : 'Falha de conexão, tente novamente.')
     } finally {
       setOcupado(false)
     }

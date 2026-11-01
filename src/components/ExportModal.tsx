@@ -112,7 +112,7 @@ export default function ExportModal({
       aberto={aberto}
       aoFechar={aoFechar}
       titulo="Exportar escala"
-      descricao={`Prévia fiel do cartão de ${mes} de ${ano} — o arquivo sai com esta mesma aparência.`}
+      descricao={`Prévia fiel do cartão de ${mes} de ${ano}, o arquivo sai com esta mesma aparência.`}
     >
       <div className="space-y-4 px-5 py-4">
         <div className="flex min-h-[160px] items-center justify-center border border-line bg-paper p-3">

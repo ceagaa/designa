@@ -157,7 +157,7 @@ export function textoSimplificado({ config, chave, ocorrencias, designacoes, dir
   const porId = new Map(dirigentes.map((d) => [d.id, d]))
   const linhas = [
     `*${config.titulo}*`,
-    `${config.congregacao} — ${nomeMes(mes)} de ${ano}`,
+    `${config.congregacao}, ${nomeMes(mes)} de ${ano}`,
     '',
   ]
 
@@ -171,7 +171,7 @@ export function textoSimplificado({ config, chave, ocorrencias, designacoes, dir
     const dia = nomeDiaCurto(oc.diaSemana)
     const nome = dirigente ? dirigente.nome : 'Sem designação'
     linhas.push(
-      `*${dia}, ${oc.iso.slice(8, 10)}/${oc.iso.slice(5, 7)}* — ${oc.campo.horario} — ${oc.campo.local}`,
+      `*${dia}, ${oc.iso.slice(8, 10)}/${oc.iso.slice(5, 7)}*, ${oc.campo.horario}, ${oc.campo.local}`,
       `> ${nome}`,
       '',
     )

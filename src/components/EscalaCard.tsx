@@ -294,7 +294,7 @@ const EscalaCard = forwardRef(function EscalaCard(
                                 value={primeiroId}
                                 onChange={(e) => aoAlterarDesignacao?.(chaves, e.target.value)}
                               >
-                                <option value="">— Sem designação —</option>
+                                <option value="">Sem designação</option>
                                 {candidatos.map((c) => (
                                   <option key={c.id} value={c.id}>
                                     {c.nome}
@@ -333,7 +333,7 @@ const EscalaCard = forwardRef(function EscalaCard(
                                 value={primeiroAju}
                                 onChange={(e) => aoAlterarAjudante?.(chaves, e.target.value)}
                               >
-                                <option value="">— Sem ajudante —</option>
+                                <option value="">Sem ajudante</option>
                                 {candidatosAju.map((c) => (
                                   <option key={c.id} value={c.id}>
                                     {c.nome}

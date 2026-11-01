@@ -1,4 +1,5 @@
 import { ChevronLeft, LogOut } from 'lucide-react'
+import InfoApp from './InfoApp'
 import SinoNotificacoes from './SinoNotificacoes'
 import type { Notificacao } from './SinoNotificacoes'
 
@@ -11,7 +12,7 @@ interface AppHeaderProps {
   aoSair?: () => void
 }
 
-/** Header de topo: nome da página, sino de notificações e sair da conta. */
+/** Header de topo: nome da página, sobre o app, sino de notificações e sair. */
 export default function AppHeader({ titulo, notificacoes, aoVoltar, aoSair }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-surface/85 backdrop-blur-xl">
@@ -30,6 +31,7 @@ export default function AppHeader({ titulo, notificacoes, aoVoltar, aoSair }: Ap
           <h1 className="truncate text-base font-semibold tracking-tight text-ink">{titulo}</h1>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <InfoApp variante="cabecalho" />
           <SinoNotificacoes notificacoes={notificacoes} />
           {aoSair ? (
             <button

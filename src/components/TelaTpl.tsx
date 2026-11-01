@@ -683,7 +683,7 @@ export default function TelaTpl({
                                           )
                                         }
                                       >
-                                        <option value="">— Vazio —</option>
+                                        <option value="">Sem participante</option>
                                         {participantes
                                           .filter((p) => p.ativo || p.id === idAtual)
                                           .map((p) => (
@@ -1129,7 +1129,7 @@ export default function TelaTpl({
                     value={form.localId}
                     onChange={(e) => setForm({ ...form, localId: e.target.value })}
                   >
-                    <option value="">— Local a definir —</option>
+                    <option value="">Local a definir</option>
                     {dados.locais.map((local) => (
                       <option key={local.id} value={local.id}>
                         {local.nome}

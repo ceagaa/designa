@@ -257,7 +257,7 @@ export function CardHeroAvi({
                 linha.nome ? '' : 'text-white/60'
               }`}
             >
-              {linha.nome ?? '—'}
+              {linha.nome ?? 'Sem designação'}
             </p>
           </div>
         ))}
@@ -314,7 +314,7 @@ export function LinhaAvi({ item }: { item: ItemListaAvi }) {
                     funcao.nome ? 'text-ink' : 'text-faint'
                   }`}
                 >
-                  {funcao.nome ?? '—'}
+                  {funcao.nome ?? 'A definir'}
                 </span>
               </span>
             ))}

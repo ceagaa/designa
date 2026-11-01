@@ -156,6 +156,19 @@ try {
   ck('home: card TPL', (await page.locator('button:has-text("Testemunho Público Local")').count()) > 0)
   await shot('02-home')
 
+  // Modal de info também no header da área logada.
+  await page.locator('button[aria-label="Sobre o app"]').click()
+  await page.locator('[role=dialog]').waitFor({ timeout: 10000 })
+  ck(
+    'info logado: lista com as 4 opções',
+    (await page.locator('[role=dialog] button:has-text("Para que serve")').count()) > 0 &&
+      (await page.locator('[role=dialog] button:has-text("Política de privacidade")').count()) > 0 &&
+      (await page.locator('[role=dialog] button:has-text("Aparência")').count()) > 0 &&
+      (await page.locator('[role=dialog] button:has-text("Versão")').count()) > 0,
+  )
+  await page.locator('[role=dialog] button[aria-label="Fechar"]').click()
+  await page.locator('[role=dialog]').waitFor({ state: 'detached', timeout: 10000 })
+
   // ---------- 3) Campo vazio: estado inicial de conta nova ----------
   await page.click('button:has-text("Saídas de Campo")')
   await page.waitForSelector('text=Cadastre os dias de campo', { timeout: 15000 })

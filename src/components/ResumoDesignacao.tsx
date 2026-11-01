@@ -139,7 +139,7 @@ export default function ResumoDesignacao({
         ? `Ver escala de ${proximoNome}`
         : `Adiantar escala de ${proximoNome}`,
       texto: proximoPronto
-        ? 'Próxima escala já gerada — confira.'
+        ? 'Próxima escala já gerada, confira.'
         : 'Gera a escala do mês seguinte com antecedência',
       desabilitado: !proximoPronto && (semCampos || semDirigentes),
       onClick: () => (proximoPronto ? aoVerProximo() : setAdiantarAberto(true)),

@@ -13,7 +13,7 @@ import {
 import { isoDeHoje, lerChaveMes, mesDaUrl, nomeMes } from '../lib/datas'
 import { nomeDiaCurto } from '../lib/constants'
 import { Botao } from './ui'
-import InfoPublica from './InfoPublica'
+import InfoApp from './InfoApp'
 import { CardHeroAvi, LinhaAvi } from './CardsDesignacao'
 
 type Estado = 'carregando' | 'pronto' | 'vazio' | 'erro'
@@ -149,7 +149,7 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
             {mesAtivo ? `${nomeMes(mes)} de ${ano}` : 'Escala do setor'}
           </p>
         </div>
-        <InfoPublica />
+        <InfoApp />
       </header>
 
       {estado === 'carregando' ? (

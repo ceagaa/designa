@@ -76,13 +76,13 @@ function textoTeste(resultado: ResultadoTestePush): string {
   if (resultado.erro === 'nao_configurado') {
     return 'Falta configurar as chaves de push no servidor (PUSH_VAPID_PUBLICA / PUSH_VAPID_PRIVADA).'
   }
-  if (resultado.erro === 'pin_invalido') return 'PIN incorreto — tente novamente.'
+  if (resultado.erro === 'pin_invalido') return 'PIN incorreto, tente novamente.'
   if (resultado.erro) return 'Não foi possível enviar o teste agora. Tente de novo.'
   const enviadas = resultado.enviadas ?? 0
   const removidas = resultado.removidas ?? 0
   const falhas = resultado.falhas ?? 0
   if (enviadas === 0 && falhas === 0 && removidas === 0) {
-    return 'Nenhum aparelho inscrito — ative as notificações primeiro.'
+    return 'Nenhum aparelho inscrito, ative as notificações primeiro.'
   }
   const partes = [`Teste enviado para ${enviadas} aparelho(s)`]
   if (removidas > 0) partes.push(`${removidas} desativado(s)`)
@@ -374,7 +374,7 @@ export default function ConfigCampos({
       ativo: 'Pronto! Este aparelho já recebe notificações da escala.',
       aguardando_servidor:
         'Permissão concedida. Falta configurar as chaves de push no servidor (PUSH_VAPID_PUBLICA).',
-      bloqueado: 'Notificações bloqueadas — libere-as nas configurações do navegador.',
+      bloqueado: 'Notificações bloqueadas, libere-as nas configurações do navegador.',
       incompativel: 'Este navegador não suporta notificações.',
       erro: 'Não foi possível ativar agora. Tente de novo.',
     }
@@ -514,7 +514,7 @@ export default function ConfigCampos({
               rotulo="Dias de campo"
               descricao={
                 campos.length
-                  ? `${campos.length} configurado${campos.length === 1 ? '' : 's'} — horários e locais`
+                  ? `${campos.length} configurado${campos.length === 1 ? '' : 's'}, horários e locais`
                   : 'Nenhum dia configurado ainda'
               }
               acao={
@@ -765,7 +765,7 @@ export default function ConfigCampos({
         <section className="space-y-2">
           <TituloSecao
             titulo="Convites de acesso"
-            descricao="Convide ajudantes por link — validade de 7 dias, uso único"
+            descricao="Convide ajudantes por link, com validade de 7 dias e uso único"
           />
           <div className="divide-y divide-line-soft overflow-hidden rounded-xl bg-card shadow-sm">
             {SETORES.map((setor) => (
@@ -793,7 +793,7 @@ export default function ConfigCampos({
 
           {linkNovo ? (
             <div className="rounded-xl border-l-2 border-teal bg-teal-tint p-4">
-              <Kicker className="text-teal">Link gerado — {ROTULO_SETOR[linkNovo.setor]}</Kicker>
+              <Kicker className="text-teal">Link gerado para {ROTULO_SETOR[linkNovo.setor]}</Kicker>
               <p className="mt-1 break-all font-mono text-[12px] text-ink">{linkNovo.href}</p>
               <div className="mt-2 flex items-center gap-2">
                 <Botao variante="primario" onClick={() => copiar(linkNovo.href, 'novo')}>
@@ -907,7 +907,7 @@ export default function ConfigCampos({
                     : push.inscrito
                       ? 'Ativo neste aparelho.'
                       : push.permissao === 'denied'
-                        ? 'Bloqueadas — libere nas configurações do navegador.'
+                        ? 'Bloqueadas, libere nas configurações do navegador.'
                         : 'Ative para receber avisos da escala no aparelho.'}
               </p>
               {pushMensagem ? (

@@ -85,7 +85,7 @@ export default function TelaConvite({
       } else if (falha instanceof ErroAuth && falha.codigo === 'email_em_uso') {
         setErro('Já existe uma conta com este e-mail. Faça login ou use outro.')
       } else {
-        setErro(falha instanceof ErroAuth ? textoErroAuth(falha.codigo) : 'Falha de conexão — tente novamente.')
+        setErro(falha instanceof ErroAuth ? textoErroAuth(falha.codigo) : 'Falha de conexão, tente novamente.')
       }
     } finally {
       setOcupado(false)

@@ -233,7 +233,7 @@ export function textoErroAuth(codigo: string): string {
     convite_expirado: 'Este convite expirou (validade de 7 dias). Peça um novo link.',
     convite_usado: 'Este convite já foi usado. Peça um novo link ao administrador.',
     convite_nao_encontrado: 'Este convite já foi removido.',
-    pin_invalido: 'PIN incorreto — tente novamente.',
+    pin_invalido: 'PIN incorreto, tente novamente.',
     falha_cadastro: 'Não foi possível criar a conta agora. Tente de novo.',
     falha_login: 'Não foi possível entrar agora. Tente de novo.',
     falha_aceite: 'Não foi possível concluir o convite agora. Tente de novo.',

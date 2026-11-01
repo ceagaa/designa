@@ -846,19 +846,19 @@ const OG_POR_SETOR: Record<
 > = {
   CAMPO: {
     titulo: 'Designação para o serviço de campo',
-    descricao: 'Escala publicada — consulte as próximas designações do serviço de campo.',
+    descricao: 'Escala publicada, consulte as próximas designações do serviço de campo.',
     imagem: '/img/og-campo.png',
     tema: '#0D5C68',
   },
   AUDIO_VIDEO: {
     titulo: 'Designação para Áudio, Vídeo e Indicadores',
-    descricao: 'Escala publicada — consulte as próximas designações do AVI.',
+    descricao: 'Escala publicada, consulte as próximas designações do AVI.',
     imagem: '/img/og-avi.png',
     tema: '#045A6C',
   },
   TPL: {
     titulo: 'Designação para TPL',
-    descricao: 'Escala publicada — consulte as próximas designações do TPL.',
+    descricao: 'Escala publicada, consulte as próximas designações do TPL.',
     imagem: '/img/og-tpl.png',
     tema: '#7E0024',
   },
@@ -899,7 +899,7 @@ function metatagsPublicas(
   congregacao: string | null,
 ): string {
   const info = OG_POR_SETOR[setor]
-  const titulo = congregacao ? `${info.titulo} — ${congregacao}` : info.titulo
+  const titulo = congregacao ? `${info.titulo}, ${congregacao}` : info.titulo
   const imagem = new URL(info.imagem, url).toString()
   return [
     `<meta property="og:type" content="website" />`,

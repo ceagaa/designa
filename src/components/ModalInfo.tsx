@@ -15,17 +15,17 @@ const VERSAO = '1.0.0'
 
 const FINALIDADE = `O designa existe pra você montar a escala da congregação sem planilha e sem correria.
 
-Aqui você monta a programação de cada semana, vê de relance quem ministra e quem ajuda, e cuida da lista de voluntários e dos locais de visita — tudo no celular ou no computador.
+Aqui você monta a programação de cada semana, vê de relance quem ministra e quem ajuda, e cuida da lista de voluntários e dos locais de visita, tudo no celular ou no computador.
 
-Cada setor cuida do que é dele: quem é ajudante do Campo ajusta só as designações e os voluntários do Campo, sem mexer no restante.
+Cada setor cuida do que é dele. Quem é ajudante do Campo ajusta só as designações e os voluntários do Campo, sem mexer no restante.
 
-E quem não tem conta também acompanha: as páginas de escala, AVI e TPL abrem direto pelo link, sem precisar entrar.`
+E quem não tem conta também acompanha. As páginas de escala, AVI e TPL abrem direto pelo link, sem precisar entrar.`
 
 const POLITICA = `A gente guarda o mínimo possível pra escala funcionar: nome e telefone de quem colabora, o setor de cada um, e o e-mail de quem tem conta.
 
-Nada de anúncio, nada de revenda, nada de compartilhar seus dados com terceiros. Suas informações ficam numa base protegida e o acesso é por conta — cada pessoa vê só o que lhe cabe.
+Nada de anúncio, nada de revenda, nada de compartilhar seus dados com terceiros. Suas informações ficam numa base protegida e o acesso é por conta, cada pessoa vê só o que lhe cabe.
 
-Se um dia quiser sair, é só pedir: a gente apaga o cadastro e tudo que é dele. Simples assim.`
+Se um dia quiser sair, é só pedir. A gente apaga o cadastro e tudo que é dele. Simples assim.`
 
 type Pagina = 'lista' | 'finalidade' | 'politica' | 'aparencia' | 'versao'
 

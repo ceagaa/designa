@@ -155,7 +155,7 @@ export default function TabelaEscala({
 
       {ocorrenciasAtivas.length && semDesignacao ? (
         <p className="text-[13px] text-muted">
-          Troque qualquer nome direto na tabela — a linha marcada com o ponto ficou definida à mão
+          Troque qualquer nome direto na tabela. A linha marcada com o ponto ficou definida à mão
           e não muda na próxima geração.
         </p>
       ) : null}

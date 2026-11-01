@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { VarianteBotao } from '../lib/dominio'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
 import { ChevronDown, Minus, MoreVertical, Plus } from 'lucide-react'
 
@@ -315,7 +316,9 @@ export function Modal({ aberto, aoFechar, titulo, descricao, children, largura =
 
   if (!aberto) return null
 
-  return (
+  // Portal para o body: o modal pode nascer dentro de headers com backdrop-blur
+  // (que criam containing block e prendem o `fixed` na caixa do elemento).
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
       onMouseDown={(evento) => {
@@ -355,7 +358,8 @@ export function Modal({ aberto, aoFechar, titulo, descricao, children, largura =
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

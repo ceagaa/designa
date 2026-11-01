@@ -14,7 +14,7 @@ import {
   turnoTexto,
 } from '../lib/tpl'
 import { Botao } from './ui'
-import InfoPublica from './InfoPublica'
+import InfoApp from './InfoApp'
 import { CardHeroTpl, LinhaTpl } from './CardsDesignacao'
 
 type Estado = 'carregando' | 'pronto' | 'vazio' | 'erro'
@@ -134,7 +134,7 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
             {mesAtivo ? `${nomeMes(mes)} de ${ano}` : 'Escala do setor'}
           </p>
         </div>
-        <InfoPublica />
+        <InfoApp />
       </header>
 
       {estado === 'carregando' ? (

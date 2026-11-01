@@ -257,7 +257,7 @@ export default function TelaAvi({
         ? `Ver escala de ${proximoNome}`
         : `Adiantar escala de ${proximoNome}`,
       texto: proximoPronto
-        ? 'Próxima escala já gerada — confira.'
+        ? 'Próxima escala já gerada, confira.'
         : 'Gera a escala do mês seguinte com antecedência',
       desabilitado: !proximoPronto && (!ocorrencias.length || !irmoes.length),
       onClick: () => {
@@ -409,7 +409,7 @@ export default function TelaAvi({
     const resultado = await compartilharPagina(
       url,
       TITULO_AVI,
-      `Escala de ${TITULO_AVI} — ${nomeMes(mes)} de ${ano}`,
+      `Escala de ${TITULO_AVI}, ${nomeMes(mes)} de ${ano}`,
     )
     if (resultado === 'copiado') aoAvisar('Link público do AVI copiado.')
     else if (resultado === 'falhou') aoAvisar('Não foi possível compartilhar o link.')
@@ -608,7 +608,7 @@ export default function TelaAvi({
                                 value={idAtual}
                                 onChange={(e) => alterarSlot(slot, e.target.value)}
                               >
-                                <option value="">— Sem designação —</option>
+                                <option value="">Sem designação</option>
                                 {opcoes.map((i) => (
                                   <option key={i.id} value={i.id}>
                                     {i.nome}

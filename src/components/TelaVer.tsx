@@ -5,7 +5,7 @@ import { ddMm, isoDeHoje } from '../lib/datas'
 import { ehFeriado, ehUltimoDomingo, rotuloEspecial } from '../lib/feriados'
 import { MESES, nomeDiaCurto } from '../lib/constants'
 import { AvisoTerritorios, CardHeroCampo, LinhaCampo } from './CardsDesignacao'
-import InfoPublica from './InfoPublica'
+import InfoApp from './InfoApp'
 
 /** Data de hoje resolvida uma vez (evita Date instável no render). */
 const HOJE_ISO = isoDeHoje()
@@ -106,7 +106,7 @@ export default function TelaVer({ payload }: { payload: string }) {
             </p>
           </div>
         </div>
-        <InfoPublica />
+        <InfoApp />
       </header>
 
       {destaque ? (
