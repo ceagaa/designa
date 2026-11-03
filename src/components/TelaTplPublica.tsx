@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, Loader2, RefreshCcw } from 'lucide-react'
 import { chaveMes, isoDeHoje, lerChaveMes, mesDaUrl, nomeMes } from '../lib/datas'
 import { infoDia } from '../lib/constants'
+import { buscar } from '../lib/api'
 import {
   TITULO_TPL,
   efetivasTpl,
@@ -47,7 +48,7 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
 
   useEffect(() => {
     let vivo = true
-    fetch(`/api/tpl/publico/${encodeURIComponent(slug)}`)
+    buscar(`/api/tpl/publico/${encodeURIComponent(slug)}`)
       .then(async (resposta) => {
         if (!vivo) return
         if (!resposta.ok) {

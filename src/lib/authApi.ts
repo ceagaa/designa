@@ -1,6 +1,6 @@
 /** Cliente da API de autenticação (Fase 1): sessão, cadastro, convites e setores. */
 import type { SetorId, Usuario } from './dominio'
-import { cabecalhosPin } from './api'
+import { buscar, cabecalhosPin } from './api'
 
 const CHAVE_SESSAO = 'dirigentes:sessao'
 
@@ -15,7 +15,7 @@ export class ErroAuth extends Error {
 }
 
 async function pedir<T>(caminho: string, init?: RequestInit): Promise<T> {
-  const resposta = await fetch(caminho, {
+  const resposta = await buscar(caminho, {
     ...init,
     headers: {
       ...(init?.body ? { 'content-type': 'application/json' } : {}),

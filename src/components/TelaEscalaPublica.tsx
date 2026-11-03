@@ -3,6 +3,7 @@ import { Loader2, RefreshCcw } from 'lucide-react'
 import { Botao } from './ui'
 import TelaVer from './TelaVer'
 import { mesDaUrl } from '../lib/datas'
+import { buscar } from '../lib/api'
 
 type Estado = 'carregando' | 'pronto' | 'erro'
 
@@ -19,7 +20,7 @@ export default function TelaEscalaPublica({ slug }: { slug: string }) {
   useEffect(() => {
     let vivo = true
     const consulta = mesPedido ? `?mes=${encodeURIComponent(mesPedido)}` : ''
-    fetch(`/api/escala/publico/${encodeURIComponent(slug)}/CAMPO${consulta}`)
+    buscar(`/api/escala/publico/${encodeURIComponent(slug)}/CAMPO${consulta}`)
       .then(async (resposta) => {
         if (!vivo) return
         if (!resposta.ok) {

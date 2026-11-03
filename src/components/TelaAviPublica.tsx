@@ -11,6 +11,7 @@ import {
   registroAviDe,
 } from '../lib/avi'
 import { isoDeHoje, lerChaveMes, mesDaUrl, nomeMes } from '../lib/datas'
+import { buscar } from '../lib/api'
 import { nomeDiaCurto } from '../lib/constants'
 import { Botao } from './ui'
 import InfoApp from './InfoApp'
@@ -45,7 +46,7 @@ export default function TelaAviPublica({ slug }: { slug: string }) {
 
   useEffect(() => {
     let vivo = true
-    fetch(`/api/escala/publico/${encodeURIComponent(slug)}/AUDIO_VIDEO`)
+    buscar(`/api/escala/publico/${encodeURIComponent(slug)}/AUDIO_VIDEO`)
       .then(async (resposta) => {
         if (!vivo) return
         if (!resposta.ok) {

@@ -3,6 +3,29 @@ import { CHAVE_LOCAL, estadoInicial, normalizarEstado } from './estadoInicial'
 
 const CHAVE_PIN = 'dirigentes:pin'
 
+/**
+ * Teto de tempo de uma chamada de rede. Sem isso, uma API que aceita a conexão
+ * e nunca responde (Worker reiniciando, proxy parado) deixa o `fetch` pendurado
+ * para sempre e a tela de abertura nunca sai.
+ */
+const TEMPO_REDE_MS = 8000
+
+/**
+ * `fetch` com teto de tempo: ao estourar, a promessa rejeita e o chamador cai
+ * no seu fallback (cache local, sessão conhecida etc.) em vez de travar a UI.
+ */
+export function buscar(
+  caminho: string,
+  init: RequestInit = {},
+  tempoMs = TEMPO_REDE_MS,
+): Promise<Response> {
+  const controlador = new AbortController()
+  const relogio = setTimeout(() => controlador.abort(), tempoMs)
+  return fetch(caminho, { ...init, signal: controlador.signal }).finally(() => {
+    clearTimeout(relogio)
+  })
+}
+
 export function cabecalhosPin(): Record<string, string> {
   try {
     const pin = localStorage.getItem(CHAVE_PIN)
@@ -32,7 +55,7 @@ export class Erro401 extends Error {
  */
 export async function carregarEstado(): Promise<ResultadoCarga> {
   try {
-    const resposta = await fetch('/api/estado', { cache: 'no-store', headers: cabecalhosPin() })
+    const resposta = await buscar('/api/estado', { cache: 'no-store', headers: cabecalhosPin() })
     if (resposta.status === 401) throw new Erro401()
     if (resposta.status === 403) throw new Erro401()
     if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`)
@@ -78,7 +101,7 @@ export async function salvarEstado(estado: Estado): Promise<DestinoEstado> {
   guardarLocal(estado)
 
   const corpo = JSON.stringify({ estado })
-  const resposta = await fetch('/api/estado', {
+  const resposta = await buscar('/api/estado', {
     method: 'PUT',
     headers: { 'content-type': 'application/json', ...cabecalhosPin() },
     body: corpo,
@@ -103,7 +126,7 @@ export type ResultadoGeracao =
  */
 export async function gerarEscalaRemota(chave: string): Promise<ResultadoGeracao> {
   try {
-    const resposta = await fetch('/api/escala/gerar', {
+    const resposta = await buscar('/api/escala/gerar', {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...cabecalhosPin() },
       body: JSON.stringify({ chave }),
