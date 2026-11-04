@@ -63,6 +63,7 @@ export function CabecalhoDesignacao({
   status,
   acoes,
   rotuloMenu = 'Ações da designação',
+  ocultarStatus = false,
 }: {
   ano: number
   mes: number
@@ -70,6 +71,8 @@ export function CabecalhoDesignacao({
   status: StatusDesignacao
   acoes: AcaoMenu[]
   rotuloMenu?: string
+  /** Esconde o chip de status (o status passa a aparecer junto da lista). */
+  ocultarStatus?: boolean
 }) {
   const [menuAberto, setMenuAberto] = useState(false)
 
@@ -98,13 +101,15 @@ export function CabecalhoDesignacao({
       </div>
 
       <div className="relative flex shrink-0 items-center gap-1.5">
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${status.estilo}`}
-          role="status"
-        >
-          <span className={`size-1.5 rounded-full ${status.ponto}`} aria-hidden="true" />
-          {status.rotulo}
-        </span>
+        {!ocultarStatus ? (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${status.estilo}`}
+            role="status"
+          >
+            <span className={`size-1.5 rounded-full ${status.ponto}`} aria-hidden="true" />
+            {status.rotulo}
+          </span>
+        ) : null}
         <button
           type="button"
           aria-label={rotuloMenu}

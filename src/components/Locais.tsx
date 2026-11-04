@@ -2,7 +2,7 @@ import type { Campo, Dirigente } from '../lib/dominio'
 import { useState } from 'react'
 import { Check, MapPin, Plus, Trash } from 'lucide-react'
 import { DIAS_SEMANA, HORARIOS_PADRAO, infoDia } from '../lib/constants'
-import { Botao, Input, Kicker, Modal, Rotulo, Select, Vazio } from './ui'
+import { Botao, Input, Kicker, Modal, PopConfirm, Rotulo, Select, Vazio } from './ui'
 
 type FormCampo = Partial<Campo> & {
   diaSemana: number
@@ -189,7 +189,7 @@ export default function Locais({ campos, dirigentes, aoAlterarCampos }: LocaisPr
         aoFechar={fechar}
         titulo={form?.id ? 'Editar dia de campo' : 'Novo dia de campo'}
         descricao="Define uma linha da programação."
-        largura="max-w-lg"
+
       >
         {form ? (
           <div className="space-y-4 px-5 py-4">
@@ -298,34 +298,20 @@ export default function Locais({ campos, dirigentes, aoAlterarCampos }: LocaisPr
         ) : null}
       </Modal>
 
-      <Modal
+      <PopConfirm
         aberto={excluindo !== null}
         aoFechar={() => setExcluindo(null)}
         titulo="Excluir dia de campo"
         descricao={
           excluindo
             ? `${excluindo.local} sai da programação e não aparece mais na escala.`
-            : undefined
+            : ''
         }
-        largura="max-w-sm"
-      >
-        <div className="flex gap-2 px-5 py-4">
-          <Botao className="flex-1" onClick={() => setExcluindo(null)}>
-            Cancelar
-          </Botao>
-          <Botao
-            variante="vinho"
-            className="flex-1"
-            onClick={() => {
-              if (excluindo) remover(excluindo.id)
-              setExcluindo(null)
-            }}
-          >
-            <Trash className="size-4" aria-hidden="true" />
-            Excluir
-          </Botao>
-        </div>
-      </Modal>
+        aoConfirmar={() => {
+          if (excluindo) remover(excluindo.id)
+          setExcluindo(null)
+        }}
+      />
     </div>
   )
 }

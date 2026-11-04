@@ -4,7 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AppHeader from './components/AppHeader'
 import type { Notificacao } from './components/SinoNotificacoes'
 import BottomNav from './components/BottomNav'
+import Toast from './components/Toast'
+import type { Aviso, TipoToast } from './components/Toast'
 import ConfigCampos from './components/ConfigCampos'
+import {
+  TelaAjustes,
+  TelaCongregacao,
+  TelaConta,
+  TelaDepartamentos,
+  TelaNotificacoes,
+} from './components/Configuracoes'
 import EscalaCard from './components/EscalaCard'
 import ExportModal from './components/ExportModal'
 import Locais from './components/Locais'
@@ -18,6 +27,7 @@ import TelaDesignacoes from './components/TelaDesignacoes'
 import TelaEscalaPublica from './components/TelaEscalaPublica'
 import TelaLogin from './components/TelaLogin'
 import TelaPessoas from './components/TelaPessoas'
+import TelaPerfil from './components/TelaPerfil'
 import TelaTpl from './components/TelaTpl'
 import TelaTplPublica from './components/TelaTplPublica'
 import TelaVer from './components/TelaVer'
@@ -87,11 +97,23 @@ const ABA_DA_TELA: Record<Tela, AbaNav> = {
   avi: 'designacoes',
   tpl: 'designacoes',
   pessoas: 'pessoas',
+  perfil: 'ajustes',
   ajustes: 'ajustes',
+  ajustesCongregacao: 'ajustes',
+  ajustesDepartamentos: 'ajustes',
+  ajustesConta: 'ajustes',
+  ajustesNotificacoes: 'ajustes',
   ajustesCampo: 'ajustes',
   ajustesAvi: 'ajustes',
   ajustesTpl: 'ajustes',
   locais: 'ajustes',
+}
+
+/** Rótulo anunciado (sr-only) na troca de aba. */
+const TITULO_ABA: Record<AbaNav, string> = {
+  designacoes: 'Designações',
+  pessoas: 'Voluntários',
+  ajustes: 'Ajustes',
 }
 
 export default function App() {
@@ -106,7 +128,7 @@ export default function App() {
   const [modalAberto, setModalAberto] = useState(false)
   const [tabelaAberta, setTabelaAberta] = useState(false)
   const [pdfOcupado, setPdfOcupado] = useState(false)
-  const [aviso, setAviso] = useState('')
+  const [aviso, setAviso] = useState<Aviso>(null)
   const [payloadVer, setPayloadVer] = useState<string | null>(() => lerHashVer())
   const [rota, setRota] = useState<RotaPublica>(() => lerRotaPublica())
   const [sessao, setSessao] = useState<'verificando' | 'sem' | 'ok'>('verificando')
@@ -121,6 +143,13 @@ export default function App() {
   const aoRegistrarVoltarAjuste = useCallback((aoVoltar: (() => void) | null) => {
     voltarAjuste.current = aoVoltar
   }, [])
+
+  /** Mostra um toast (sucesso por padrão; remoção e erro nos casos da seção 9). */
+  function avisar(texto: string, tipo: TipoToast = 'sucesso') {
+    setAviso({ texto, tipo })
+  }
+
+  const fecharAviso = useCallback(() => setAviso(null), [])
 
   function persistirEstado(estadoParaSalvar: Estado): Promise<void> {
     const gravacao = filaDeGravacao.current
@@ -315,10 +344,15 @@ export default function App() {
 
   useEffect(() => {
     if (!prontoParaSair || splash !== 'ativo') return undefined
-    const restante = Math.max(0, 1100 - (Date.now() - inicioSplash.current))
+    // Splash completo dura 4000ms (600ms com movimento reduzido), saída em 500ms.
+    const reduzido =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const duracao = reduzido ? 600 : 4000
+    const restante = Math.max(0, duracao - (Date.now() - inicioSplash.current))
     const saida = setTimeout(() => {
       setSplash('saindo')
-      setTimeout(() => setSplash(null), 450)
+      setTimeout(() => setSplash(null), 500)
     }, restante)
     return () => clearTimeout(saida)
   }, [prontoParaSair, splash])
@@ -352,12 +386,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- encerrarLocal é estável por sessão
   }, [estado, pronto, sessao, usuario])
 
-  useEffect(() => {
-    if (!aviso) return undefined
-    const timer = setTimeout(() => setAviso(''), 3200)
-    return () => clearTimeout(timer)
-  }, [aviso])
-
   function atualizar(fn: (estado: Estado) => Estado) {
     setEstado((atual) => fn(atual))
   }
@@ -377,7 +405,7 @@ export default function App() {
       } as Estado['escalas'],
     }
     setEstado(gerarEscalaDoMes(atualizado, chave, { forcar: true }))
-    setAviso(
+    avisar(
       ocorrencias.length
         ? `Designação de ${nomeMes(mes)} de ${ano} gerada.`
         : 'Nenhum dia de campo neste mês.',
@@ -387,23 +415,23 @@ export default function App() {
   /** Gera (ou tenta gerar) a escala do mês seguinte: Worker primeiro, local se offline. */
   async function adiantarProximoMes() {
     if (proximoPronto) {
-      setAviso(`Escala de ${nomeMes(proximo.mes)} já existe.`)
+      avisar(`Escala de ${nomeMes(proximo.mes)} já existe.`)
       return
     }
     const resultado = await gerarEscalaRemota(proximo.chave)
     if (resultado.ok) {
       setEstado(resultado.estado)
-      setAviso(`Escala de ${nomeMes(proximo.mes)} de ${proximo.ano} gerada.`)
+      avisar(`Escala de ${nomeMes(proximo.mes)} de ${proximo.ano} gerada.`)
       return
     }
     if (resultado.motivo === 'existe') {
       const { estado: doServidor } = await carregarEstado()
       setEstado(doServidor)
-      setAviso(`Escala de ${nomeMes(proximo.mes)} já existe no servidor.`)
+      avisar(`Escala de ${nomeMes(proximo.mes)} já existe no servidor.`)
       return
     }
     setEstado(gerarEscalaDoMes(estado, proximo.chave))
-    setAviso(`Sem conexão: escala de ${nomeMes(proximo.mes)} gerada neste aparelho.`)
+    avisar(`Sem conexão: escala de ${nomeMes(proximo.mes)} gerada neste aparelho.`, 'erro')
   }
 
   /** Aplica o mesmo valor a várias ocorrências (linha agrupada de dia fixo). */
@@ -461,14 +489,14 @@ export default function App() {
     try {
       await persistirEstado(novoEstado)
       setStatus('sincronizado')
-      setAviso(`Designação de ${nomeMes(mes)} de ${ano} limpa.`)
+      avisar(`Designação de ${nomeMes(mes)} de ${ano} limpa.`, 'remocao')
     } catch (falha) {
       if (falha instanceof Erro401) {
         encerrarLocal()
         return
       }
       setStatus('erro')
-      setAviso('A escala foi limpa neste aparelho, mas não foi possível salvar na nuvem.')
+      avisar('A escala foi limpa neste aparelho, mas não foi possível salvar na nuvem.', 'erro')
     }
   }
 
@@ -532,18 +560,18 @@ export default function App() {
 
   function limparManuais() {
     alterarRegistro(chave, { ...registro, manuais: {}, manuaisAjudante: {} })
-    setAviso('Ajustes manuais removidos: a escala voltou ao rodízio automático.')
+    avisar('Ajustes manuais removidos: a escala voltou ao rodízio automático.', 'remocao')
   }
 
   async function compartilharLink() {
     try {
       if (!ocorrencias.some((oc) => efetivas[oc.key])) {
-        setAviso('Designe pelo menos um voluntário antes de compartilhar o link.')
+        avisar('Designe pelo menos um voluntário antes de compartilhar o link.', 'erro')
         return
       }
       const slug = usuario?.congregacao.slug
       if (!slug) {
-        setAviso('Não foi possível identificar o link público do Campo.')
+        avisar('Não foi possível identificar o link público do Campo.', 'erro')
         return
       }
       const url = `${window.location.origin}/escala/${encodeURIComponent(slug)}/CAMPO?mes=${encodeURIComponent(chave)}`
@@ -552,11 +580,11 @@ export default function App() {
         `Escala de ${nomeMes(mes)} de ${ano}`,
         'Compartilhar escala de campo',
       )
-      if (resultado === 'compartilhado') setAviso('Escala compartilhada.')
-      else if (resultado === 'copiado') setAviso('Link da escala copiado.')
-      else if (resultado === 'falhou') setAviso('Não foi possível compartilhar o link.')
+      if (resultado === 'compartilhado') avisar('Escala compartilhada.')
+      else if (resultado === 'copiado') avisar('Link da escala copiado.')
+      else if (resultado === 'falhou') avisar('Não foi possível compartilhar o link.', 'erro')
     } catch {
-      setAviso('Não foi possível compartilhar o link.')
+      avisar('Não foi possível compartilhar o link.', 'erro')
     }
   }
 
@@ -565,9 +593,9 @@ export default function App() {
     setPdfOcupado(true)
     try {
       await baixarPdf(cardRef.current, chave)
-      setAviso('PDF baixado.')
+      avisar('PDF baixado.')
     } catch {
-      setAviso('Não foi possível gerar o PDF.')
+      avisar('Não foi possível gerar o PDF.', 'erro')
     } finally {
       setPdfOcupado(false)
     }
@@ -584,7 +612,7 @@ export default function App() {
   async function aoSair() {
     await sairAuth()
     encerrarLocal()
-    setAviso('Sessão encerrada.')
+    avisar('Sessão encerrada.')
   }
 
   const ehRotaPublica = rota !== null || payloadVer !== null
@@ -599,6 +627,7 @@ export default function App() {
         : ['designacoes']
 
   const abaNav: AbaNav = ABA_DA_TELA[tela] ?? 'designacoes'
+  const [anuncio, setAnuncio] = useState('')
   const tituloHeader =
     tela === 'designacoes'
       ? 'Designações'
@@ -612,17 +641,27 @@ export default function App() {
               ? 'Testemunho Público Local'
               : tela === 'pessoas'
                 ? 'Voluntários'
-                : tela === 'ajustes'
-                  ? 'Ajustes'
-                  : tela === 'ajustesCampo'
-                    ? 'Configurações · Campo'
-                    : tela === 'ajustesAvi'
-                      ? 'Configurações · AVI'
-                      : tela === 'ajustesTpl'
-                        ? 'Configurações · TPL'
-                              : tela === 'locais'
-                                ? 'Locais de campo'
-                                : 'Designações'
+                : tela === 'perfil'
+                  ? 'Meu perfil'
+                  : tela === 'ajustes'
+                    ? 'Ajustes'
+                    : tela === 'ajustesCongregacao'
+                      ? 'Congregação'
+                      : tela === 'ajustesDepartamentos'
+                        ? 'Departamentos'
+                        : tela === 'ajustesConta'
+                          ? 'Conta'
+                          : tela === 'ajustesNotificacoes'
+                            ? 'Notificações'
+                            : tela === 'ajustesCampo'
+                              ? 'Configurações · Campo'
+                              : tela === 'ajustesAvi'
+                                ? 'Configurações · AVI'
+                                : tela === 'ajustesTpl'
+                                  ? 'Configurações · TPL'
+                                  : tela === 'locais'
+                                    ? 'Locais de campo'
+                                    : 'Designações'
 
   const aoVoltarHeader =
     tela === 'montagem'
@@ -632,24 +671,23 @@ export default function App() {
         : tela === 'avi' || tela === 'tpl'
           ? () => (voltarAjuste.current ? voltarAjuste.current() : setTela('designacoes'))
           : tela === 'ajustesCampo' || tela === 'ajustesAvi' || tela === 'ajustesTpl'
-            ? () => setTela('ajustes')
-            : tela === 'locais'
-              ? () => setTela(voltaLocais)
-              : undefined
+            ? () => setTela('ajustesDepartamentos')
+            : tela === 'ajustesCongregacao' ||
+                tela === 'ajustesDepartamentos' ||
+                tela === 'ajustesConta' ||
+                tela === 'ajustesNotificacoes'
+              ? () => setTela('ajustes')
+              : tela === 'perfil'
+                ? () => setTela('designacoes')
+                : tela === 'locais'
+                  ? () => setTela(voltaLocais)
+                  : undefined
 
   if (payloadVer) {
     return (
       <div className="min-h-svh">
         <TelaVer payload={payloadVer} />
-        {aviso ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed bottom-5 left-1/2 z-50 max-w-[92vw] -translate-x-1/2 bg-ink px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
-          >
-            {aviso}
-          </div>
-        ) : null}
+        <Toast aviso={aviso} aoFechar={fecharAviso} />
       </div>
     )
   }
@@ -658,15 +696,7 @@ export default function App() {
     return (
       <div className="min-h-svh">
         <TelaConvite token={rota.token} aoEntrar={aoEntrar} />
-        {aviso ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed bottom-5 left-1/2 z-50 max-w-[92vw] -translate-x-1/2 bg-ink px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
-          >
-            {aviso}
-          </div>
-        ) : null}
+        <Toast aviso={aviso} aoFechar={fecharAviso} />
       </div>
     )
   }
@@ -675,15 +705,7 @@ export default function App() {
     return (
       <div className="min-h-svh">
         <TelaTplPublica slug={rota.slug} />
-        {aviso ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed bottom-5 left-1/2 z-50 max-w-[92vw] -translate-x-1/2 bg-ink px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
-          >
-            {aviso}
-          </div>
-        ) : null}
+        <Toast aviso={aviso} aoFechar={fecharAviso} />
       </div>
     )
   }
@@ -696,15 +718,7 @@ export default function App() {
         ) : (
           <TelaAviPublica slug={rota.slug} />
         )}
-        {aviso ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed bottom-5 left-1/2 z-50 max-w-[92vw] -translate-x-1/2 bg-ink px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
-          >
-            {aviso}
-          </div>
-        ) : null}
+        <Toast aviso={aviso} aoFechar={fecharAviso} />
       </div>
     )
   }
@@ -722,15 +736,7 @@ export default function App() {
       <div className="min-h-svh">
         {splash ? <Splash saindo={splash === 'saindo'} /> : null}
         <TelaLogin aoEntrar={aoEntrar} />
-        {aviso ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed bottom-5 left-1/2 z-50 max-w-[92vw] -translate-x-1/2 bg-ink px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
-          >
-            {aviso}
-          </div>
-        ) : null}
+        <Toast aviso={aviso} aoFechar={fecharAviso} />
       </div>
     )
   }
@@ -739,18 +745,26 @@ export default function App() {
     <div className="min-h-svh">
       {splash && !ehRotaPublica ? <Splash saindo={splash === 'saindo'} /> : null}
 
+      <a className="skip-link" href="#conteudo">
+        Pular para o conteúdo
+      </a>
+
       <AppHeader
         titulo={tabelaAberta ? 'Tabela completa' : tituloHeader}
         notificacoes={!tabelaAberta && podeGerenciarCampo ? montarNotificacoes() : []}
+        nomeUsuario={usuario?.nome ?? ''}
         aoVoltar={tabelaAberta ? () => setTabelaAberta(false) : aoVoltarHeader}
+        aoAbrirPerfil={() => setTela('perfil')}
         aoSair={aoSair}
       />
 
       <main
-        className={`mx-auto w-full px-4 py-5 ${
+        id="conteudo"
+        tabIndex={-1}
+        className={`mx-auto -mt-4 w-full rounded-t-[24px] bg-fundo px-5 pt-6 ${
           tabelaAberta
             ? 'max-w-6xl pb-10'
-            : `max-w-[640px] ${
+            : `max-w-md ${
                 ['campo', 'montagem', 'pessoas', 'avi', 'tpl'].includes(tela)
                   ? // Telas com barra fixa acima da Bottom Nav precisam de respiro.
                     'pb-40'
@@ -758,6 +772,12 @@ export default function App() {
               }`
         }`}
       >
+        <h2 className="sr-only">{tabelaAberta ? 'Tabela completa' : tituloHeader}</h2>
+        {/* Anúncio sr-only da troca de aba (a11y de SPA, seção 5).
+            Em <div> para não colidir com as regiões <p aria-live> das tabelas. */}
+        <div aria-live="polite" className="sr-only">
+          {anuncio}
+        </div>
         {tabelaAberta ? (
           <TabelaEscala
             ano={ano}
@@ -849,7 +869,7 @@ export default function App() {
               setVoltaLocais('pessoas')
               setTela('locais')
             }}
-            aoAvisar={setAviso}
+            aoAvisar={avisar}
           />
         ) : null}
 
@@ -861,26 +881,15 @@ export default function App() {
           />
         ) : null}
 
-        {tela === 'ajustes' || tela === 'ajustesCampo' ? (
-          <ConfigCampos
+        {tela === 'ajustes' && usuario ? (
+          <TelaAjustes usuario={usuario} aoIrPara={setTela} />
+        ) : null}
+
+        {tela === 'ajustesCongregacao' && usuario ? (
+          <TelaCongregacao
             config={config}
-            campos={campos}
-            admin={usuario?.papel === 'ADMIN'}
-            setor={usuario?.setor ?? null}
-            usuarioId={usuario?.id}
-            congregacaoNumero={usuario?.congregacao.numero}
-            visao={tela === 'ajustes' ? 'geral' : 'campo'}
-            aoIrParaSetor={(setor) =>
-              setTela(
-                setor === 'CAMPO'
-                  ? 'ajustesCampo'
-                  : setor === 'AUDIO_VIDEO'
-                    ? 'ajustesAvi'
-                    : 'ajustesTpl',
-              )
-            }
-            aoIrParaPessoas={() => setTela('pessoas')}
-            aoSalvarCongregacao={async (nome, numero) => {
+            congregacaoNumero={usuario.congregacao.numero}
+            aoSalvar={async (nome, numero) => {
               const atualizado = await atualizarCongregacao({ nome, numero })
               setUsuario(atualizado)
               atualizar((e) => ({
@@ -891,17 +900,52 @@ export default function App() {
                 },
               }))
             }}
+            aoAvisar={avisar}
+          />
+        ) : null}
+
+        {tela === 'ajustesDepartamentos' && usuario ? (
+          <TelaDepartamentos
+            usuario={usuario}
+            aoIrParaSetor={(setor) =>
+              setTela(
+                setor === 'CAMPO'
+                  ? 'ajustesCampo'
+                  : setor === 'AUDIO_VIDEO'
+                    ? 'ajustesAvi'
+                    : 'ajustesTpl',
+              )
+            }
+          />
+        ) : null}
+
+        {tela === 'ajustesConta' && usuario ? (
+          <TelaConta usuario={usuario} aoAvisar={avisar} />
+        ) : null}
+
+        {tela === 'ajustesNotificacoes' && usuario ? (
+          <TelaNotificacoes aoAvisar={avisar} />
+        ) : null}
+
+        {tela === 'perfil' && usuario ? (
+          <TelaPerfil usuario={usuario} aoSair={aoSair} />
+        ) : null}
+
+        {tela === 'ajustesCampo' ? (
+          <ConfigCampos
+            config={config}
+            campos={campos}
+            aoIrParaPessoas={() => setTela('pessoas')}
+            aoIrParaLocais={() => {
+              setVoltaLocais('ajustesCampo')
+              setTela('locais')
+            }}
             aoAlterarConfig={(patch) =>
               atualizar((e) => ({
                 ...e,
                 escalas: { ...e.escalas, _config: { ...e.escalas._config, ...patch } },
               }))
             }
-            aoIrParaLocais={() => {
-              setVoltaLocais('ajustesCampo')
-              setTela('locais')
-            }}
-            aoAvisar={setAviso}
           />
         ) : null}
 
@@ -909,7 +953,7 @@ export default function App() {
           <TelaAvi
             modoConfiguracao={tela === 'ajustesAvi'}
             slug={usuario?.congregacao.slug}
-            aoAvisar={setAviso}
+            aoAvisar={avisar}
             aoIrParaPessoas={() => setTela('pessoas')}
             aoRegistrarVoltar={aoRegistrarVoltarAjuste}
           />
@@ -919,7 +963,7 @@ export default function App() {
           <TelaTpl
             key={tela}
             slug={usuario.congregacao.slug}
-            aoAvisar={setAviso}
+            aoAvisar={avisar}
             aoIrParaPessoas={() => setTela('pessoas')}
             aoAbrirConfiguracao={() => setTela('ajustesTpl')}
             aoRegistrarVoltar={aoRegistrarVoltarAjuste}
@@ -934,7 +978,12 @@ export default function App() {
         <BottomNav
           itens={abasDisponiveis}
           aba={abaNav}
-          aoMudar={(id) => setTela(id)}
+          aoMudar={(id) => {
+            setTela(id)
+            // Troca de aba move o foco para o conteúdo e anuncia a nova tela.
+            document.getElementById('conteudo')?.focus({ preventScroll: true })
+            setAnuncio(`Tela ${TITULO_ABA[id]}.`)
+          }}
         />
       ) : null}
 
@@ -969,19 +1018,11 @@ export default function App() {
           efetivas={efetivas}
           dirigentes={voluntariosCampo}
           slug={usuario?.congregacao.slug}
-          aoAvisar={setAviso}
+          aoAvisar={avisar}
         />
       ) : null}
 
-      {aviso ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-20 left-1/2 z-50 max-w-[92vw] -translate-x-1/2 bg-ink px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
-        >
-          {aviso}
-        </div>
-      ) : null}
+      <Toast aviso={aviso} aoFechar={fecharAviso} />
     </div>
   )
 }

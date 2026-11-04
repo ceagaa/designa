@@ -32,7 +32,7 @@ import {
   frequenciaValida,
   infoDia,
 } from '../lib/constants'
-import { Botao, Chip, Input, Modal, Rotulo, Vazio } from './ui'
+import { Botao, Chip, Input, PopConfirm, Rotulo, Vazio } from './ui'
 import { BarraFixa } from './CabecalhoDesignacao'
 
 type FormDirigente = Partial<Dirigente> & {
@@ -473,34 +473,20 @@ export default function CadastroDirigentes({
   /* ------------------------------ Página de edição ------------------------------ */
 
   const modalExclusao = (
-    <Modal
+    <PopConfirm
       aberto={excluindo !== null}
       aoFechar={() => setExcluindo(null)}
       titulo="Excluir voluntário"
       descricao={
         excluindo
           ? `${excluindo.nome} sai da equipe e não aparece mais nas escalas.`
-          : undefined
+          : ''
       }
-      largura="max-w-sm"
-    >
-      <div className="flex gap-2 px-5 py-4">
-        <Botao className="flex-1" onClick={() => setExcluindo(null)}>
-          Cancelar
-        </Botao>
-        <Botao
-          variante="vinho"
-          className="flex-1"
-          onClick={() => {
-            if (excluindo) remover(excluindo.id)
-            setExcluindo(null)
-          }}
-        >
-          <Trash className="size-4" aria-hidden="true" />
-          Excluir
-        </Botao>
-      </div>
-    </Modal>
+      aoConfirmar={() => {
+        if (excluindo) remover(excluindo.id)
+        setExcluindo(null)
+      }}
+    />
   )
 
   if (form) {
@@ -600,16 +586,16 @@ export default function CadastroDirigentes({
                 <IconeDepartamento className="size-5" />
               </span>
               <p className="min-w-0 flex-1">
-                <span className="block text-[11px] font-bold uppercase tracking-wide text-teal-deep/70">
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-primary-700/70">
                   {departamentosAtuais.length > 1 ? 'Departamentos' : 'Departamento'}
                 </span>
-                <span className="block text-sm font-bold text-teal-deep">
+                <span className="block text-sm font-bold text-primary-700">
                   {departamentosAtuais.map((dep) => dep.rotulo).join(' · ')}
                 </span>
               </p>
               <Botao
                 variante="fantasma"
-                className="shrink-0 text-teal-deep"
+                className="shrink-0 text-primary-700"
                 onClick={() => setEtapa('departamento')}
               >
                 Trocar
@@ -746,7 +732,7 @@ export default function CadastroDirigentes({
                       </p>
                     </>
                   ) : (
-                    <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-teal-deep">
+                    <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-primary-700">
                       As designações AVI são definidas pelo administrador.
                     </p>
                   )}
@@ -896,7 +882,7 @@ export default function CadastroDirigentes({
                 >
                   <span
                     className={`flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-bold shadow-sm ${
-                      inativo ? 'bg-line text-muted' : 'bg-teal-tint text-teal-deep'
+                      inativo ? 'bg-line text-muted' : 'bg-teal-tint text-primary-700'
                     }`}
                     aria-hidden="true"
                   >

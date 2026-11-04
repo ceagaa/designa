@@ -103,7 +103,7 @@ export default function ModalInfo({
       aoFechar={fechar}
       aoVoltar={pagina === 'lista' ? undefined : () => setPagina('lista')}
       titulo={titulo}
-      largura="max-w-md"
+
     >
       <div className="px-5 pb-8 pt-2">
         {pagina === 'lista' ? (

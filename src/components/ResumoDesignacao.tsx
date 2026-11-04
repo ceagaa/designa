@@ -1,10 +1,10 @@
 import type { Campo, Dirigente, Ocorrencia } from '../lib/dominio'
 import { useState } from 'react'
-import { CalendarDays, CalendarPlus, PencilLine, Sparkles, Trash2 } from 'lucide-react'
+import { CalendarDays, CalendarPlus, Eye, PencilLine, Sparkles, Trash2 } from 'lucide-react'
 import { MESES, nomeDiaCurto } from '../lib/constants'
-import { ddMm, isoDeHoje } from '../lib/datas'
+import { ddMm, isoDeHoje, passouDaJanela } from '../lib/datas'
 import { rotuloEspecial } from '../lib/feriados'
-import { Botao, Modal } from './ui'
+import { Botao, Modal, PopConfirm } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
 import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
 import { AvisoTerritorios, CardHeroCampo, LinhaCampo } from './CardsDesignacao'
@@ -68,20 +68,26 @@ export default function ResumoDesignacao({
   const [gerarAberto, setGerarAberto] = useState(false)
   const [adiantarAberto, setAdiantarAberto] = useState(false)
   const [limparAberto, setLimparAberto] = useState(false)
+  const [verCompletaAberto, setVerCompletaAberto] = useState(false)
 
   const ehMesAtual = ano === HOJE_ANO && mes === HOJE_MES - 1
 
-  const proximas = ehMesAtual ? ocorrencias.filter((o) => o.iso >= HOJE_ISO) : ocorrencias
-  const deHojeTodas = proximas.filter((o) => o.iso === HOJE_ISO)
+  // Relevantes: no mês atual, "hoje" ainda dentro da janela de 3h + dias
+  // futuros; designações de hoje já vencidas saem do destaque e da lista para
+  // dar lugar à próxima saída. Nos demais meses, todas as ocorrências.
+  const relevantes = ehMesAtual
+    ? ocorrencias.filter((o) => (o.iso === HOJE_ISO ? !passouDaJanela(o) : o.iso > HOJE_ISO))
+    : ocorrencias
+  const deHojeTodas = relevantes.filter((o) => o.iso === HOJE_ISO)
   const deHoje = deHojeTodas.length
     ? (deHojeTodas.find((o) => String(o.campo.horario) >= AGORA_HHMM) ??
       deHojeTodas[deHojeTodas.length - 1])
     : null
-  const destaque = deHoje ?? proximas[0] ?? null
+  const destaque = deHoje ?? relevantes[0] ?? null
   // A lista começa DEPOIS do que o card mostra: mesmo dia por horário (inclui
   // saídas gêmeas no mesmo horário), ou os dias seguintes — nunca repete o card.
   const posteriores = destaque
-    ? proximas.filter((o) => {
+    ? relevantes.filter((o) => {
         if (o.iso !== destaque.iso) return o.iso > destaque.iso
         const horario = String(o.campo.horario)
         const horarioCard = String(destaque.campo.horario)
@@ -90,7 +96,6 @@ export default function ResumoDesignacao({
       })
     : []
   const lista = posteriores.slice(0, 8)
-  const restam = posteriores.length - lista.length
 
   const porId = new Map(dirigentes.map((d) => [d.id, d]))
   const designados = ocorrencias.filter((o) => efetivas[o.key]).length
@@ -145,8 +150,15 @@ export default function ResumoDesignacao({
       onClick: () => (proximoPronto ? aoVerProximo() : setAdiantarAberto(true)),
     },
     {
+      icone: <PencilLine className="size-4" />,
+      cor: 'bg-canvas text-ink-soft',
+      titulo: 'Ajustar escala',
+      texto: 'Abre a tabela do mês para trocar dia a dia',
+      onClick: aoMontar,
+    },
+    {
       icone: <Trash2 className="size-4" />,
-      cor: 'bg-wine-soft text-wine',
+      cor: 'bg-perigo-fundo text-perigo-texto',
       titulo: 'Limpar designação',
       texto: 'Apaga automáticas e ajustes do mês',
       desabilitado: !designados && !gerado,
@@ -156,13 +168,14 @@ export default function ResumoDesignacao({
 
   return (
     <div className="space-y-6">
-      {/* Seletor único de mês + chip de status + menu ⋮ */}
+      {/* Seletor único de mês + menu ⋮ (status agora vive junto da lista). */}
       <CabecalhoDesignacao
         ano={ano}
         mes={mes}
         aoMudarData={aoMudarData}
         status={status}
         acoes={acoesMenu}
+        ocultarStatus
       />
 
       {destaque ? (
@@ -204,9 +217,13 @@ export default function ResumoDesignacao({
                 </span>
               ) : null}
             </div>
-            <p className="shrink-0 text-sm text-muted">
-              {designados}/{ocorrencias.length} designados
-            </p>
+            <span
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${status.estilo}`}
+              role="status"
+            >
+              <span className={`size-1.5 rounded-full ${status.ponto}`} aria-hidden="true" />
+              {status.rotulo}
+            </span>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -226,28 +243,17 @@ export default function ResumoDesignacao({
               />
             ))}
           </div>
-          {restam > 0 ? (
-            <p className="px-1 text-[13px] text-muted">
-              + {restam} saída{restam === 1 ? '' : 's'} neste mês
-            </p>
-          ) : null}
+
+          <button
+            type="button"
+            onClick={() => setVerCompletaAberto(true)}
+            className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-teal underline underline-offset-2 transition-colors hover:text-primario-hover"
+          >
+            <Eye className="size-4" aria-hidden="true" />
+            Ver escala completa
+          </button>
         </section>
       ) : null}
-
-      {/* Ação principal: ajustar os dias do mês na tabela completa. */}
-      <div>
-        <Botao
-          variante="primario"
-          className="w-full py-3.5 text-base shadow-sm"
-          onClick={aoMontar}
-        >
-          <PencilLine className="size-5" aria-hidden="true" />
-          Ajustar escala
-        </Botao>
-        <p className="mt-2 text-center text-[13px] text-muted">
-          Abre a tabela do mês: troque o voluntário e o ajudante dia a dia.
-        </p>
-      </div>
 
       {/* Barra fixa acima da Bottom Nav: gerar, PDF e link. */}
       <BarraAcoesDesignacao
@@ -275,50 +281,85 @@ export default function ResumoDesignacao({
         }}
       />
 
+      {/* Ver escala completa: só a lista, sem o card principal. */}
+      <Modal
+        aberto={verCompletaAberto}
+        aoFechar={() => setVerCompletaAberto(false)}
+        titulo="Escala completa"
+        descricao={`Todos os dias de ${MESES[mes]} de ${ano}.`}
+      >
+        <div className="space-y-2 px-5 pb-8 pt-2">
+          {ocorrencias.length ? (
+            ocorrencias.map((oc) => (
+              <LinhaCampo
+                key={oc.key}
+                item={{
+                  key: oc.key,
+                  iso: oc.iso,
+                  diaSemana: oc.diaSemana,
+                  horario: oc.campo.horario,
+                  local: oc.campo.local,
+                  nome: porId.get(efetivas[oc.key])?.nome ?? null,
+                  ajudante: porId.get(efetivasAjudante[oc.key])?.nome ?? null,
+                  especial: rotuloEspecial(oc),
+                }}
+              />
+            ))
+          ) : (
+            <p className="rounded-xl bg-card px-4 py-5 text-center text-sm text-muted">
+              Nenhum dia de campo neste mês.
+            </p>
+          )}
+        </div>
+      </Modal>
+
       {/* Confirmar geração */}
       <Modal
         aberto={gerarAberto}
         aoFechar={() => setGerarAberto(false)}
         titulo={`Gerar escala de ${MESES[mes]} de ${ano}?`}
+        cartaoAviso
+        focoAoAbrir="ultimo"
         descricao="O rodízio distribui os dias de campo conforme a configuração. Os ajustes manuais marcados na tabela são mantidos."
-        largura="max-w-sm"
       >
-        <div className="space-y-3 px-5 py-4">
+        <div className="space-y-3 px-5 pb-6 pt-1">
           {semCampos ? (
             <p className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               Cadastre os dias de campo primeiro (aba Locais).
             </p>
           ) : null}
-          <div className="flex gap-2">
-            <Botao className="flex-1" onClick={() => setGerarAberto(false)}>
-              Cancelar
-            </Botao>
-            {semDirigentes ? (
-              <Botao
-                variante="primario"
-                className="flex-1"
-                onClick={() => {
-                  setGerarAberto(false)
-                  aoCadastrar()
-                }}
-              >
-                Cadastrar voluntários
-              </Botao>
-            ) : (
-              <Botao
-                variante="primario"
-                className="flex-1"
-                disabled={semCampos}
-                onClick={() => {
-                  setGerarAberto(false)
-                  aoGerar()
-                }}
-              >
-                <Sparkles className="size-4" aria-hidden="true" />
-                Gerar
-              </Botao>
-            )}
-          </div>
+          {semDirigentes ? (
+            <button
+              type="button"
+              className="botao botao--primario"
+              onClick={() => {
+                setGerarAberto(false)
+                aoCadastrar()
+              }}
+            >
+              Cadastrar voluntários
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="botao botao--primario"
+              disabled={semCampos}
+              onClick={() => {
+                setGerarAberto(false)
+                aoGerar()
+              }}
+            >
+              <Sparkles className="size-5" aria-hidden="true" />
+              Gerar
+            </button>
+          )}
+          <button
+            type="button"
+            className="botao botao--claro"
+            onClick={() => setGerarAberto(false)}
+          >
+            Cancelar
+          </button>
         </div>
       </Modal>
 
@@ -327,51 +368,44 @@ export default function ResumoDesignacao({
         aberto={adiantarAberto}
         aoFechar={() => setAdiantarAberto(false)}
         titulo={`Adiantar escala de ${proximoNome}?`}
+        cartaoAviso
+        focoAoAbrir="ultimo"
         descricao={`Gera a escala do mês seguinte agora, além de ${MESES[mes]} de ${ano}.`}
-        largura="max-w-sm"
       >
-        <div className="flex gap-2 px-5 py-4">
-          <Botao className="flex-1" onClick={() => setAdiantarAberto(false)}>
-            Cancelar
-          </Botao>
-          <Botao
-            variante="sucesso"
-            className="flex-1"
+        <div className="space-y-3 px-5 pb-6 pt-1">
+          <button
+            type="button"
+            className="botao botao--primario"
             onClick={() => {
               setAdiantarAberto(false)
               aoAdiantar()
             }}
           >
-            <CalendarPlus className="size-4" aria-hidden="true" />
+            <CalendarPlus className="size-5" aria-hidden="true" />
             Adiantar
-          </Botao>
+          </button>
+          <button
+            type="button"
+            className="botao botao--claro"
+            onClick={() => setAdiantarAberto(false)}
+          >
+            Cancelar
+          </button>
         </div>
       </Modal>
 
-      {/* Confirmar limpeza */}
-      <Modal
+      {/* Confirmar limpeza (popup centralizado) */}
+      <PopConfirm
         aberto={limparAberto}
         aoFechar={() => setLimparAberto(false)}
         titulo="Limpar designação?"
         descricao={`Apaga todas as designações de ${MESES[mes]} de ${ano} (automáticas e ajustes manuais). Você pode gerar de novo quando quiser.`}
-        largura="max-w-sm"
-      >
-        <div className="flex gap-2 px-5 py-4">
-          <Botao className="flex-1" onClick={() => setLimparAberto(false)}>
-            Cancelar
-          </Botao>
-          <Botao
-            className="flex-1 border-wine bg-wine! text-white hover:bg-wine-dark! hover:border-wine-dark"
-            onClick={() => {
-              setLimparAberto(false)
-              aoLimparDesignacao()
-            }}
-          >
-            <Trash2 className="size-4" aria-hidden="true" />
-            Limpar
-          </Botao>
-        </div>
-      </Modal>
+        confirmarRotulo="Limpar"
+        aoConfirmar={() => {
+          setLimparAberto(false)
+          aoLimparDesignacao()
+        }}
+      />
     </div>
   )
 }

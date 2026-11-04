@@ -70,11 +70,11 @@ export default function SinoNotificacoes({ notificacoes }: SinoProps) {
         aria-expanded={aberto}
         aria-haspopup="true"
         onClick={alternar}
-        className="relative flex size-11 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-teal-tint hover:text-teal"
+        className="relative flex size-11 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15 active:bg-white/25"
       >
-        <Bell className="size-[22px]" aria-hidden="true" />
+        <Bell className="size-[22px]" strokeWidth={1.8} aria-hidden="true" />
         {novas > 0 ? (
-          <span className="absolute right-2 top-2 flex size-4 items-center justify-center rounded-full bg-crimson text-[10px] font-bold text-white">
+          <span className="absolute right-2 top-2 flex size-4 items-center justify-center rounded-full bg-perigo text-[10px] font-bold text-white">
             {novas > 9 ? '9+' : novas}
           </span>
         ) : null}
@@ -84,7 +84,7 @@ export default function SinoNotificacoes({ notificacoes }: SinoProps) {
         <div
           role="menu"
           aria-label="Notificações"
-          className="absolute right-0 top-[calc(100%+6px)] z-50 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-line bg-card shadow-[0_8px_24px_rgba(17,38,43,0.12)]"
+          className="absolute right-0 top-[calc(100%+6px)] z-20 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-line bg-card shadow-popover"
         >
           <p className="border-b border-line-soft px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
             Notificações

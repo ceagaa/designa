@@ -1,61 +1,99 @@
 @import 'tailwindcss';
 
+/*
+ * Tokens do manual de UI/UX (UI-UX.md, seção 2).
+ *
+ * A escala padrão do Tailwind v4 já bate com o manual (rounded-2xl = 16px,
+ * rounded-3xl = 24px, spacing 0.25rem = gutter px-5 de 20px), por isso raios
+ * e espaçamentos NÃO são sobrescritos aqui.
+ *
+ * As cores impressas (PDF) não moram aqui: vêm de CORES_PLANILHA em
+ * lib/constants, aplicadas por estilo inline nos cards exportados.
+ */
 @theme {
+  /* --- Escala da marca (2.1) --- */
+  --color-primary-50: #eef6f8;
+  --color-primary-100: #d6ebef;
+  --color-primary-200: #aed6de;
+  --color-primary-300: #7dbdca;
+  --color-primary-400: #58a4b5;
+  --color-primary-500: #4a90a2;
+  --color-primary-600: #3d7a8a;
+  --color-primary-700: #336474;
+  --color-primary-800: #2b525f;
+  --color-primary-900: #264651;
+
+  --color-secondary-50: #fdf8ec;
+  --color-secondary-100: #f9edcd;
+  --color-secondary-500: #be8900;
+  --color-secondary-600: #a67700;
+  --color-secondary-700: #8a6400;
+  --color-secondary-900: #5a4200;
+
+  --color-neutro-50: #fafafa;
+  --color-neutro-100: #f2f2f2;
+  --color-neutro-200: #e8e8e8;
+  --color-neutro-300: #d9d9d9;
+  --color-neutro-400: #b0b0b0;
+  --color-neutro-500: #8c8c8c;
+  --color-neutro-600: #6e6e6e;
+  --color-neutro-700: #4d4d4d;
+  --color-neutro-800: #333333;
+  --color-neutro-900: #1c1c1c;
+
+  --color-fundo: #f4f5f6;
+  --color-linha: #ededed;
+  --color-superficie: #ffffff;
+  --color-perigo: #d92d20;
+  --color-perigo-texto: #d92d20;
+  --color-perigo-fundo: #fdecea;
+  --color-perigo-hover: #b92318;
+  --color-primario-hover: #336474;
+  --color-toast: #1c1c1c;
+  --color-toast-texto: #ffffff;
+
   /*
-   * Raio de borda mais generoso (referência: cards ~24px, sheet ~32px,
-   * botões pílula). Sobrescrever os tokens muda TODAS as utilidades
-   * rounded-* do app de uma vez, sem tocar em cada componente.
+   * Semânticos já usados nos componentes: apontam para a escala acima, então
+   * trocar os valores repinta o app inteiro sem sufixos `dark:`.
    */
-  --radius-xs: 0.25rem;
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.25rem;
-  --radius-2xl: 1.5rem;
-  --radius-3xl: 2rem;
-  --radius-4xl: 2.5rem;
+  --color-teal: #3d7a8a; /* primary-600: botões e destaques com texto branco */
+  --color-teal-deep: #2b525f; /* primary-800: ponta escura do gradiente do hero */
+  --color-teal-light: #58a4b5; /* primary-400 */
+  --color-teal-tint: #eef6f8; /* primary-50 */
 
-  /* Respiro maior em paddings/gaps: +10% na escala inteira. */
-  --spacing: 0.275rem;
-
-  /*
-   * Paleta da escala impressa (hex puro para fidelidade no html2canvas).
-   * Não usar em componentes de UI — viva em lib/constants (CORES_PLANILHA).
-   */
-  --color-petrol: #045a6c;
-  --color-petrol-dark: #034250;
-  --color-petrol-soft: #f9fbfd;
-  --color-wine: #7e0024;
-  --color-wine-dark: #5c001a;
-  --color-wine-soft: #fff3f3;
-
-  /* Paleta do app — Serene Rostering System (DESIGN.md) */
-  --color-teal: #0d5c68;
-  --color-teal-deep: #073b43;
-  --color-teal-light: #148091;
-  --color-teal-tint: #e8f4f6;
-  --color-surface: #f4f6f8;
+  --color-surface: #f4f5f6; /* fundo da página */
+  --color-canvas: #f4f5f6;
   --color-card: #ffffff;
-
-  --color-ink: #11262b;
-  --color-ink-soft: #4a6369;
-  --color-muted: #4a6369;
-  --color-faint: #7a9298;
-
-  --color-line: #e2e8ea;
-  --color-line-soft: #edf1f3;
-  --color-canvas: #f4f6f8;
   --color-paper: #ffffff;
+
+  --color-ink: #1c1c1c;
+  --color-ink-soft: #6e6e6e;
+  --color-muted: #6e6e6e;
+  --color-faint: #8c8c8c;
+
+  --color-line: #ededed;
+  --color-line-soft: #f2f2f2;
 
   --color-success: #0d825e;
   --color-success-bg: #ecfdf5;
   --color-success-line: #a7f3d0;
-  --color-crimson: #9e2a2b;
-  --color-crimson-bg: #fdf2f2;
-  --color-crimson-line: #f5d4d4;
+  --color-crimson: #d92d20; /* perigo: erros e ações destrutivas */
+  --color-crimson-bg: #fdecea;
+  --color-crimson-line: #f5c2be;
 
-  --font-display: 'Plus Jakarta Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --font-sans: 'Plus Jakarta Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* --- Tipografia (2.3): Nunito --- */
+  --font-sans: 'Nunito', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Nunito', system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  /* --- Sombras (2.6) --- */
+  --shadow-nav: 0 -6px 24px rgba(0, 0, 0, 0.1);
+  --shadow-toast: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+  --shadow-popover: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.25);
+  --shadow-fab: 0 10px 15px -3px rgba(38, 70, 81, 0.3), 0 4px 6px -4px rgba(38, 70, 81, 0.3);
+  --shadow-logo: 0 18px 44px rgba(15, 46, 56, 0.35);
+
+  /* --- Movimento (2.8): entrada/saída das folhas --- */
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @layer base {
@@ -92,7 +130,7 @@
   h2,
   h3 {
     margin: 0;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: -0.01em;
   }
 
@@ -100,10 +138,236 @@
     font: inherit;
   }
 
+  /* Foco visível (3): contorno 2px primary-500, sem raio fixo. */
   :focus-visible {
-    outline: 2px solid var(--color-teal-light);
+    outline: 2px solid var(--color-primary-500);
     outline-offset: 2px;
-    border-radius: 3px;
+  }
+
+  /* `<main>` navega por abas com tabindex=-1: não ganha contorno. */
+  [tabindex='-1']:focus {
+    outline: none;
+  }
+}
+
+/*
+ * Componentes base (3 do manual): classes globais reutilizáveis.
+ * Ficam na camada `components` para que utilidades do Tailwind possam
+ * sobrescrevê-las caso a caso.
+ */
+@layer components {
+  .cartao {
+    background: var(--color-superficie);
+    border-radius: 20px;
+    padding: 20px;
+  }
+
+  .titulo-secao {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    color: var(--color-neutro-900);
+  }
+
+  .lista > * + * {
+    border-top: 1px solid var(--color-linha);
+  }
+
+  .linha {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1rem;
+    width: 100%;
+    min-height: 68px;
+    padding: 0.75rem 0;
+  }
+
+  .botao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 56px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease,
+      border-color 150ms ease,
+      transform 100ms ease;
+  }
+
+  .botao:active {
+    transform: scale(0.985);
+  }
+
+  .botao:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .botao--primario {
+    background: var(--color-primary-600);
+    color: #ffffff;
+  }
+
+  .botao--primario:hover {
+    background: var(--color-primario-hover);
+  }
+
+  .botao--claro {
+    background: var(--color-neutro-100);
+    color: var(--color-primary-700);
+  }
+
+  .botao--claro:hover {
+    background: var(--color-neutro-200);
+  }
+
+  .botao--invertido {
+    background: #ffffff;
+    color: var(--color-primary-800);
+  }
+
+  .botao--invertido:hover {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .botao--perigo {
+    background: var(--color-perigo);
+    color: #ffffff;
+  }
+
+  .botao--perigo:hover {
+    background: var(--color-perigo-hover);
+  }
+
+  .campo {
+    width: 100%;
+    border: 2px solid transparent;
+    border-radius: 16px;
+    background: var(--color-neutro-100);
+    padding: 14.4px 16.8px;
+    font-family: inherit;
+    font-size: 16px;
+    color: var(--color-neutro-900);
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .campo::placeholder {
+    color: var(--color-neutro-500);
+  }
+
+  .campo:focus {
+    outline: none;
+    border-color: var(--color-primary-500);
+    background: var(--color-superficie);
+  }
+
+  .linha-acao {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 60px;
+    border-radius: 16px;
+    background: var(--color-neutro-100);
+    padding: 14px 17.6px;
+    font-size: 16px;
+    font-weight: 700;
+    transition: background-color 150ms ease;
+  }
+
+  .linha-acao:hover {
+    background: var(--color-neutro-200);
+  }
+
+  /* Amplia a área de toque em 10px sem ocupar espaço no layout. */
+  .hit-area {
+    position: relative;
+  }
+
+  .hit-area::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+  }
+
+  .skip-link {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 60;
+    padding: 12px 16px;
+    border-radius: 0 0 12px 0;
+    background: var(--color-primary-800);
+    color: #ffffff;
+    font-weight: 700;
+    transform: translateY(-120%);
+    transition: transform 150ms ease;
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+
+  /*
+   * Bottom sheet (7): folha nativa <dialog> com topo arredondado 24px,
+   * ancorada embaixo e centralizada (margin auto auto 0). O slide-up é
+   * controlado por estilo inline no componente Modal.
+   */
+  .folha {
+    position: fixed;
+    inset: 0;
+    margin: auto auto 0;
+    width: 100%;
+    max-width: 448px;
+    max-height: 92dvh;
+    padding: 0;
+    border: 0;
+    border-radius: 24px 24px 0 0;
+    background: var(--color-superficie);
+    color: var(--color-ink);
+    overflow-x: hidden;
+    overflow-y: auto;
+    transform: translateY(100%);
+    will-change: transform;
+  }
+
+  .folha::backdrop {
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  /*
+   * Popup centralizado (confirmações destrutivas): mesmo <dialog> nativo,
+   * mas ancorado no centro da tela, com todos os cantos arredondados e sem
+   * alça de arrasto. Diferente da folha inferior (bottom sheet) de cadastro.
+   */
+  .popconfirm {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(calc(100vw - 2.5rem), 400px);
+    max-height: none;
+    padding: 0;
+    border: 0;
+    border-radius: 24px;
+    background: var(--color-superficie);
+    color: var(--color-ink);
+    box-shadow: var(--shadow-popover);
+  }
+
+  .popconfirm::backdrop {
+    background: rgba(0, 0, 0, 0.55);
   }
 }
 
@@ -114,8 +378,8 @@
 
 /*
  * Cartão da escala: réplica da aba "Programação" da planilha base.
- * Fonte Calibri, grade fina #BFBFBF em toda célula e cores fixas,
- * independentes do restante do app.
+ * Fonte Calibri, grade fina #BFBFBF em toda célula e cores fixas
+ * (CORES_PLANILHA em estilo inline), independentes do restante do app.
  */
 .escala-card {
   font-family: Calibri, Carlito, 'Segoe UI', system-ui, sans-serif;
@@ -146,13 +410,47 @@
   display: none;
 }
 
+/* Toast (seção 9): entra com um leve surgimento de baixo. */
+.toast {
+  animation: toast-entrar 200ms ease-out both;
+}
+
+@keyframes toast-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .splash {
   animation: splash-entrar 0.4s ease-out both;
 }
 
 .splash-saindo {
   pointer-events: none;
-  animation: splash-sair 0.45s ease-in both;
+  animation: splash-sair 0.5s ease-in both;
+}
+
+/* Cenário do splash (12): logo 0.72 → 1, título/régua/subtítulo em cascata. */
+.splash-logo {
+  animation: splash-logo 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.splash-titulo {
+  animation: splash-sobe 550ms ease-out 550ms both;
+}
+
+.splash-regua {
+  transform-origin: center;
+  animation: splash-regua 450ms ease-out 850ms both;
+}
+
+.splash-subtitulo {
+  animation: splash-sobe 550ms ease-out 1s both;
 }
 
 @keyframes splash-entrar {
@@ -173,6 +471,37 @@
   }
 }
 
+@keyframes splash-logo {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes splash-sobe {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-regua {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 /*
  * Destaque de HOJE: borda "ao vivo" (anel pulsante) nos cards da
  * designação do dia atual — variante clara (fundo claro) e branca
@@ -182,13 +511,13 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 2px rgba(20, 128, 145, 0.8),
-      0 0 0 6px rgba(20, 128, 145, 0.12);
+      0 0 0 2px rgba(74, 144, 162, 0.8),
+      0 0 0 6px rgba(74, 144, 162, 0.12);
   }
   50% {
     box-shadow:
-      0 0 0 2px rgba(20, 128, 145, 1),
-      0 0 14px 3px rgba(20, 128, 145, 0.45);
+      0 0 0 2px rgba(74, 144, 162, 1),
+      0 0 14px 3px rgba(74, 144, 162, 0.45);
   }
 }
 
@@ -221,8 +550,8 @@
   }
   .escala-hoje {
     box-shadow:
-      0 0 0 2px #148091,
-      0 0 0 6px rgba(20, 128, 145, 0.12);
+      0 0 0 2px #4a90a2,
+      0 0 0 6px rgba(74, 144, 162, 0.12);
   }
   .escala-hoje-branco {
     box-shadow:
@@ -231,6 +560,7 @@
   }
 }
 
+/* Movimento reduzido (2.8): tudo em 0.01ms. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -242,48 +572,78 @@
 }
 
 /*
- * Tema escuro: sobrescreve os tokens do @theme quando o <html> ganha a classe
- * `.dark` (definida por src/lib/tema.ts). Como as utilidades do Tailwind v4
- * referenciam as variáveis --color-*, trocar os valores aqui repinta o app
- * inteiro sem precisar de sufixos `dark:` em cada componente.
+ * Tema escuro (2.2): sobrescreve os tokens do @theme quando o <html> ganha a
+ * classe `.dark` (definida pelo script anti-flash do index.html e por
+ * src/lib/tema.ts). Como as utilidades do Tailwind v4 referenciam as
+ * variáveis --color-*, trocar os valores aqui repinta o app inteiro.
+ *
+ * `primary-500/600`, `secondary-500/600` e `perigo` não mudam no escuro.
  */
 html.dark {
-  --color-surface: #0d1618;
-  --color-card: #152225;
-  --color-paper: #152225;
-  --color-canvas: #0d1618;
+  --color-fundo: #0d0e10;
+  --color-linha: #2a2c2f;
+  --color-superficie: #17191c;
+  --color-primario-hover: #58a4b5;
+  --color-toast: #f2f4f6;
+  --color-toast-texto: #16181a;
+  --color-perigo-texto: #ff857c;
+  --color-perigo-fundo: #2a1614;
 
-  --color-ink: #e8f0f1;
-  --color-ink-soft: #a7bdc1;
-  --color-muted: #a7bdc1;
-  --color-faint: #7d9599;
+  --color-neutro-50: #141517;
+  --color-neutro-100: #1e2023;
+  --color-neutro-200: #2b2e31;
+  --color-neutro-300: #3a3e42;
+  --color-neutro-400: #5c6167;
+  --color-neutro-500: #868c93;
+  --color-neutro-600: #a4aab1;
+  --color-neutro-700: #c6cbd1;
+  --color-neutro-800: #e4e7ea;
+  --color-neutro-900: #f4f6f8;
 
-  --color-line: #24363a;
-  --color-line-soft: #1c2c30;
+  --color-primary-50: #10262e;
+  --color-primary-100: #16333d;
+  --color-primary-200: #1e4654;
+  --color-primary-300: #2a6072;
+  --color-primary-700: #8fc7d4;
 
-  --color-teal: #3aa7b8;
-  --color-teal-deep: #0a4b56;
-  --color-teal-light: #5fc4d3;
-  --color-teal-tint: #14343a;
+  --color-secondary-50: #2a2205;
+  --color-secondary-100: #3a2f08;
+  --color-secondary-500: #be8900;
+  --color-secondary-600: #a67700;
+  --color-secondary-700: #e3bc55;
+  --color-secondary-900: #5a4200;
+
+  --color-surface: #0d0e10;
+  --color-canvas: #0d0e10;
+  --color-card: #17191c;
+  --color-paper: #17191c;
+
+  --color-ink: #f4f6f8;
+  --color-ink-soft: #a4aab1;
+  --color-muted: #a4aab1;
+  --color-faint: #868c93;
+
+  --color-line: #2a2c2f;
+  --color-line-soft: #1e2023;
+
+  /* Continua aceitando texto branco (botões, chips, bandas). */
+  --color-teal: #3d7a8a;
+  --color-teal-deep: #1e4654;
+  --color-teal-light: #58a4b5;
+  --color-teal-tint: #16333d;
 
   --color-success: #3fb98c;
   --color-success-bg: #0f2a23;
   --color-success-line: #1d4f40;
-  --color-crimson: #e38a8a;
-  --color-crimson-bg: #2c1a1a;
+
+  --color-crimson: #ff857c;
+  --color-crimson-bg: #2a1614;
   --color-crimson-line: #5a2f2f;
 
-  --color-wine: #c9536f;
-  --color-wine-dark: #a13c56;
-  --color-wine-soft: #2c161d;
-
-  /* Na tela escura o "branco" dos heroes vira um fundo escuro suave. */
   color-scheme: dark;
 }
 
-/* Textos sobre os heroes teal/gradiente continuam brancos nos dois temas. */
+/* O cartão impresso é sempre claro (fidelidade à planilha e ao PDF). */
 html.dark .escala-card {
-  /* O cartão impresso é sempre claro (fidelidade à planilha e ao PDF). */
   background-color: #ffffff;
 }
-

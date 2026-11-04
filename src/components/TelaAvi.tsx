@@ -26,9 +26,10 @@ import {
   slotAvi,
 } from '../lib/avi'
 import { carregarSetorExtenso, ErroAuth, salvarDadosSetor } from '../lib/authApi'
+import type { TipoToast } from './Toast'
 import { baixarPdf } from '../lib/export'
 import AviCard from './AviCard'
-import { Botao, Chip, Modal, Select, Toggle, Vazio } from './ui'
+import { Botao, Chip, Modal, PopConfirm, Select, Toggle, Vazio } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
 import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
 import { CardHeroAvi, LinhaAvi } from './CardsDesignacao'
@@ -50,16 +51,16 @@ const SECOES: readonly Secao[] = [
   {
     id: 'fds',
     rotulo: 'Fim de semana',
-    banda: 'bg-petrol text-white',
-    texto: 'text-petrol',
-    linha: 'border-petrol/30',
+    banda: 'bg-primary-600 text-white',
+    texto: 'text-primary-700',
+    linha: 'border-primary-700/30',
   },
   {
     id: 'meio',
     rotulo: 'Meio de semana',
-    banda: 'bg-wine text-white',
-    texto: 'text-wine',
-    linha: 'border-wine/30',
+    banda: 'bg-perigo text-white',
+    texto: 'text-perigo-texto',
+    linha: 'border-perigo/30',
   },
 ]
 
@@ -86,7 +87,7 @@ export default function TelaAvi({
   modoConfiguracao = false,
   slug,
 }: {
-  aoAvisar: (texto: string) => void
+  aoAvisar: (texto: string, tipo?: TipoToast) => void
   /** Abre a tela Voluntários (designações AVI) — administrador. */
   aoIrParaPessoas?: () => void
   /** Diz ao header global como "voltar" dentro da tela (fecha o editor de escala). */
@@ -138,7 +139,7 @@ export default function TelaAvi({
         const sessaoExpirada =
           falha instanceof ErroAuth && (falha.status === 401 || falha.status === 403)
         setFalhaCarga(!sessaoExpirada)
-        if (sessaoExpirada) aoAvisar('Sessão expirada. Entre novamente.')
+        if (sessaoExpirada) aoAvisar('Sessão expirada. Entre novamente.', 'erro')
       })
     return () => {
       vivo = false
@@ -267,7 +268,7 @@ export default function TelaAvi({
     },
     {
       icone: <Trash2 className="size-4" />,
-      cor: 'bg-wine-soft text-wine',
+      cor: 'bg-perigo-fundo text-perigo-texto',
       titulo: 'Limpar designação',
       texto: 'Apaga automáticas e ajustes do mês',
       desabilitado: !gerado && !temManuais,
@@ -285,9 +286,9 @@ export default function TelaAvi({
       return true
     } catch (falha) {
       if (falha instanceof ErroAuth && (falha.status === 401 || falha.status === 403)) {
-        aoAvisar('Sessão expirada. Entre novamente.')
+        aoAvisar('Sessão expirada. Entre novamente.', 'erro')
       } else {
-        aoAvisar('Não foi possível salvar na nuvem. Tente de novo.')
+        aoAvisar('Não foi possível salvar na nuvem. Tente de novo.', 'erro')
       }
       return false
     }
@@ -366,7 +367,7 @@ export default function TelaAvi({
     const escalas = { ...dados.escalas }
     delete escalas[chave]
     void persistir({ ...dados, escalas }).then(() =>
-      aoAvisar(`Escala de ${nomeMes(mes)} de ${ano} limpa.`),
+      aoAvisar(`Escala de ${nomeMes(mes)} de ${ano} limpa.`, 'remocao'),
     )
     setConfirmando(null)
   }
@@ -375,7 +376,7 @@ export default function TelaAvi({
     const selecionados = new Set(dados.diasReuniao)
     if (selecionados.has(dia)) {
       if (selecionados.size === 1) {
-        aoAvisar('Selecione pelo menos um dia de reunião.')
+        aoAvisar('Selecione pelo menos um dia de reunião.', 'erro')
         return
       }
       selecionados.delete(dia)
@@ -402,7 +403,7 @@ export default function TelaAvi({
 
   async function copiarLinkPublico() {
     if (!slug) {
-      aoAvisar('Não foi possível identificar o link público deste setor.')
+      aoAvisar('Não foi possível identificar o link público deste setor.', 'erro')
       return
     }
     const url = `${window.location.origin}/escala/${encodeURIComponent(slug)}/AVI?mes=${encodeURIComponent(chave)}`
@@ -412,7 +413,7 @@ export default function TelaAvi({
       `Escala de ${TITULO_AVI}, ${nomeMes(mes)} de ${ano}`,
     )
     if (resultado === 'copiado') aoAvisar('Link público do AVI copiado.')
-    else if (resultado === 'falhou') aoAvisar('Não foi possível compartilhar o link.')
+    else if (resultado === 'falhou') aoAvisar('Não foi possível compartilhar o link.', 'erro')
   }
 
   async function aoPdf() {
@@ -733,45 +734,51 @@ export default function TelaAvi({
       ) : null}
 
       <Modal
-        aberto={confirmando !== null}
+        aberto={confirmando === 'gerar' || confirmando === 'adiantar'}
         aoFechar={() => setConfirmando(null)}
+        cartaoAviso
+        focoAoAbrir="ultimo"
         titulo={
           confirmando === 'gerar'
             ? 'Gerar novamente?'
-            : confirmando === 'adiantar'
-              ? `Adiantar escala de ${proximoNome}?`
-              : 'Limpar escala do mês?'
+            : `Adiantar escala de ${proximoNome}?`
         }
         descricao={
           confirmando === 'gerar'
             ? `A escala de ${nomeMes(mes)} de ${ano} será refeita. Os ajustes manuais são preservados.`
-            : confirmando === 'adiantar'
-              ? `A escala de ${proximoNome} de ${proximo.ano} será gerada agora pelo rodízio.`
-              : 'A escala deste mês será apagada. Esta ação não pode ser desfeita.'
+            : `A escala de ${proximoNome} de ${proximo.ano} será gerada agora pelo rodízio.`
         }
-        largura="max-w-sm"
+
       >
-        <div className="flex gap-2 px-5 py-4">
-          <Botao className="flex-1" onClick={() => setConfirmando(null)}>
-            Cancelar
-          </Botao>
-          <Botao
-            variante={confirmando === 'limparEscala' ? 'vinho' : 'primario'}
-            className="flex-1"
+        <div className="space-y-3 px-5 pb-6 pt-1">
+          <button
+            type="button"
+            className="botao botao--primario"
             onClick={() => {
               if (confirmando === 'gerar') executarGeracao()
               else if (confirmando === 'adiantar') adiantarProximoMes()
-              else if (confirmando === 'limparEscala') limparEscala()
             }}
           >
-            {confirmando === 'gerar'
-              ? 'Gerar'
-              : confirmando === 'adiantar'
-                ? 'Adiantar'
-                : 'Confirmar'}
-          </Botao>
+            {confirmando === 'gerar' ? 'Gerar' : 'Adiantar'}
+          </button>
+          <button
+            type="button"
+            className="botao botao--claro"
+            onClick={() => setConfirmando(null)}
+          >
+            Cancelar
+          </button>
         </div>
       </Modal>
+
+      <PopConfirm
+        aberto={confirmando === 'limparEscala'}
+        aoFechar={() => setConfirmando(null)}
+        titulo="Limpar escala do mês?"
+        descricao="A escala deste mês será apagada. Esta ação não pode ser desfeita."
+        confirmarRotulo="Limpar"
+        aoConfirmar={limparEscala}
+      />
     </div>
   )
 }

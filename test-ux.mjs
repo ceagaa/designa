@@ -236,14 +236,20 @@ try {
   await chip(DIA_CURTO).click()
   await chip('18:30').click()
   await salvarComEspera()
-  const regrasPersistidas = await page.evaluate(async () => {
-    const resposta = await fetch('/api/estado', { cache: 'no-store' })
-    const corpo = await resposta.json()
-    const pessoa = (corpo.estado?.dirigentes ?? []).find(
-      (d) => d.nome === 'Paula Multi',
-    )
-    return pessoa?.regrasDepartamento ?? null
-  })
+  // O D1 remoto pode levar um instante para enxergar a escrita; repete a
+  // leitura por até 10s antes de considerar a persistência falha.
+  let regrasPersistidas = null
+  for (let tentativa = 0; tentativa < 20 && !regrasPersistidas; tentativa++) {
+    regrasPersistidas = await page.evaluate(async () => {
+      const resposta = await fetch('/api/estado', { cache: 'no-store' })
+      const corpo = await resposta.json()
+      const pessoa = (corpo.estado?.dirigentes ?? []).find(
+        (d) => d.nome === 'Paula Multi',
+      )
+      return pessoa?.regrasDepartamento ?? null
+    })
+    if (!regrasPersistidas) await page.waitForTimeout(500)
+  }
   ck(
     'voluntários: frequências persistidas por departamento',
     regrasPersistidas?.CAMPO?.frequencia === 'semanal' &&
@@ -832,10 +838,10 @@ try {
     )
     await page.locator('[role=dialog] button:has-text("Para que serve")').click()
     ck('info: subpágina Para que serve abre', (await page.locator('[role=dialog]').getByText(/montar a escala da congregação/).count()) > 0)
-    await page.locator('[role=dialog] button:has-text("Voltar")').click()
+    await page.locator('[role=dialog] button[aria-label="Voltar"]').click()
     await page.locator('[role=dialog] button:has-text("Política de privacidade")').click()
     ck('info: subpágina Política abre', (await page.locator('[role=dialog]').getByText(/Nada de anúncio/).count()) > 0)
-    await page.locator('[role=dialog] button:has-text("Voltar")').click()
+    await page.locator('[role=dialog] button[aria-label="Voltar"]').click()
     await page.locator('[role=dialog] button:has-text("Aparência")').click()
     ck(
       'info: Aparência oferece os 3 temas',

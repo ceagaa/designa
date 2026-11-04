@@ -14,7 +14,11 @@ const ITENS: Record<AbaNav, ItemNav> = {
   ajustes: { id: 'ajustes', rotulo: 'Ajustes', Icone: Settings },
 }
 
-/** Barra inferior fixa em vidro fosco (apenas 3 itens), com safe-area. */
+/**
+ * Barra inferior fixa (4.4 do manual): fundo superfície, sombra para cima
+ * (shadow-nav), z-30 e itens com ícone 20px dentro de círculo de 36px.
+ * O item ativo ganha círculo primary-600 com ícone branco (stroke 2.3).
+ */
 export default function BottomNav({
   itens,
   aba,
@@ -29,30 +33,34 @@ export default function BottomNav({
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/90 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-4px_20px_rgba(17,38,43,0.06)] backdrop-blur-xl"
+      className="fixed inset-x-0 bottom-0 z-30 bg-superficie pb-[max(env(safe-area-inset-bottom,0px),8px)] shadow-nav"
     >
-      <ul className="mx-auto flex h-16 w-full max-w-[640px] items-center justify-around px-2">
+      <ul className="mx-auto grid w-full max-w-md grid-cols-3 gap-1 px-2 pt-1">
         {itens.map((id) => {
           const { rotulo, Icone } = ITENS[id]
           const ativa = aba === id
           return (
-            <li key={id} className="min-w-0 flex-1">
+            <li key={id} className="min-w-0">
               <button
                 type="button"
                 aria-current={ativa ? 'page' : undefined}
                 onClick={() => aoMudar(id)}
-                className={`flex h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 transition-colors ${
-                  ativa ? 'font-bold text-teal' : 'text-faint hover:text-ink-soft'
-                }`}
+                className="flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-1.5 transition-colors hover:bg-neutro-100"
               >
-                <Icone className="size-[22px]" aria-hidden="true" />
-                <span className="w-full truncate text-center text-[11px] font-semibold leading-tight">
+                <span
+                  className={`grid size-9 place-items-center rounded-full transition-colors ${
+                    ativa ? 'bg-primary-600 text-white' : 'text-neutro-800'
+                  }`}
+                >
+                  <Icone
+                    className="size-5"
+                    strokeWidth={ativa ? 2.3 : 1.8}
+                    aria-hidden="true"
+                  />
+                </span>
+                <span className="w-full truncate text-center text-[11px] font-bold leading-none text-neutro-800">
                   {rotulo}
                 </span>
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${ativa ? 'bg-teal' : 'bg-transparent'}`}
-                  aria-hidden="true"
-                />
               </button>
             </li>
           )

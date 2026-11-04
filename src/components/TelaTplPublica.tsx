@@ -118,25 +118,29 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
   const itemDestaque = destaque ? itemDe(destaque) : null
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-16">
-      <header className="mb-5 flex items-start gap-3">
-        <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal text-white shadow-sm"
-          aria-hidden="true"
-        >
-          <BookOpen className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-base font-bold leading-snug tracking-tight text-ink">
-            {TITULO_TPL}
-            {congregacao ? ` - ${congregacao}` : ''}
-          </h1>
-          <p className="mt-0.5 text-xs text-muted">
-            {mesAtivo ? `${nomeMes(mes)} de ${ano}` : 'Escala do setor'}
-          </p>
+    <div className="min-h-svh bg-fundo">
+      <header className="bg-primary-500 px-5 pb-8 pt-6 text-white">
+        <div className="mx-auto flex w-full max-w-md items-start gap-3">
+          <span
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-primary-600"
+            aria-hidden="true"
+          >
+            <BookOpen className="size-5" strokeWidth={1.8} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-extrabold leading-snug tracking-tight text-white">
+              {TITULO_TPL}
+              {congregacao ? `, ${congregacao}` : ''}
+            </h1>
+            <p className="mt-0.5 text-xs font-semibold text-white/80">
+              {mesAtivo ? `${nomeMes(mes)} de ${ano}` : 'Escala do setor'}
+            </p>
+          </div>
+          <InfoApp variante="cabecalho" />
         </div>
-        <InfoApp />
       </header>
+
+      <main className="mx-auto -mt-4 w-full max-w-md rounded-t-[24px] bg-fundo px-5 pt-6 pb-16">
 
       {estado === 'carregando' ? (
         <div
@@ -204,6 +208,11 @@ export default function TelaTplPublica({ slug }: { slug: string }) {
           ) : null}
         </div>
       )}
+      </main>
+
+      <footer className="mx-auto w-full max-w-md px-5 pb-10 text-center text-xs font-semibold text-muted">
+        Atualizado automaticamente · Designa
+      </footer>
     </div>
   )
 }

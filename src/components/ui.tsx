@@ -1,19 +1,19 @@
 import type { ReactNode } from 'react'
 import type { VarianteBotao } from '../lib/dominio'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
-import { ArrowLeft, ChevronDown, Minus, MoreVertical, Plus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Minus, MoreVertical, Plus, TriangleAlert, X } from 'lucide-react'
 
 const VARIA: Record<VarianteBotao, string> = {
-  primario: 'bg-teal text-white hover:bg-teal-deep border border-teal hover:border-teal-deep',
-  vinho: 'bg-crimson text-white hover:bg-[#7d2021] border border-crimson hover:border-[#7d2021]',
+  primario: 'bg-teal text-white hover:bg-primario-hover border border-teal hover:border-primario-hover',
+  vinho: 'bg-perigo text-white hover:bg-perigo-hover border border-perigo hover:border-perigo-hover',
   sucesso:
     'bg-success text-white hover:bg-success/90 border border-success hover:border-success/90',
   secundario: 'bg-paper text-ink border border-line hover:border-teal hover:text-teal',
   fantasma: 'border border-transparent text-muted hover:text-ink hover:bg-line-soft',
   perigo:
-    'bg-crimson/10 text-crimson border border-crimson/20 hover:bg-crimson/20 hover:border-crimson/30',
+    'bg-perigo-fundo text-perigo-texto border border-perigo/20 hover:border-perigo/30',
 }
 
 type BotaoProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -24,7 +24,7 @@ export function Botao({ variante = 'secundario', className = '', children, ...pr
   return (
     <button
       type="button"
-      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${VARIA[variante]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold transition-[background-color,color,border-color,transform] duration-150 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50 ${VARIA[variante]} ${className}`}
       {...props}
     >
       {children}
@@ -36,14 +36,13 @@ type RotuloProps = React.LabelHTMLAttributes<HTMLLabelElement>
 
 export function Rotulo({ htmlFor, children }: RotuloProps) {
   return (
-    <label htmlFor={htmlFor} className="mb-1 block text-[13px] font-semibold text-ink">
+    <label htmlFor={htmlFor} className="mb-1 block text-sm font-semibold text-neutro-800">
       {children}
     </label>
   )
 }
 
-const BASE_CAMPO =
-  'w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus:border-teal'
+const BASE_CAMPO = 'campo'
 
 export function Input({ className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`${BASE_CAMPO} ${className}`} {...props} />
@@ -248,9 +247,9 @@ type VazioProps = {
 
 export function Vazio({ icone: Icone, titulo, acao }: VazioProps) {
   return (
-    <div className="flex flex-col items-center gap-3 border border-dashed border-line bg-paper px-6 py-12 text-center">
-      {Icone ? <Icone className="size-7 text-muted" aria-hidden="true" /> : null}
-      <p className="max-w-md text-sm text-muted">{titulo}</p>
+    <div className="flex flex-col items-center gap-3 rounded-2xl bg-neutro-100 px-4 py-8 text-center">
+      {Icone ? <Icone className="size-8 text-neutro-500" aria-hidden="true" /> : null}
+      <p className="max-w-md text-sm font-semibold text-neutro-600">{titulo}</p>
       {acao}
     </div>
   )
@@ -262,9 +261,137 @@ type ModalProps = {
   titulo: string
   descricao?: string
   children: ReactNode
-  largura?: string
-  /** Mostra o botão de voltar no cabeçalho (modais com páginas internas). */
+  /** Mostra o botão de voltar no cabeçalho (folhas com páginas internas). */
   aoVoltar?: () => void
+  /**
+   * Onde o foco vai após a animação de abertura: 'conteudo' (padrão) entra no
+   * primeiro campo do conteúdo; 'ultimo' entra no último elemento, usado em
+   * confirmações para começar no Cancelar (evita exclusão acidental com Enter).
+   */
+  focoAoAbrir?: 'conteudo' | 'ultimo'
+  /**
+   * Confirmação (8.3): a descrição vira um cartão de aviso no conteúdo
+   * (fundo neutro-100, raio 16px, ícone TriangleAlert) em vez de subtítulo.
+   */
+  cartaoAviso?: boolean
+  /** Chamado ~320ms após abrir (0ms com movimento reduzido). */
+  aoPronto?: () => void
+}
+
+const DURACAO_ENTRADA = 300
+const DURACAO_SAIDA = 250
+const DURACAO_PRONTO = 320
+const LIMIAR_ARRASTO = 90
+
+const SELETOR_FOCO =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+function movimentoReduzido(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+interface PopConfirmProps {
+  aberto: boolean
+  aoFechar: () => void
+  titulo: string
+  descricao: string
+  /** Rótulo do botão destrutivo (padrão: "Excluir"). */
+  confirmarRotulo?: string
+  aoConfirmar: () => void
+  /** Bloqueia o botão de confirmar durante uma operação assíncrona. */
+  ocupado?: boolean
+}
+
+/**
+ * Confirmação destrutiva em "popup" centralizado (diferente da folha inferior
+ * de cadastro): aparece no centro da tela, com ícone de alerta, mensagem e os
+ * botões empilhados (destrutivo primeiro, Cancelar embaixo).
+ */
+export function PopConfirm({
+  aberto,
+  aoFechar,
+  titulo,
+  descricao,
+  confirmarRotulo = 'Excluir',
+  aoConfirmar,
+  ocupado = false,
+}: PopConfirmProps) {
+  const dialogo = useRef<HTMLDialogElement>(null)
+  const cancelar = useRef<HTMLButtonElement>(null)
+  const anterior = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const raiz = dialogo.current
+    if (!raiz || !aberto) return undefined
+    anterior.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    if (!raiz.open) raiz.showModal()
+    const raf = requestAnimationFrame(() => cancelar.current?.focus())
+    return () => cancelAnimationFrame(raf)
+  }, [aberto])
+
+  // Ao desmontar (aberto → false), devolve o foco ao gatilho.
+  useEffect(
+    () => () => {
+      anterior.current?.focus?.({ preventScroll: true })
+    },
+    [],
+  )
+
+  if (!aberto) return null
+
+  return createPortal(
+    <dialog
+      ref={dialogo}
+      aria-modal="true"
+      aria-labelledby="popconfirm-titulo"
+      onCancel={(evento) => {
+        evento.preventDefault()
+        aoFechar()
+      }}
+      onClick={(evento) => {
+        if (evento.target === evento.currentTarget) aoFechar()
+      }}
+      className="popconfirm"
+    >
+      <div className="flex flex-col items-center gap-3 px-6 pb-6 pt-7 text-center">
+        <span
+          className="grid size-12 place-items-center rounded-full bg-perigo-fundo text-perigo"
+          aria-hidden="true"
+        >
+          <TriangleAlert className="size-6" strokeWidth={2} />
+        </span>
+        <h2 id="popconfirm-titulo" className="text-lg font-extrabold leading-snug text-ink">
+          {titulo}
+        </h2>
+        <p className="text-sm leading-relaxed text-muted">{descricao}</p>
+        <div className="mt-1 w-full space-y-3">
+          <button
+            type="button"
+            className="botao botao--perigo"
+            disabled={ocupado}
+            onClick={aoConfirmar}
+          >
+            {ocupado ? 'Aguarde…' : confirmarRotulo}
+          </button>
+          <button
+            type="button"
+            ref={cancelar}
+            className="botao botao--claro"
+            disabled={ocupado}
+            onClick={aoFechar}
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </dialog>,
+    document.body,
+  )
 }
 
 export function Modal({
@@ -273,115 +400,241 @@ export function Modal({
   titulo,
   descricao,
   children,
-  largura = 'max-w-2xl',
   aoVoltar,
+  focoAoAbrir = 'conteudo',
+  cartaoAviso = false,
+  aoPronto,
 }: ModalProps) {
-  const painel = useRef<HTMLDivElement>(null)
+  const dialogo = useRef<HTMLDialogElement>(null)
+  const conteudo = useRef<HTMLDivElement>(null)
   const anterior = useRef<HTMLElement | null>(null)
-  // Callback em ref: o efeito do modal só depende de `aberto`, senão ele reexecuta
-  // a cada tecla digitada e devolve o foco ao gatilho (derruba o teclado no celular).
-  const aoFecharRef = useRef(aoFechar)
+  const arrasto = useRef<number | null>(null)
+  const fechando = useRef(false)
+  const timers = useRef<number[]>([])
+  const aoProntoRef = useRef(aoPronto)
+
+  const [montado, setMontado] = useState(false)
+  const [pronto, setPronto] = useState(false)
+  const [saindo, setSaindo] = useState(false)
+  const [desloca, setDesloca] = useState<number | null>(null)
 
   useEffect(() => {
-    aoFecharRef.current = aoFechar
+    aoProntoRef.current = aoPronto
   })
 
-  useEffect(() => {
-    if (!aberto) return undefined
+  /** Encerra a folha: fecha o <dialog>, devolve o foco ao gatilho e desmonta. */
+  const encerrar = useCallback(() => {
+    timers.current.forEach((timer) => clearTimeout(timer))
+    timers.current = []
+    const raiz = dialogo.current
+    fechando.current = false
+    setPronto(false)
+    setSaindo(false)
+    setDesloca(null)
+    setMontado(false)
+    if (raiz?.open) raiz.close()
+    anterior.current?.focus?.({ preventScroll: true })
+    anterior.current = null
+  }, [])
 
-    anterior.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const alvo = painel.current?.querySelector<HTMLElement>('button, [href], input, select, textarea')
-    alvo?.focus()
-
-    const aoTeclar = (evento: KeyboardEvent) => {
-      if (evento.key === 'Escape') aoFecharRef.current()
-      if (evento.key !== 'Tab' || !painel.current) return
-
-      const focaveis = painel.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      )
-      if (!focaveis.length) return
-
-      const primeiro = focaveis[0]
-      const ultimo = focaveis[focaveis.length - 1]
-      if (evento.shiftKey && document.activeElement === primeiro) {
-        evento.preventDefault()
-        ultimo.focus()
-      } else if (!evento.shiftKey && document.activeElement === ultimo) {
-        evento.preventDefault()
-        primeiro.focus()
-      }
+  /** Foco depois da animação: primeiro campo do conteúdo (ou o último, em confirmações). */
+  const focar = useCallback(() => {
+    const raiz = dialogo.current
+    if (!raiz) return
+    const alvos = (no: ParentNode) => Array.from(no.querySelectorAll<HTMLElement>(SELETOR_FOCO))
+    const todos = alvos(raiz)
+    if (!todos.length) return
+    if (focoAoAbrir === 'ultimo') {
+      todos[todos.length - 1]?.focus()
+      return
     }
+    const noConteudo = conteudo.current ? alvos(conteudo.current) : []
+    ;(noConteudo[0] ?? todos[0])?.focus()
+  }, [focoAoAbrir])
 
-    document.addEventListener('keydown', aoTeclar)
+  // Monta a folha quando abre (o <dialog> precisa existir antes do showModal).
+  // Estado derivado em render: `aberto` liga, `encerrar` desliga após a saída.
+  if (aberto && !montado) setMontado(true)
+
+  // Abertura: showModal(), slide-up de 300ms e foco após a animação.
+  useEffect(() => {
+    if (!aberto || !montado) return undefined
+    const raiz = dialogo.current
+    if (!raiz) return undefined
+
+    anterior.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    fechando.current = false
+    if (!raiz.open) raiz.showModal()
+
     const { overflow } = document.body.style
     document.body.style.overflow = 'hidden'
 
+    // Dois frames: a folha nasce fora da tela antes de subir.
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setPronto(true))
+    })
+
+    timers.current.push(
+      window.setTimeout(
+        () => {
+          aoProntoRef.current?.()
+          focar()
+        },
+        movimentoReduzido() ? 0 : DURACAO_PRONTO,
+      ),
+    )
+
     return () => {
-      document.removeEventListener('keydown', aoTeclar)
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+      timers.current.forEach((timer) => clearTimeout(timer))
+      timers.current = []
       document.body.style.overflow = overflow
-      anterior.current?.focus?.()
     }
-  }, [aberto])
+  }, [aberto, montado, focar])
 
-  if (!aberto) return null
+  // Fechamento: quando `aberto` vira false, desce a folha e só então fecha.
+  useEffect(() => {
+    if (aberto || !dialogo.current?.open || fechando.current) return
+    fechando.current = true
+    setDesloca(null)
+    setSaindo(true)
+    timers.current.push(window.setTimeout(encerrar, movimentoReduzido() ? 0 : DURACAO_SAIDA))
+  }, [aberto, encerrar])
 
-  // Portal para o body: o modal pode nascer dentro de headers com backdrop-blur
+  // Desmontagem: fecha o <dialog> se o componente sair da tela ainda aberto.
+  useEffect(
+    () => () => {
+      timers.current.forEach((timer) => clearTimeout(timer))
+      if (dialogo.current?.open) dialogo.current.close()
+    },
+    [],
+  )
+
+  // Arrasto pela alça (7.3): segue o ponteiro e fecha a partir de 90px.
+  const pressionarAlca = (evento: React.PointerEvent<HTMLDivElement>) => {
+    if (evento.pointerType === 'mouse' && evento.button !== 0) return
+    arrasto.current = evento.clientY
+    evento.currentTarget.setPointerCapture(evento.pointerId)
+    setDesloca(0)
+  }
+
+  const moverAlca = (evento: React.PointerEvent<HTMLDivElement>) => {
+    if (arrasto.current === null) return
+    setDesloca(Math.max(0, evento.clientY - arrasto.current))
+  }
+
+  const soltarAlca = (evento: React.PointerEvent<HTMLDivElement>) => {
+    const inicio = arrasto.current
+    arrasto.current = null
+    if (inicio === null) return
+    const deslocamento = Math.max(0, evento.clientY - inicio)
+    setDesloca(null)
+    if (deslocamento >= LIMIAR_ARRASTO) aoFechar()
+  }
+
+  const cancelarAlca = () => {
+    arrasto.current = null
+    setDesloca(null)
+  }
+
+  if (!montado) return null
+
+  const estilo: React.CSSProperties =
+    desloca !== null
+      ? { transform: `translateY(${desloca}px)`, transition: 'none' }
+      : {
+          transform: pronto && !saindo ? 'translateY(0)' : 'translateY(100%)',
+          transition: `transform ${saindo ? DURACAO_SAIDA : DURACAO_ENTRADA}ms cubic-bezier(0.32, 0.72, 0, 1)`,
+        }
+
+  // Portal para o body: a folha pode nascer dentro de headers com backdrop-blur
   // (que criam containing block e prendem o `fixed` na caixa do elemento).
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
-      onMouseDown={(evento) => {
+    <dialog
+      ref={dialogo}
+      className="folha"
+      style={estilo}
+      // Papel explícito: o <dialog> já é role=dialog por implicação, mas o
+      // atributo garante seletores `[role=dialog]` (testes e leitores de tela).
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-titulo"
+      aria-describedby={descricao ? 'modal-descricao' : undefined}
+      onCancel={(evento) => {
+        // Esc não fecha "seco": passa pela animação de descida.
+        evento.preventDefault()
+        aoFechar()
+      }}
+      onClick={(evento) => {
+        // Clique no backdrop (o alvo é o próprio <dialog>).
         if (evento.target === evento.currentTarget) aoFechar()
       }}
     >
-      <div
-        ref={painel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-titulo"
-        className={`max-h-[92svh] w-full overflow-y-auto rounded-t-3xl border border-line bg-canvas shadow-2xl sm:rounded-3xl ${largura}`}
-      >
-        <div className="flex items-center justify-between gap-3 border-b border-line bg-paper px-4 py-3.5 sm:px-5">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {aoVoltar ? (
-              <button
-                type="button"
-                onClick={aoVoltar}
-                aria-label="Voltar"
-                className="-ml-2 flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-line-soft"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
-                Voltar
-              </button>
-            ) : null}
-            <div className={`min-w-0 flex-1 ${aoVoltar ? 'text-center' : ''}`}>
-              <h2 id="modal-titulo" className="font-display text-lg text-ink">
+      <div className="flex min-h-full flex-col">
+        <div className="sticky top-0 z-10 rounded-t-[24px] bg-superficie">
+          <div
+            onPointerDown={pressionarAlca}
+            onPointerMove={moverAlca}
+            onPointerUp={soltarAlca}
+            onPointerCancel={cancelarAlca}
+            className="flex cursor-grab touch-none items-center justify-center pb-1 pt-2.5 select-none active:cursor-grabbing"
+          >
+            <span className="h-1.5 w-10 rounded-full bg-neutro-300" aria-hidden="true" />
+          </div>
+          <div className="grid min-h-11 grid-cols-[44px_1fr_44px] items-start gap-2 px-5 pb-4 pt-1">
+            <div>
+              {aoVoltar ? (
+                <button
+                  type="button"
+                  onClick={aoVoltar}
+                  aria-label="Voltar"
+                  className="-ml-2.5 grid size-11 place-items-center rounded-full text-ink transition-colors hover:bg-neutro-100"
+                >
+                  <ArrowLeft className="size-5" strokeWidth={2} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+            <div className="min-w-0 pt-2 text-center">
+              <h2 id="modal-titulo" className="text-lg font-extrabold leading-snug text-ink">
                 {titulo}
               </h2>
-              {descricao ? <p className="mt-0.5 text-sm text-muted">{descricao}</p> : null}
+              {descricao && !cartaoAviso ? (
+                <p id="modal-descricao" className="mt-1 text-sm text-muted">
+                  {descricao}
+                </p>
+              ) : null}
+            </div>
+            <div className="justify-self-end">
+              <button
+                type="button"
+                onClick={aoFechar}
+                aria-label="Fechar"
+                className="-mr-2.5 grid size-11 place-items-center rounded-full bg-neutro-100 text-ink transition-colors hover:bg-neutro-200"
+              >
+                <X className="size-5" strokeWidth={2} aria-hidden="true" />
+              </button>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={aoFechar}
-            aria-label="Fechar"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-line-soft hover:text-ink"
-          >
-            <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
-              <path
-                d="M18 6 6 18M6 6l12 12"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
-          </button>
         </div>
-        {children}
+        {descricao && cartaoAviso ? (
+          <div
+            id="modal-descricao"
+            className="mx-5 mb-1 mt-1 flex gap-3 rounded-2xl bg-neutro-100 p-4"
+          >
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-superficie text-perigo">
+              <TriangleAlert className="size-5" strokeWidth={2} aria-hidden="true" />
+            </span>
+            <p className="min-w-0 whitespace-pre-line text-sm text-ink">{descricao}</p>
+          </div>
+        ) : null}
+        <div ref={conteudo} className="min-w-0 flex-1">
+          {children}
+        </div>
       </div>
-    </div>,
+    </dialog>,
     document.body,
   )
 }

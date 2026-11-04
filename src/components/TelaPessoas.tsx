@@ -2,6 +2,7 @@ import type { AptidaoId, Campo, DadosAvi, Dirigente, Usuario } from '../lib/domi
 import { useEffect, useMemo, useState } from 'react'
 import { aptidoesDe, normalizarDadosAvi } from '../lib/avi'
 import { carregarSetorExtenso, salvarDadosSetor } from '../lib/authApi'
+import type { TipoToast } from './Toast'
 import CadastroDirigentes from './CadastroDirigentes'
 
 interface TelaPessoasProps {
@@ -14,7 +15,7 @@ interface TelaPessoasProps {
   efetivas: Record<string, string>
   aoAlterar: (lista: Dirigente[]) => void
   aoConfigurar: () => void
-  aoAvisar: (texto: string) => void
+  aoAvisar: (texto: string, tipo?: TipoToast) => void
 }
 
 /**
@@ -46,7 +47,7 @@ export default function TelaPessoas({
         if (vivo) setAvi(normalizarDadosAvi(resposta.dados))
       })
       .catch(() => {
-        if (vivo) aoAvisar('Não foi possível carregar as designações do AVI agora.')
+        if (vivo) aoAvisar('Não foi possível carregar as designações do AVI agora.', 'erro')
       })
       .finally(() => {
         if (!vivo) return
@@ -64,7 +65,7 @@ export default function TelaPessoas({
       setAvi(novo)
     } catch {
       setAvi(anterior)
-      aoAvisar('Não foi possível salvar a designação agora.')
+      aoAvisar('Não foi possível salvar a designação agora.', 'erro')
     }
   }
 
@@ -92,7 +93,7 @@ export default function TelaPessoas({
     setAvi(novo)
     salvarDadosSetor('AUDIO_VIDEO', novo as unknown as Record<string, unknown>).catch(() => {
       setAvi(avi)
-      aoAvisar('O voluntário saiu, mas as designações do AVI não puderam ser atualizadas.')
+      aoAvisar('O voluntário saiu, mas as designações do AVI não puderam ser atualizadas.', 'erro')
     })
   }
 

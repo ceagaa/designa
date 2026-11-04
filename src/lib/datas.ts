@@ -86,3 +86,26 @@ export function ocorrenciasDoMes(
     return String(a.campo.horario).localeCompare(String(b.campo.horario))
   })
 }
+
+/**
+ * Janela (em ms) após o início de uma designação em que ela ainda é exibida
+ * como "hoje" no card principal. Depois disso, a próxima saída toma o lugar.
+ */
+export const JANELA_DESTAQUE_MS = 3 * 60 * 60 * 1000
+
+/** Data/hora local de início de uma ocorrência (dia + horário do campo). */
+export function inicioDe(ocorrencia: Ocorrencia): Date {
+  const [hora, minuto] = String(ocorrencia.campo.horario).split(':').map(Number)
+  const inicio = new Date(`${ocorrencia.iso}T00:00:00`)
+  inicio.setHours(hora || 0, minuto || 0, 0, 0)
+  return inicio
+}
+
+/**
+ * A ocorrência já "venceu" o destaque? Verdadeiro quando a hora atual passou
+ * do início somado à janela de tolerância (3h). Usada para o card principal
+ * pular para a próxima designação em vez de exibir uma saída que já terminou.
+ */
+export function passouDaJanela(ocorrencia: Ocorrencia, agoraMs = Date.now()): boolean {
+  return agoraMs > inicioDe(ocorrencia).getTime() + JANELA_DESTAQUE_MS
+}

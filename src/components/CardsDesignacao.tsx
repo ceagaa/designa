@@ -76,11 +76,7 @@ export function CardHeroCampo({
   rodape?: ReactNode
 }) {
   return (
-    <section
-      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl ${
-        ehHoje ? 'escala-hoje-branco' : ''
-      }`}
-    >
+    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl">
       <div
         className="pointer-events-none absolute -bottom-10 -right-8 size-44 rounded-full bg-white/10 blur-2xl"
         aria-hidden="true"
@@ -94,7 +90,7 @@ export function CardHeroCampo({
             </span>
           ) : null}
           {ehHoje ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-teal-deep">
+            <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-primary-800">
               <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
               HOJE
             </span>
@@ -229,7 +225,7 @@ export function CardHeroAvi({
       <div className="relative z-10 flex items-center justify-between gap-3">
         <Kicker className="text-white/80">{rotulo}</Kicker>
         {ehHoje ? (
-          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-teal-deep">
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-primary-800">
             <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
             HOJE
           </span>
@@ -368,7 +364,7 @@ export function CardHeroTpl({
         <Kicker className="text-white/80">{rotulo}</Kicker>
         <span className="flex shrink-0 items-center gap-2">
           {ehHoje ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-teal-deep">
+            <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tracking-wide text-primary-800">
               <span className="size-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
               HOJE
             </span>

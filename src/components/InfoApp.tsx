@@ -25,7 +25,7 @@ export default function InfoApp({
 
   const caixa =
     variante === 'cabecalho'
-      ? 'flex size-11 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-teal-tint hover:text-teal'
+      ? 'flex size-11 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15 active:bg-white/25'
       : 'flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-card text-ink-soft transition-colors hover:border-teal/40 hover:text-teal'
 
   return (
@@ -37,7 +37,7 @@ export default function InfoApp({
         onClick={() => setAberto(true)}
         className={caixa}
       >
-        <CircleHelp className={variante === 'cabecalho' ? 'size-[22px]' : 'size-5'} aria-hidden="true" />
+        <CircleHelp className="size-5" strokeWidth={1.8} aria-hidden="true" />
       </button>
 
       <ModalInfo

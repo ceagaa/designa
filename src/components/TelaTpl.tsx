@@ -34,10 +34,11 @@ import {
   turnoTexto,
 } from '../lib/tpl'
 import { ErroAuth, carregarSetorExtenso, salvarDadosSetor } from '../lib/authApi'
+import type { TipoToast } from './Toast'
 import { compartilharPagina } from '../lib/compartilhamento'
 import { baixarPdf } from '../lib/export'
 import TplCard from './TplCard'
-import { Botao, Chip, Input, MenuKebab, Modal, Rotulo, Select, Vazio } from './ui'
+import { Botao, Chip, Input, MenuKebab, Modal, PopConfirm, Rotulo, Select, Vazio } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
 import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
 import { CardHeroTpl, LinhaTpl } from './CardsDesignacao'
@@ -120,7 +121,7 @@ function CartaoSecao({
             title={vazio.rotulo}
             onClick={aoNovo}
             disabled={desabilitado}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-teal text-white shadow-sm transition-all hover:bg-teal-deep active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-teal text-white shadow-sm transition-all hover:bg-primario-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="size-5" aria-hidden="true" />
           </button>
@@ -163,7 +164,7 @@ export default function TelaTpl({
   modoConfiguracao = false,
 }: {
   slug: string
-  aoAvisar: (texto: string) => void
+  aoAvisar: (texto: string, tipo?: TipoToast) => void
   aoSair?: () => void
   aoIrParaPessoas?: () => void
   /** Abre a configuração do TPL (a estrutura mora em Ajustes). */
@@ -218,7 +219,7 @@ export default function TelaTpl({
         setCarregado(true)
         const expirada = falha instanceof ErroAuth && (falha.status === 401 || falha.status === 403)
         setFalhaCarga(!expirada)
-        if (expirada) aoAvisar('Sessão expirada. Entre novamente.')
+        if (expirada) aoAvisar('Sessão expirada. Entre novamente.', 'erro')
       })
     return () => {
       vivo = false
@@ -283,7 +284,7 @@ export default function TelaTpl({
       if (falha instanceof ErroAuth && (falha.status === 401 || falha.status === 403)) {
         aoAvisar('Sessão expirada. Entre novamente.')
       } else {
-        aoAvisar('Não foi possível salvar na nuvem. Tente de novo.')
+        aoAvisar('Não foi possível salvar na nuvem. Tente de novo.', 'erro')
       }
       return false
     }
@@ -300,7 +301,7 @@ export default function TelaTpl({
     delete escalas[chave]
     const ok = await persistir({ ...dados, escalas })
     setConfirmandoLimpeza(false)
-    if (ok) aoAvisar(`Escala de ${nomeMes(mes)} de ${ano} limpa.`)
+    if (ok) aoAvisar(`Escala de ${nomeMes(mes)} de ${ano} limpa.`, 'remocao')
   }
 
   function alterarDupla(slot: string, posicao: 0 | 1, idIrmao: string) {
@@ -308,7 +309,7 @@ export default function TelaTpl({
     const novo = [atuais[0] ?? '', atuais[1] ?? '']
     const outro = novo[posicao === 0 ? 1 : 0]
     if (idIrmao && outro === idIrmao) {
-      aoAvisar('A mesma pessoa não pode ocupar as duas posições da dupla.')
+      aoAvisar('A mesma pessoa não pode ocupar as duas posições da dupla.', 'erro')
       return
     }
     novo[posicao] = idIrmao
@@ -327,25 +328,25 @@ export default function TelaTpl({
 
   async function aoPdf() {
     if (!cardRef.current || !temDuplas) {
-      aoAvisar('Monte a escala antes de baixar o PDF.')
+      aoAvisar('Monte a escala antes de baixar o PDF.', 'erro')
       return
     }
     try {
       await baixarPdf(cardRef.current, chave, 'tpl')
     } catch {
-      aoAvisar('Não foi possível gerar o PDF.')
+      aoAvisar('Não foi possível gerar o PDF.', 'erro')
     }
   }
 
   async function compartilharLink() {
     if (!slug) {
-      aoAvisar('Slug público indisponível.')
+      aoAvisar('Slug público indisponível.', 'erro')
       return
     }
     const href = `${window.location.origin}/tpl/${encodeURIComponent(slug)}?mes=${encodeURIComponent(chave)}`
     const resultado = await compartilharPagina(href, TITULO_TPL, `Escala de ${TITULO_TPL}`)
     if (resultado === 'copiado') aoAvisar('Link público copiado.')
-    else if (resultado === 'falhou') aoAvisar('Não foi possível compartilhar o link.')
+    else if (resultado === 'falhou') aoAvisar('Não foi possível compartilhar o link.', 'erro')
   }
 
   /* ----------------------------- Estrutura (CRUD) ----------------------------- */
@@ -461,7 +462,7 @@ export default function TelaTpl({
     const ok = await persistir(novos)
     if (!ok) return
     setExcluindo(null)
-    aoAvisar('Item excluído.')
+    aoAvisar('Item excluído.', 'remocao')
   }
 
   // A tela abre na hora: enquanto o setor carrega, chip neutro e um bloco
@@ -497,7 +498,7 @@ export default function TelaTpl({
     },
     {
       icone: <Trash2 className="size-4" />,
-      cor: 'bg-wine-soft text-wine',
+      cor: 'bg-perigo-fundo text-perigo-texto',
       titulo: 'Limpar designação',
       texto: 'Apaga as duplas manuais deste mês',
       desabilitado: !temRegistro,
@@ -617,7 +618,7 @@ export default function TelaTpl({
                       key={iso}
                       className="overflow-hidden rounded-2xl bg-card shadow-sm"
                     >
-                      <h3 className="bg-wine px-4 py-2 text-sm font-bold text-white">
+                      <h3 className="bg-perigo px-4 py-2 text-sm font-bold text-white">
                         {infoDia(diaSemana).nome} · {dia}/
                         {String(mes + 1).padStart(2, '0')}
                       </h3>
@@ -1080,7 +1081,7 @@ export default function TelaTpl({
                   ? 'Editar período'
                   : 'Novo período'
         }
-        largura="max-w-md"
+
       >
         {form ? (
           <div className="space-y-4 px-5 py-4">
@@ -1224,7 +1225,7 @@ export default function TelaTpl({
       </Modal>
 
       {/* Exclusão confirmada */}
-      <Modal
+      <PopConfirm
         aberto={excluindo !== null}
         aoFechar={() => setExcluindo(null)}
         titulo="Excluir item"
@@ -1233,39 +1234,20 @@ export default function TelaTpl({
             ? excluindo.tipo === 'ponto'
               ? `${excluindo.nome} e seus períodos serão removidos da estrutura.`
               : `${excluindo.nome} será removido. Esta ação não pode ser desfeita.`
-            : undefined
+            : ''
         }
-        largura="max-w-sm"
-      >
-        <div className="flex gap-2 px-5 py-4">
-          <Botao className="flex-1" onClick={() => setExcluindo(null)}>
-            Cancelar
-          </Botao>
-          <Botao variante="vinho" className="flex-1" onClick={excluirConfirmado}>
-            <Trash2 className="size-4" aria-hidden="true" />
-            Excluir
-          </Botao>
-        </div>
-      </Modal>
+        aoConfirmar={excluirConfirmado}
+      />
 
       {/* Confirmação de limpeza da escala */}
-      <Modal
+      <PopConfirm
         aberto={confirmandoLimpeza}
         aoFechar={() => setConfirmandoLimpeza(false)}
         titulo="Limpar escala do mês?"
         descricao={`A escala de ${nomeMes(mes)} de ${ano} será apagada. As duplas manuais deste mês serão removidas.`}
-        largura="max-w-sm"
-      >
-        <div className="flex gap-2 px-5 py-4">
-          <Botao className="flex-1" onClick={() => setConfirmandoLimpeza(false)}>
-            Cancelar
-          </Botao>
-          <Botao variante="vinho" className="flex-1" onClick={limparEscala}>
-            <Trash2 className="size-4" aria-hidden="true" />
-            Limpar
-          </Botao>
-        </div>
-      </Modal>
+        confirmarRotulo="Limpar"
+        aoConfirmar={limparEscala}
+      />
     </div>
   )
 }
