@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Info } from 'lucide-react'
+import { CircleHelp } from 'lucide-react'
 import type { Tema } from '../lib/tema'
 import { temaSalvo } from '../lib/tema'
 import ModalInfo from './ModalInfo'
@@ -37,7 +37,7 @@ export default function InfoApp({
         onClick={() => setAberto(true)}
         className={caixa}
       >
-        <Info className={variante === 'cabecalho' ? 'size-[22px]' : 'size-5'} aria-hidden="true" />
+        <CircleHelp className={variante === 'cabecalho' ? 'size-[22px]' : 'size-5'} aria-hidden="true" />
       </button>
 
       <ModalInfo

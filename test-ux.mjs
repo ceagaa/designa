@@ -459,19 +459,32 @@ try {
   )
   await shot('10c-tabela-restaurado')
 
-  // (c) Ajudante manual (Marcos Teste) no dia de HOJE (o card de destaque).
-  // A tabela vem ordenada por data: o último select é o dia mais futuro do mês.
-  const selAjudante = page.locator('select[aria-label^="Ajudante de"]').last()
-  ck('tabela: select de ajudante visível', await selAjudante.isVisible().catch(() => false))
-  const textoAjudante = (
-    await selAjudante
-      .locator('option', { hasText: 'Marcos Teste' })
-      .first()
-      .innerText()
-      .catch(() => '')
-  ).trim()
-  ck('tabela: Marcos Teste disponível como ajudante', Boolean(textoAjudante), textoAjudante)
-  if (textoAjudante) await selAjudante.selectOption({ label: textoAjudante })
+  // (c) Ajudante manual (Marcos Teste): aplicamos em todos os dias da tabela.
+  // O card de destaque mostra hoje (ou a próxima saída) e a tabela é agrupada
+  // por bloco, não por data, então a posição da linha muda com o calendário.
+  // Marcar todos evita que o destaque dependa do sorteio do rodízio.
+  const selsAjudante = page.locator('select[aria-label^="Ajudante de"]')
+  const totalAjudante = await selsAjudante.count()
+  ck('tabela: select de ajudante visível', totalAjudante > 0)
+  let diasComMarcos = 0
+  for (let i = 0; i < totalAjudante; i += 1) {
+    const selDia = selsAjudante.nth(i)
+    const textoAjudante = (
+      await selDia
+        .locator('option', { hasText: 'Marcos Teste' })
+        .first()
+        .innerText()
+        .catch(() => '')
+    ).trim()
+    if (!textoAjudante) continue
+    await selDia.selectOption({ label: textoAjudante })
+    diasComMarcos += 1
+  }
+  ck(
+    'tabela: Marcos Teste disponível como ajudante',
+    diasComMarcos > 0,
+    `${diasComMarcos}/${totalAjudante} dias`,
+  )
   await page.waitForTimeout(300)
   await page.locator('button[aria-label="Voltar"]').click()
   // O card de destaque sempre existe; a lista "Próximos dias" só com mais dias.

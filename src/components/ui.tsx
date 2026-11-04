@@ -3,7 +3,7 @@ import type { VarianteBotao } from '../lib/dominio'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
-import { ChevronDown, Minus, MoreVertical, Plus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Minus, MoreVertical, Plus } from 'lucide-react'
 
 const VARIA: Record<VarianteBotao, string> = {
   primario: 'bg-teal text-white hover:bg-teal-deep border border-teal hover:border-teal-deep',
@@ -263,9 +263,19 @@ type ModalProps = {
   descricao?: string
   children: ReactNode
   largura?: string
+  /** Mostra o botão de voltar no cabeçalho (modais com páginas internas). */
+  aoVoltar?: () => void
 }
 
-export function Modal({ aberto, aoFechar, titulo, descricao, children, largura = 'max-w-2xl' }: ModalProps) {
+export function Modal({
+  aberto,
+  aoFechar,
+  titulo,
+  descricao,
+  children,
+  largura = 'max-w-2xl',
+  aoVoltar,
+}: ModalProps) {
   const painel = useRef<HTMLDivElement>(null)
   const anterior = useRef<HTMLElement | null>(null)
   // Callback em ref: o efeito do modal só depende de `aberto`, senão ele reexecuta
@@ -332,18 +342,31 @@ export function Modal({ aberto, aoFechar, titulo, descricao, children, largura =
         aria-labelledby="modal-titulo"
         className={`max-h-[92svh] w-full overflow-y-auto rounded-t-3xl border border-line bg-canvas shadow-2xl sm:rounded-3xl ${largura}`}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-line bg-paper px-5 py-4">
-          <div>
-            <h2 id="modal-titulo" className="font-display text-lg text-ink">
-              {titulo}
-            </h2>
-            {descricao ? <p className="mt-0.5 text-sm text-muted">{descricao}</p> : null}
+        <div className="flex items-center justify-between gap-3 border-b border-line bg-paper px-4 py-3.5 sm:px-5">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {aoVoltar ? (
+              <button
+                type="button"
+                onClick={aoVoltar}
+                aria-label="Voltar"
+                className="-ml-2 flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-line-soft"
+              >
+                <ArrowLeft className="size-4" aria-hidden="true" />
+                Voltar
+              </button>
+            ) : null}
+            <div className={`min-w-0 flex-1 ${aoVoltar ? 'text-center' : ''}`}>
+              <h2 id="modal-titulo" className="font-display text-lg text-ink">
+                {titulo}
+              </h2>
+              {descricao ? <p className="mt-0.5 text-sm text-muted">{descricao}</p> : null}
+            </div>
           </div>
           <button
             type="button"
             onClick={aoFechar}
             aria-label="Fechar"
-            className="rounded p-1.5 text-muted transition-colors hover:bg-line-soft hover:text-ink"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-line-soft hover:text-ink"
           >
             <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
               <path
