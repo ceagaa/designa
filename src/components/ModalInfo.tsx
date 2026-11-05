@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { ChevronRight, Info, Monitor, Moon, Palette, ShieldCheck, Sun, Tag } from 'lucide-react'
+import { ChevronRight, Monitor, Moon, Palette, ShieldCheck, Sun, Tag } from 'lucide-react'
 import type { Tema } from '../lib/tema'
 import { definirTema } from '../lib/tema'
 import { Modal } from './ui'
@@ -14,16 +14,6 @@ import { Modal } from './ui'
  */
 
 const VERSAO = '1.0.0'
-
-const FINALIDADE = {
-  destaque:
-    'O designa existe pra você montar a escala da congregação sem planilha e sem correria.',
-  paragrafos: [
-    'Aqui você monta a programação de cada semana, vê de relance quem ministra e quem ajuda, e cuida da lista de voluntários e dos locais de visita, tudo no celular ou no computador.',
-    'Cada setor cuida do que é dele. Quem é ajudante do Campo ajusta só as designações e os voluntários do Campo, sem mexer no restante.',
-    'E quem não tem conta também acompanha. As páginas de escala, AVI e TPL abrem direto pelo link, sem precisar entrar.',
-  ],
-}
 
 const POLITICA = {
   introducao: 'A gente guarda o mínimo possível pra escala funcionar:',
@@ -49,7 +39,7 @@ const APARENCIA =
 const VERSAO_NOTA =
   'O designa é atualizado automaticamente. Você sempre abre a versão mais recente, sem precisar baixar nada. Escala de dirigentes, do jeito simples.'
 
-type Pagina = 'lista' | 'finalidade' | 'politica' | 'aparencia' | 'versao'
+type Pagina = 'lista' | 'politica' | 'aparencia' | 'versao'
 
 type ItemLista = {
   id: Exclude<Pagina, 'lista'>
@@ -58,7 +48,6 @@ type ItemLista = {
 }
 
 const ITENS: ItemLista[] = [
-  { id: 'finalidade', rotulo: 'Para que serve', Icone: Info },
   { id: 'politica', rotulo: 'Política de privacidade', Icone: ShieldCheck },
   { id: 'aparencia', rotulo: 'Aparência', Icone: Palette },
   { id: 'versao', rotulo: 'Versão', Icone: Tag },
@@ -124,15 +113,6 @@ export default function ModalInfo({
               </li>
             ))}
           </ul>
-        ) : null}
-
-        {pagina === 'finalidade' ? (
-          <div className="flex flex-col gap-4 text-[15px] leading-[1.625] text-ink-soft">
-            <p className="font-bold text-ink">{FINALIDADE.destaque}</p>
-            {FINALIDADE.paragrafos.map((paragrafo) => (
-              <p key={paragrafo}>{paragrafo}</p>
-            ))}
-          </div>
         ) : null}
 
         {pagina === 'politica' ? (
