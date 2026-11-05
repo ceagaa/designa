@@ -2,7 +2,10 @@ import type { AptidaoId, DadosAvi, IrmaoProjecao } from '../lib/dominio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
+  Eye,
+  FileDown,
   PencilLine,
+  Share2,
   Sparkles,
   Trash2,
 } from 'lucide-react'
@@ -31,7 +34,7 @@ import { baixarPdf } from '../lib/export'
 import AviCard from './AviCard'
 import { Botao, Chip, Modal, PopConfirm, Select, Toggle, Vazio } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
-import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
+import { CabecalhoDesignacao } from './CabecalhoDesignacao'
 import { CardHeroAvi, LinhaAvi } from './CardsDesignacao'
 import { compartilharPagina } from '../lib/compartilhamento'
 
@@ -109,6 +112,8 @@ export default function TelaAvi({
   const [ocupado, setOcupado] = useState(false)
   /** Abre a tabela do mês (ajuste dia a dia) — igual ao "Ajustar escala" do Campo. */
   const [ajustando, setAjustando] = useState(false)
+  /** Abre a lista completa do mês ("Ver escala completa"). */
+  const [verCompletaAberto, setVerCompletaAberto] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
 
   /** O botão voltar do header global fecha o editor antes de sair da tela. */
@@ -187,11 +192,9 @@ export default function TelaAvi({
   const ehHoje = Boolean(destaque && destaque.iso === HOJE_ISO)
   /** Próximas reuniões depois do card de destaque (sem repetir o que já aparece). */
   const posteriores = destaque ? proximas.filter((o) => o.iso > destaque.iso) : []
-  /** A reunião seguinte ganha um card próprio logo abaixo do destaque. */
-  const seguinte = posteriores[0] ?? null
-  const futuras = posteriores.slice(1)
-  const lista = futuras.slice(0, 8)
-  const restam = futuras.length - lista.length
+  const lista = posteriores.slice(0, 8)
+  const restam = posteriores.length - lista.length
+  const compartilhavel = gerado && preenchidos > 0
 
   function itemAvi(oc: { iso: string; diaSemana: number }) {
     const linhas = designacoesDe(oc.iso, efetivas, porId)
@@ -230,7 +233,7 @@ export default function TelaAvi({
         ? { rotulo: 'Designação pronta', estilo: 'bg-success-bg text-success', ponto: 'bg-success' }
         : gerado
           ? {
-              rotulo: `Gerada · ${preenchidos}/${totalSlots} designações`,
+              rotulo: `Gerada · ${totalSlots - preenchidos} sem designação`,
               estilo: 'bg-crimson-bg text-crimson',
               ponto: 'bg-crimson',
             }
@@ -267,12 +270,37 @@ export default function TelaAvi({
       },
     },
     {
+      icone: <PencilLine className="size-4" />,
+      cor: 'bg-canvas text-ink-soft',
+      titulo: 'Ajustar escala',
+      texto: 'Abre a tabela do mês para trocar dia a dia',
+      onClick: () => setAjustando(true),
+    },
+    {
       icone: <Trash2 className="size-4" />,
       cor: 'bg-perigo-fundo text-perigo-texto',
       titulo: 'Limpar designação',
       texto: 'Apaga automáticas e ajustes do mês',
       desabilitado: !gerado && !temManuais,
       onClick: () => setConfirmando('limparEscala'),
+    },
+    {
+      icone: <FileDown className="size-4" />,
+      cor: 'bg-canvas text-ink-soft',
+      titulo: 'Baixar PDF',
+      texto: gerado ? 'Salva a escala do mês em PDF' : 'Gere a designação primeiro',
+      desabilitado: !gerado,
+      onClick: aoPdf,
+    },
+    {
+      icone: <Share2 className="size-4" />,
+      cor: 'bg-teal-tint text-teal',
+      titulo: 'Compartilhar link',
+      texto: compartilhavel
+        ? 'Abre o link público da escala do mês'
+        : 'Gere e designe ao menos uma função para compartilhar',
+      desabilitado: !compartilhavel,
+      onClick: copiarLinkPublico,
     },
   ]
 
@@ -538,6 +566,7 @@ export default function TelaAvi({
           aoMudarData={mudarPara}
           status={status}
           acoes={acoesMenu}
+          ocultarStatus
         />
       )}
 
@@ -655,15 +684,22 @@ export default function TelaAvi({
             </section>
           )}
 
-          {seguinte ? <LinhaAvi item={itemAvi(seguinte)} /> : null}
-
           {lista.length ? (
             <section className="space-y-3">
               <div className="flex items-center justify-between gap-2 px-1">
-                <h2 className="text-lg font-semibold text-ink">Designações futuras</h2>
-                <p className="shrink-0 text-sm text-muted">
-                  {preenchidos}/{totalSlots} designações
-                </p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="text-lg font-semibold text-ink">Designações futuras</h2>
+                  <span className="shrink-0 rounded-full bg-line px-2 py-0.5 text-[11px] font-bold text-ink-soft">
+                    {preenchidos}/{totalSlots} designações
+                  </span>
+                </div>
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${status.estilo}`}
+                  role="status"
+                >
+                  <span className={`size-1.5 rounded-full ${status.ponto}`} aria-hidden="true" />
+                  {status.rotulo}
+                </span>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -676,47 +712,17 @@ export default function TelaAvi({
                   + {restam} reunião{restam === 1 ? '' : 'ões'} neste mês
                 </p>
               ) : null}
+
+              <button
+                type="button"
+                onClick={() => setVerCompletaAberto(true)}
+                className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-teal underline underline-offset-2 transition-colors hover:text-primario-hover"
+              >
+                <Eye className="size-4" aria-hidden="true" />
+                Ver escala completa
+              </button>
             </section>
           ) : null}
-
-          {/* Ação principal: ajustar os dias do mês na tabela completa. */}
-          <div>
-            <Botao
-              variante="primario"
-              className="w-full py-3.5 text-base shadow-sm"
-              onClick={() => setAjustando(true)}
-            >
-              <PencilLine className="size-5" aria-hidden="true" />
-              Ajustar escala
-            </Botao>
-            <p className="mt-2 text-center text-[13px] text-muted">
-              Abre a tabela do mês: troque o voluntário de cada função dia a dia.
-            </p>
-          </div>
-
-          <BarraAcoesDesignacao
-            primaria={{
-              rotulo: 'Gerar',
-              icone: <Sparkles className="size-4" aria-hidden="true" />,
-              desabilitado: !ocorrencias.length,
-              titulo: !ocorrencias.length ? 'Sem reuniões AVI neste mês' : undefined,
-              onClick: pedirGeracao,
-            }}
-            pdf={{
-              onClick: aoPdf,
-              desabilitado: !gerado,
-              titulo: gerado ? undefined : 'Gere a designação primeiro',
-            }}
-            link={{
-              onClick: copiarLinkPublico,
-              desabilitado: !gerado || !preenchidos,
-              titulo: !gerado
-                ? 'Gere a designação primeiro'
-                : preenchidos
-                  ? undefined
-                  : 'Designe pelo menos uma função para compartilhar',
-            }}
-          />
         </>
       )}
 
@@ -732,6 +738,24 @@ export default function TelaAvi({
           />
         </div>
       ) : null}
+
+      {/* Ver escala completa: todas as reuniões do mês, sem o card de destaque. */}
+      <Modal
+        aberto={verCompletaAberto}
+        aoFechar={() => setVerCompletaAberto(false)}
+        titulo="Escala completa"
+        descricao={`Todas as reuniões de ${nomeMes(mes)} de ${ano}.`}
+      >
+        <div className="space-y-2 px-5 pb-8 pt-2">
+          {ocorrencias.length ? (
+            ocorrencias.map((oc) => <LinhaAvi key={oc.iso} item={itemAvi(oc)} />)
+          ) : (
+            <p className="rounded-xl bg-card px-4 py-5 text-center text-sm text-muted">
+              Nenhuma reunião AVI neste mês.
+            </p>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         aberto={confirmando === 'gerar' || confirmando === 'adiantar'}

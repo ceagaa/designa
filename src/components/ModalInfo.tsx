@@ -6,11 +6,11 @@ import { definirTema } from '../lib/tema'
 import { Modal } from './ui'
 
 /**
- * Sheet "Sobre o app": lista de opções (Para que serve, Política, Aparência,
- * Versão), cada uma abrindo a própria página dentro do sheet, com voltar no
- * cabeçalho. UI/UX do módulo modal-sobre (folha inferior PicPay: linhas de 68px
- * com ícone de 24px, seta e divisor de 1px, chips de tema e card de versão),
- * montado sobre o `Modal` compartilhado e com os textos do designa.
+ * Sheet "Sobre o app": lista de opções (Política, Aparência, Versão), cada uma
+ * abrindo a própria página dentro do sheet, com voltar no cabeçalho. UI/UX do
+ * módulo modal-sobre (folha inferior PicPay: linhas de 68px com ícone de 24px,
+ * seta e divisor de 1px, chips de tema e card de versão), montado sobre o
+ * `Modal` compartilhado e com os textos do designa.
  */
 
 const VERSAO = '1.0.0'

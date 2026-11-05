@@ -1,12 +1,21 @@
 import type { Campo, Dirigente, Ocorrencia } from '../lib/dominio'
 import { useState } from 'react'
-import { CalendarDays, CalendarPlus, Eye, PencilLine, Sparkles, Trash2 } from 'lucide-react'
+import {
+  CalendarDays,
+  CalendarPlus,
+  Eye,
+  FileDown,
+  PencilLine,
+  Share2,
+  Sparkles,
+  Trash2,
+} from 'lucide-react'
 import { MESES, nomeDiaCurto } from '../lib/constants'
 import { ddMm, isoDeHoje, passouDaJanela } from '../lib/datas'
 import { rotuloEspecial } from '../lib/feriados'
 import { Botao, Modal, PopConfirm } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
-import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
+import { CabecalhoDesignacao } from './CabecalhoDesignacao'
 import { AvisoTerritorios, CardHeroCampo, LinhaCampo } from './CardsDesignacao'
 
 /** Data de hoje resolvida uma vez (evita chamada instável de Date no render). */
@@ -102,6 +111,8 @@ export default function ResumoDesignacao({
   const pendentes = ocorrencias.length - designados
   const semCampos = !campos.length
   const semDirigentes = !dirigentes.length
+  /** Só dá para compartilhar com escala gerada e ao menos um dia designado. */
+  const compartilhavel = gerado && designados > 0
 
   const status: StatusDesignacao = semCampos
     ? { rotulo: 'Sem dias de campo', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
@@ -163,6 +174,24 @@ export default function ResumoDesignacao({
       texto: 'Apaga automáticas e ajustes do mês',
       desabilitado: !designados && !gerado,
       onClick: () => setLimparAberto(true),
+    },
+    {
+      icone: <FileDown className="size-4" />,
+      cor: 'bg-canvas text-ink-soft',
+      titulo: pdfOcupado ? 'Gerando PDF…' : 'Baixar PDF',
+      texto: gerado ? 'Salva a escala do mês em PDF' : 'Gere a designação primeiro',
+      desabilitado: !gerado || pdfOcupado,
+      onClick: aoBaixarPdf,
+    },
+    {
+      icone: <Share2 className="size-4" />,
+      cor: 'bg-teal-tint text-teal',
+      titulo: 'Compartilhar link',
+      texto: compartilhavel
+        ? 'Abre o link público da escala do mês'
+        : 'Gere e designe pelo menos um dia para compartilhar',
+      desabilitado: !compartilhavel,
+      onClick: aoCompartilharLink,
     },
   ]
 
@@ -254,32 +283,6 @@ export default function ResumoDesignacao({
           </button>
         </section>
       ) : null}
-
-      {/* Barra fixa acima da Bottom Nav: gerar, PDF e link. */}
-      <BarraAcoesDesignacao
-        primaria={{
-          rotulo: 'Gerar',
-          icone: <Sparkles className="size-4" aria-hidden="true" />,
-          desabilitado: semCampos,
-          titulo: semCampos ? 'Cadastre dias de campo primeiro' : undefined,
-          onClick: () => setGerarAberto(true),
-        }}
-        pdf={{
-          onClick: aoBaixarPdf,
-          desabilitado: !gerado,
-          ocupado: pdfOcupado,
-          titulo: gerado ? undefined : 'Gere a designação primeiro',
-        }}
-        link={{
-          onClick: aoCompartilharLink,
-          desabilitado: !gerado || !ocorrencias.some((oc) => efetivas[oc.key]),
-          titulo: !gerado
-            ? 'Gere a designação primeiro'
-            : ocorrencias.some((oc) => efetivas[oc.key])
-              ? undefined
-              : 'Designe pelo menos um voluntário para compartilhar',
-        }}
-      />
 
       {/* Ver escala completa: só a lista, sem o card principal. */}
       <Modal

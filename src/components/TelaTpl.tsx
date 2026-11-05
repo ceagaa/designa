@@ -10,6 +10,8 @@ import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
+  Eye,
+  FileDown,
   ListPlus,
   LogOut,
   MapPin,
@@ -17,6 +19,7 @@ import {
   PencilLine,
   Plus,
   RefreshCcw,
+  Share2,
   Trash2,
 } from 'lucide-react'
 import { MINIMO_DUPLA } from '../lib/dominio'
@@ -40,7 +43,7 @@ import { baixarPdf } from '../lib/export'
 import TplCard from './TplCard'
 import { Botao, Chip, Input, MenuKebab, Modal, PopConfirm, Rotulo, Select, Vazio } from './ui'
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
-import { BarraAcoesDesignacao, CabecalhoDesignacao } from './CabecalhoDesignacao'
+import { CabecalhoDesignacao } from './CabecalhoDesignacao'
 import { CardHeroTpl, LinhaTpl } from './CardsDesignacao'
 
 /** Data de hoje resolvida uma vez (oxlint: sem Date instável no render). */
@@ -190,6 +193,8 @@ export default function TelaTpl({
   const [confirmandoLimpeza, setConfirmandoLimpeza] = useState(false)
   /** Abre a escala do mês (montar as duplas) — igual ao "Ajustar escala" do Campo. */
   const [ajustando, setAjustando] = useState(false)
+  /** Abre a lista completa do mês ("Ver escala completa"). */
+  const [verCompletaAberto, setVerCompletaAberto] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
 
   /** O botão voltar do header global fecha o editor antes de sair da tela. */
@@ -475,7 +480,7 @@ export default function TelaTpl({
         ? { rotulo: 'Designação pronta', estilo: 'bg-success-bg text-success', ponto: 'bg-success' }
         : temRegistro
           ? {
-              rotulo: `Pendente · ${completas}/${ocorrencias.length} duplas`,
+              rotulo: `Pendente · ${ocorrencias.length - completas} sem dupla`,
               estilo: 'bg-crimson-bg text-crimson',
               ponto: 'bg-crimson',
             }
@@ -497,12 +502,35 @@ export default function TelaTpl({
       onClick: () => mudarPara(proximo.ano, proximo.mes),
     },
     {
+      icone: <PencilLine className="size-4" />,
+      cor: 'bg-canvas text-ink-soft',
+      titulo: 'Ajustar escala',
+      texto: 'Abre a escala do mês para montar as duplas',
+      onClick: () => setAjustando(true),
+    },
+    {
       icone: <Trash2 className="size-4" />,
       cor: 'bg-perigo-fundo text-perigo-texto',
       titulo: 'Limpar designação',
       texto: 'Apaga as duplas manuais deste mês',
       desabilitado: !temRegistro,
       onClick: () => setConfirmandoLimpeza(true),
+    },
+    {
+      icone: <FileDown className="size-4" />,
+      cor: 'bg-canvas text-ink-soft',
+      titulo: 'Baixar PDF',
+      texto: temDuplas ? 'Salva a escala do mês em PDF' : 'Monte as duplas antes de baixar o PDF',
+      desabilitado: !temDuplas,
+      onClick: aoPdf,
+    },
+    {
+      icone: <Share2 className="size-4" />,
+      cor: 'bg-teal-tint text-teal',
+      titulo: 'Compartilhar link',
+      texto: slug ? 'Abre o link da escala do mês' : 'Link indisponível neste aparelho',
+      desabilitado: !slug,
+      onClick: compartilharLink,
     },
   ]
 
@@ -716,6 +744,7 @@ export default function TelaTpl({
               aoMudarData={mudarPara}
               status={status}
               acoes={acoesMenu}
+              ocultarStatus
             />
 
             {falhaCarga ? (
@@ -800,10 +829,19 @@ export default function TelaTpl({
             {lista.length ? (
               <section className="space-y-3">
                 <div className="flex items-center justify-between gap-2 px-1">
-                  <h2 className="text-lg font-semibold text-ink">Próximos dias</h2>
-                  <p className="shrink-0 text-sm text-muted">
-                    {completas}/{ocorrencias.length} duplas
-                  </p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h2 className="text-lg font-semibold text-ink">Próximos dias</h2>
+                    <span className="shrink-0 rounded-full bg-line px-2 py-0.5 text-[11px] font-bold text-ink-soft">
+                      {completas}/{ocorrencias.length} duplas
+                    </span>
+                  </div>
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${status.estilo}`}
+                    role="status"
+                  >
+                    <span className={`size-1.5 rounded-full ${status.ponto}`} aria-hidden="true" />
+                    {status.rotulo}
+                  </span>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -832,41 +870,17 @@ export default function TelaTpl({
                     + {restam} saída{restam === 1 ? '' : 's'} neste mês
                   </p>
                 ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => setVerCompletaAberto(true)}
+                  className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-teal underline underline-offset-2 transition-colors hover:text-primario-hover"
+                >
+                  <Eye className="size-4" aria-hidden="true" />
+                  Ver escala completa
+                </button>
               </section>
             ) : null}
-
-            {/* Ação principal: abrir a escala do mês para montar as duplas. */}
-            <div>
-              <Botao
-                variante="primario"
-                className="w-full py-3.5 text-base shadow-sm"
-                onClick={() => setAjustando(true)}
-              >
-                <PencilLine className="size-5" aria-hidden="true" />
-                Ajustar escala
-              </Botao>
-              <p className="mt-2 text-center text-[13px] text-muted">
-                Abre a escala do mês: monte a dupla de cada período.
-              </p>
-            </div>
-
-            <BarraAcoesDesignacao
-              primaria={{
-                rotulo: 'Ajustar',
-                icone: <PencilLine className="size-4" aria-hidden="true" />,
-                onClick: () => setAjustando(true),
-              }}
-              pdf={{
-                onClick: aoPdf,
-                desabilitado: !temDuplas,
-                titulo: temDuplas ? undefined : 'Monte as duplas antes de baixar o PDF',
-              }}
-              link={{
-                onClick: compartilharLink,
-                desabilitado: !slug,
-                titulo: slug ? undefined : 'Slug público indisponível',
-              }}
-            />
           </>
         )
       ) : (
@@ -1061,6 +1075,41 @@ export default function TelaTpl({
           />
         </div>
       ) : null}
+
+      {/* Ver escala completa: todas as saídas do mês, sem o card de destaque. */}
+      <Modal
+        aberto={verCompletaAberto}
+        aoFechar={() => setVerCompletaAberto(false)}
+        titulo="Escala completa"
+        descricao={`Todas as saídas de ${nomeMes(mes)} de ${ano}.`}
+      >
+        <div className="space-y-2 px-5 pb-8 pt-2">
+          {ocorrencias.length ? (
+            ocorrencias.map((oc) => {
+              const ponto = dados.pontos.find((p) => p.id === oc.periodo.pontoId)
+              const local = dados.locais.find((l) => l.id === oc.periodo.localId)
+              return (
+                <LinhaTpl
+                  key={oc.key}
+                  item={{
+                    key: oc.key,
+                    iso: oc.iso,
+                    diaSemana: oc.diaSemana,
+                    retirada: ponto?.nome ?? 'Ponto',
+                    turno: turnoTexto(oc.periodo),
+                    local: local?.nome ?? '',
+                    nomes: nomesDe(efetivas[oc.key]?.ids ?? []),
+                  }}
+                />
+              )
+            })
+          ) : (
+            <p className="rounded-xl bg-card px-4 py-5 text-center text-sm text-muted">
+              Nenhuma saída neste mês.
+            </p>
+          )}
+        </div>
+      </Modal>
 
       {/* Formulários da estrutura */}
       <Modal

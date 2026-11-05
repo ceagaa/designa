@@ -5,12 +5,14 @@ import { temaSalvo } from '../lib/tema'
 import ModalInfo from './ModalInfo'
 
 /**
- * Botão de informação + sheet "Sobre o app": lista de opções (Para que serve,
- * Política, Aparência, Versão), cada uma abrindo a própria página dentro do
- * sheet, com botão de voltar. Usado nas páginas públicas e no header logado.
+ * Botão de informação + sheet "Sobre o app": lista de opções (Política,
+ * Aparência, Versão), cada uma abrindo a própria página dentro do sheet, com
+ * botão de voltar. Usado nas páginas públicas; a área logada abre o sheet pela
+ * lista de Ajustes (que passa `semAparencia`, porque lá a Aparência é linha
+ * própria).
  *
- * `variante="cabecalho"` deixa o botão no mesmo tamanho do sino (sem borda),
- * para o header logado ficar com todos os controles iguais.
+ * `variante="cabecalho"` deixa o botão sem borda, no mesmo espírito dos
+ * controles do header.
  *
  * Autocontido, o tema já é aplicado no documento pelo `iniciarTema()` de
  * main.tsx, então aqui basta ler a escolha salva para o modal abrir marcado.

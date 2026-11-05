@@ -12,6 +12,7 @@ import {
   Link2,
   Loader2,
   MapPin,
+  Palette,
   Radio,
   Send,
   ShieldCheck,
@@ -34,8 +35,8 @@ import { ativarNotificacoes, enviarTestePush, estadoNotificacoes } from '../lib/
 import type { TipoToast } from './Toast'
 import type { Tema } from '../lib/tema'
 import { temaSalvo } from '../lib/tema'
-import { Botao, Input, Kicker, PopConfirm, Rotulo } from './ui'
-import ModalInfo from './ModalInfo'
+import { Botao, Input, Kicker, Modal, PopConfirm, Rotulo } from './ui'
+import ModalInfo, { EscolherTema } from './ModalInfo'
 
 const DESCRICAO_SETOR: Record<SetorId, string> = {
   CAMPO: 'Designação, voluntários e locais',
@@ -140,19 +141,12 @@ export function TelaAjustes({
   aoIrPara: (tela: Tela) => void
 }) {
   const [sobreAberto, setSobreAberto] = useState(false)
+  const [aparenciaAberta, setAparenciaAberta] = useState(false)
   const [tema, setTema] = useState<Tema>(() => temaSalvo())
   const ehAdmin = usuario.papel === 'ADMIN'
 
   return (
     <div className="space-y-6">
-      <header>
-        <Kicker className="text-muted">Configurações gerais</Kicker>
-        <h1 className="mt-1 text-[26px] font-bold tracking-tight text-ink">Ajustes</h1>
-        <p className="mt-1.5 text-sm text-muted">
-          Congregação, departamentos, conta e notificações.
-        </p>
-      </header>
-
       <ul className="divide-y divide-line">
         {ehAdmin ? (
           <LinhaNav
@@ -181,9 +175,15 @@ export function TelaAjustes({
           onClick={() => aoIrPara('ajustesNotificacoes')}
         />
         <LinhaNav
+          Icone={Palette}
+          rotulo="Aparência"
+          descricao="Tema claro, escuro ou automático"
+          onClick={() => setAparenciaAberta(true)}
+        />
+        <LinhaNav
           Icone={Info}
           rotulo="Sobre o app"
-          descricao="Para que serve, privacidade, aparência e versão"
+          descricao="Política de privacidade e versão"
           onClick={() => setSobreAberto(true)}
         />
       </ul>
@@ -193,7 +193,18 @@ export function TelaAjustes({
         aoFechar={() => setSobreAberto(false)}
         tema={tema}
         aoMudarTema={setTema}
+        semAparencia
       />
+
+      <Modal
+        aberto={aparenciaAberta}
+        aoFechar={() => setAparenciaAberta(false)}
+        titulo="Aparência"
+      >
+        <div className="px-5 pb-8 pt-2">
+          <EscolherTema tema={tema} aoMudarTema={setTema} />
+        </div>
+      </Modal>
     </div>
   )
 }

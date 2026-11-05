@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, FileDown, MoreVertical, Share2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react'
 import { MESES } from '../lib/constants'
-import { Botao } from './ui'
 
 /**
  * Cabeçalho padrão da tela de designação (Campo, AVI e TPL):
@@ -148,84 +147,12 @@ export function CabecalhoDesignacao({
 
 /**
  * Envelope da barra fixa acima da Bottom Nav (mobile-first: safe-area + blur).
- * Usado pelas ações das telas de designação e pelo botão de novo voluntário.
+ * Usado pelo botão de novo voluntário.
  */
 export function BarraFixa({ children }: { children: ReactNode }) {
   return (
     <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-30 border-t border-line bg-surface/95 px-4 py-2.5 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-[640px] gap-2">{children}</div>
     </div>
-  )
-}
-
-/**
- * Rodapé fixo padrão: ação principal + PDF + link, sempre acima da Bottom Nav.
- * Todas as telas de designação usam a mesma barra.
- */
-export function BarraAcoesDesignacao({
-  primaria,
-  pdf,
-  link,
-}: {
-  primaria?: {
-    rotulo: string
-    icone: ReactNode
-    onClick: () => void
-    desabilitado?: boolean
-    titulo?: string
-    rotuloOcupado?: string
-    ocupado?: boolean
-  }
-  pdf: {
-    onClick: () => void
-    desabilitado?: boolean
-    titulo?: string
-    ocupado?: boolean
-  }
-  link: {
-    onClick: () => void
-    desabilitado?: boolean
-    titulo?: string
-  }
-}) {
-  return (
-    <BarraFixa>
-      {primaria ? (
-        <Botao
-          variante="primario"
-          className="min-w-0 flex-1"
-          disabled={primaria.desabilitado}
-          title={primaria.titulo}
-          onClick={primaria.onClick}
-        >
-          <span className="shrink-0" aria-hidden="true">
-            {primaria.icone}
-          </span>
-          <span className="truncate">
-            {primaria.ocupado && primaria.rotuloOcupado ? primaria.rotuloOcupado : primaria.rotulo}
-          </span>
-        </Botao>
-      ) : null}
-
-      <Botao
-        className="min-w-0 flex-1"
-        disabled={pdf.desabilitado || pdf.ocupado}
-        title={pdf.titulo}
-        onClick={pdf.onClick}
-      >
-        <FileDown className="size-4 shrink-0" aria-hidden="true" />
-        <span className="truncate">{pdf.ocupado ? 'Gerando…' : 'PDF'}</span>
-      </Botao>
-
-      <Botao
-        className="min-w-0 flex-1"
-        disabled={link.desabilitado}
-        title={link.titulo}
-        onClick={link.onClick}
-      >
-        <Share2 className="size-4 shrink-0" aria-hidden="true" />
-        <span className="truncate">Link</span>
-      </Botao>
-    </BarraFixa>
   )
 }
