@@ -33,12 +33,6 @@ const POLITICA = {
   ],
 }
 
-const APARENCIA =
-  'Escolha como o app aparece no seu aparelho. Por padrão, ele acompanha o tema que o celular já está usando.'
-
-const VERSAO_NOTA =
-  'O designa é atualizado automaticamente. Você sempre abre a versão mais recente, sem precisar baixar nada. Escala de dirigentes, do jeito simples.'
-
 type Pagina = 'lista' | 'politica' | 'aparencia' | 'versao'
 
 type ItemLista = {
@@ -59,16 +53,61 @@ const TEMAS: { id: Tema; rotulo: string; Icone: LucideIcon }[] = [
   { id: 'escuro', rotulo: 'Escuro', Icone: Moon },
 ]
 
+/**
+ * Escolha de tema (3 chips). Usada na subpágina "Aparência" do sheet público
+ * e no modal de Aparência da tela de Ajustes.
+ */
+export function EscolherTema({
+  tema,
+  aoMudarTema,
+}: {
+  tema: Tema
+  aoMudarTema: (t: Tema) => void
+}) {
+  function escolher(t: Tema) {
+    aoMudarTema(t)
+    definirTema(t)
+  }
+
+  return (
+    <div role="radiogroup" aria-label="Tema do aplicativo" className="grid grid-cols-3 gap-3">
+      {TEMAS.map(({ id, rotulo, Icone }) => {
+        const ativo = tema === id
+        return (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={ativo}
+            onClick={() => escolher(id)}
+            className={`flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 px-1 py-2 text-xs font-bold transition-colors ${
+              ativo
+                ? 'border-teal bg-teal text-white'
+                : 'border-transparent bg-line-soft text-ink-soft hover:bg-line'
+            }`}
+          >
+            <Icone className="size-5" strokeWidth={2} aria-hidden="true" />
+            {rotulo}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function ModalInfo({
   aberto,
   aoFechar,
   tema,
   aoMudarTema,
+  semAparencia = false,
 }: {
   aberto: boolean
   aoFechar: () => void
   tema: Tema
   aoMudarTema: (t: Tema) => void
+  /** Na versão logada a Aparência mora na lista de Ajustes, não aqui. */
+  semAparencia?: boolean
 }) {
   const [pagina, setPagina] = useState<Pagina>('lista')
 
@@ -78,13 +117,9 @@ export default function ModalInfo({
     aoFechar()
   }
 
-  const item = ITENS.find((i) => i.id === pagina)
+  const itens = semAparencia ? ITENS.filter((i) => i.id !== 'aparencia') : ITENS
+  const item = itens.find((i) => i.id === pagina)
   const titulo = pagina === 'lista' ? 'Sobre o app' : (item?.rotulo ?? 'Sobre o app')
-
-  function escolherTema(t: Tema) {
-    aoMudarTema(t)
-    definirTema(t)
-  }
 
   return (
     <Modal
@@ -97,7 +132,7 @@ export default function ModalInfo({
       <div className="px-5 pb-8 pt-2">
         {pagina === 'lista' ? (
           <ul className="divide-y divide-line">
-            {ITENS.map(({ id, rotulo, Icone }) => (
+            {itens.map(({ id, rotulo, Icone }) => (
               <li key={id}>
                 <button
                   type="button"
@@ -133,31 +168,7 @@ export default function ModalInfo({
         ) : null}
 
         {pagina === 'aparencia' ? (
-          <div>
-            <p className="mb-4 text-[15px] leading-[1.625] text-ink-soft">{APARENCIA}</p>
-            <div role="radiogroup" aria-label="Tema do aplicativo" className="grid grid-cols-3 gap-3">
-              {TEMAS.map(({ id, rotulo, Icone }) => {
-                const ativo = tema === id
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    role="radio"
-                    aria-checked={ativo}
-                    onClick={() => escolherTema(id)}
-                    className={`flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 px-1 py-2 text-xs font-bold transition-colors ${
-                      ativo
-                        ? 'border-teal bg-teal text-white'
-                        : 'border-transparent bg-line-soft text-ink-soft hover:bg-line'
-                    }`}
-                  >
-                    <Icone className="size-5" strokeWidth={2} aria-hidden="true" />
-                    {rotulo}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <EscolherTema tema={tema} aoMudarTema={aoMudarTema} />
         ) : null}
 
         {pagina === 'versao' ? (
@@ -166,7 +177,6 @@ export default function ModalInfo({
               <span className="text-sm font-bold text-ink">Versão do app</span>
               <span className="text-sm font-semibold text-muted">designa {VERSAO}</span>
             </div>
-            <p className="text-[14px] leading-[1.625] text-ink-soft">{VERSAO_NOTA}</p>
           </div>
         ) : null}
       </div>
