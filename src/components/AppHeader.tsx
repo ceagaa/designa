@@ -30,8 +30,9 @@ function iniciais(nome: string): string {
 
 /**
  * Header de topo: fundo primary-500, texto branco, título da página à
- * esquerda e controles circulares (sino e avatar) à direita. O avatar abre um
- * menu com "Meu perfil" e "Sair".
+ * esquerda (depois do voltar, quando há) e, à direita, o sino de notificações
+ * seguido do avatar — todos alinhados na mesma linha. O avatar abre um menu
+ * com "Meu perfil" e "Sair".
  */
 export default function AppHeader({
   titulo,
@@ -62,7 +63,8 @@ export default function AppHeader({
 
   return (
     <header className="sticky top-0 z-30 bg-primary-500 text-white">
-      <div className="mx-auto flex w-full max-w-md items-start justify-between gap-3 px-5 pb-8 pt-6">
+      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3 px-5 pb-8 pt-6">
+        {/* Esquerda: voltar (quando há) + título da página. */}
         <div className="flex min-w-0 items-center gap-1">
           {aoVoltar ? (
             <button
@@ -74,8 +76,12 @@ export default function AppHeader({
               <ChevronLeft className="size-6" strokeWidth={2} aria-hidden="true" />
             </button>
           ) : null}
-          <h1 className="truncate text-lg font-extrabold tracking-tight text-white">{titulo}</h1>
+          <h1 className="min-w-0 truncate text-lg font-extrabold tracking-tight text-white">
+            {titulo}
+          </h1>
         </div>
+
+        {/* Direita: sino de notificações + avatar com o menu da conta. */}
         <div className="flex shrink-0 items-center gap-0.5">
           <SinoNotificacoes notificacoes={notificacoes} />
 
