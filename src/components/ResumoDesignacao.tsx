@@ -94,7 +94,7 @@ export default function ResumoDesignacao({
     : null
   const destaque = deHoje ?? relevantes[0] ?? null
   // A lista começa DEPOIS do que o card mostra: mesmo dia por horário (inclui
-  // saídas gêmeas no mesmo horário), ou os dias seguintes — nunca repete o card.
+  // saídas gêmeas no mesmo horário), ou os dias seguintes, nunca repete o card.
   const posteriores = destaque
     ? relevantes.filter((o) => {
         if (o.iso !== destaque.iso) return o.iso > destaque.iso
@@ -332,20 +332,20 @@ export default function ResumoDesignacao({
             </p>
           ) : null}
           {semDirigentes ? (
-            <button
-              type="button"
-              className="botao botao--primario"
+            <Botao
+              variante="primario"
+              className="w-full min-h-14 text-base"
               onClick={() => {
                 setGerarAberto(false)
                 aoCadastrar()
               }}
             >
               Cadastrar voluntários
-            </button>
+            </Botao>
           ) : (
-            <button
-              type="button"
-              className="botao botao--primario"
+            <Botao
+              variante="primario"
+              className="w-full min-h-14 text-base"
               disabled={semCampos}
               onClick={() => {
                 setGerarAberto(false)
@@ -354,15 +354,15 @@ export default function ResumoDesignacao({
             >
               <Sparkles className="size-5" aria-hidden="true" />
               Gerar
-            </button>
+            </Botao>
           )}
-          <button
-            type="button"
-            className="botao botao--claro"
+          <Botao
+            variante="claro"
+            className="w-full min-h-14 text-base"
             onClick={() => setGerarAberto(false)}
           >
             Cancelar
-          </button>
+          </Botao>
         </div>
       </Modal>
 
@@ -376,9 +376,9 @@ export default function ResumoDesignacao({
         descricao={`Gera a escala do mês seguinte agora, além de ${MESES[mes]} de ${ano}.`}
       >
         <div className="space-y-3 px-5 pb-6 pt-1">
-          <button
-            type="button"
-            className="botao botao--primario"
+          <Botao
+            variante="primario"
+            className="w-full min-h-14 text-base"
             onClick={() => {
               setAdiantarAberto(false)
               aoAdiantar()
@@ -386,14 +386,14 @@ export default function ResumoDesignacao({
           >
             <CalendarPlus className="size-5" aria-hidden="true" />
             Adiantar
-          </button>
-          <button
-            type="button"
-            className="botao botao--claro"
+          </Botao>
+          <Botao
+            variante="claro"
+            className="w-full min-h-14 text-base"
             onClick={() => setAdiantarAberto(false)}
           >
             Cancelar
-          </button>
+          </Botao>
         </div>
       </Modal>
 

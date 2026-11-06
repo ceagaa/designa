@@ -1,4 +1,4 @@
-/** Tipos de domínio do app — fonte única de verdade para as entidades. */
+/** Tipos de domínio do app, fonte única de verdade para as entidades. */
 
 export type FrequenciaId = 'semanal' | 'quinzenal' | 'mensal' | 'bimestral'
 
@@ -38,7 +38,7 @@ export interface Dirigente {
    * `departamento` continua valendo para registros antigos.
    */
   departamentos?: SetorId[]
-  /** Departamento principal — compatibilidade com fichas antigas. */
+  /** Departamento principal, compatibilidade com fichas antigas. */
   departamento?: SetorId
   /** Reuniões em que o voluntário do AVI pode atuar. */
   reunioes?: ReuniaoAvi
@@ -122,11 +122,6 @@ export interface Ocorrencia {
   ultimoDomingo?: boolean
 }
 
-/** Candidato do rodízio (ficha + disponibilidade). */
-export interface Candidato extends Dirigente {
-  disponivel: boolean
-}
-
 /**
  * Payload codificado no link compartilhado. Linhas:
  * [iso, horário, local, nome, fixo?, ajudante?] e, quando o dia é fixo
@@ -163,7 +158,6 @@ export type Tela =
   | 'pessoas'
   | 'perfil'
   | 'ajustes'
-  | 'ajustesCongregacao'
   | 'ajustesDepartamentos'
   | 'ajustesConta'
   | 'ajustesNotificacoes'
@@ -278,7 +272,14 @@ export interface Usuario {
 }
 
 /** Variantes visuais do Botão da UI. */
-export type VarianteBotao = 'primario' | 'vinho' | 'sucesso' | 'secundario' | 'fantasma' | 'perigo'
+export type VarianteBotao =
+  | 'primario'
+  | 'vinho'
+  | 'sucesso'
+  | 'secundario'
+  | 'fantasma'
+  | 'perigo'
+  | 'claro'
 
 /** Aptidões AVI (checkbox do cadastro de voluntários). */
 export type AptidaoId =
@@ -309,7 +310,7 @@ export const FUNCOES_AVI: readonly FuncaoAvi[] = [
   { id: 'indicador_externo', rotulo: 'Indicador externo', coluna: 'Indicador externo' },
 ]
 
-/** Registro mensal AVI — slot = `${iso}_${funcao}` (uma designação por função/reunião). */
+/** Registro mensal AVI, slot = `${iso}_${funcao}` (uma designação por função/reunião). */
 export interface RegistroAvi {
   auto?: Record<string, Identificador>
   manuais?: Record<string, Identificador>
@@ -363,7 +364,7 @@ export interface LocalTpl {
   nome: string
 }
 
-/** Período (dia da semana + turno) de um ponto — ex.: Manhã 08:00–10:00. */
+/** Período (dia da semana + turno) de um ponto, ex.: Manhã 08:00–10:00. */
 export interface PeriodoTpl {
   id: Identificador
   pontoId: Identificador
@@ -381,7 +382,7 @@ export interface ParticipanteTpl {
   ativo: boolean
 }
 
-/** Registro mensal TPL — slot = `${iso}_${periodoId}` → dupla (ids). */
+/** Registro mensal TPL, slot = `${iso}_${periodoId}` → dupla (ids). */
 export interface RegistroTpl {
   auto?: Record<string, Identificador[]>
   manuais?: Record<string, Identificador[]>

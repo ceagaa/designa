@@ -860,7 +860,7 @@ const OG_POR_SETOR: Record<
     titulo: 'Designação para TPL',
     descricao: 'Escala publicada, consulte as próximas designações do TPL.',
     imagem: '/img/og-tpl.png',
-    tema: '#7E0024',
+    tema: '#3D7A8A',
   },
 }
 
@@ -1036,6 +1036,27 @@ app.post('/api/push/testar', async (c) => {
 
 /* ------------------------------ Agendamento ------------------------------ */
 
+/**
+ * Registra que um aviso já foi enviado e devolve `true` só na primeira vez.
+ *
+ * A marca mora em `parametros`, fora do `estado` que o app regrava por inteiro
+ * a cada edição: o autosave do cliente não consegue apagá-la, então o cron não
+ * reenvia a mesma notificação. Uma falha aqui degrada para "enviar" (o
+ * comportamento antigo) em vez de derrubar o agendamento.
+ */
+async function marcarAviso(db: D1Database, chave: string): Promise<boolean> {
+  try {
+    const resultado = await db
+      .prepare('INSERT INTO parametros (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO NOTHING')
+      .bind(chave, new Date().toISOString())
+      .run()
+    const mudancas = (resultado as { meta?: { changes?: number } } | undefined)?.meta?.changes
+    return typeof mudancas === 'number' ? mudancas > 0 : true
+  } catch {
+    return true
+  }
+}
+
 /** Gera (no dia e horário configurados, fuso de São Paulo) a escala do mês seguinte de cada congregação e avisa os aparelhos. */
 async function executarAgendamento(env: Env): Promise<void> {
   const agora = new Intl.DateTimeFormat('en-CA', {
@@ -1085,17 +1106,27 @@ async function executarAgendamento(env: Env): Promise<void> {
       `[agendamento] escala ${proximo.chave} gerada (disparo dia ${config.disparo_dia} às ${config.disparo_hora})`,
     )
 
-    const envio = await enviarParaTodas(
-      env,
-      {
-        titulo: `Escala de ${MESES[proximo.mes]}`,
-        corpo: `A escala de ${MESES[proximo.mes]} já está disponível no app.`,
-        url: '/',
-        tag: 'escala-mensal',
-      },
-      linha.congregacao_id,
-    )
-    console.log(`[agendamento] push: ${JSON.stringify(envio)}`)
+    // O PUT do app pode ter apagado `geradoEm`, então a geração acima roda de
+    // novo; o aviso, porém, só sai uma vez por mês e congregação.
+    const chaveAviso = `agendamento:escala:${linha.congregacao_id ?? 'legado'}:${proximo.chave}`
+    const vapid = Boolean(env.PUSH_VAPID_PUBLICA && env.PUSH_VAPID_PRIVADA)
+    if (!vapid) {
+      console.log('[agendamento] VAPID não configurado, aviso adiado')
+    } else if (await marcarAviso(env.DB, chaveAviso)) {
+      const envio = await enviarParaTodas(
+        env,
+        {
+          titulo: `Escala de ${MESES[proximo.mes]}`,
+          corpo: `A escala de ${MESES[proximo.mes]} já está disponível no app.`,
+          url: '/',
+          tag: 'escala-mensal',
+        },
+        linha.congregacao_id,
+      )
+      console.log(`[agendamento] push: ${JSON.stringify(envio)}`)
+    } else {
+      console.log(`[agendamento] aviso ${chaveAviso} já enviado, pulando`)
+    }
   }
 
   const setores = await env.DB
@@ -1134,17 +1165,27 @@ async function executarAgendamento(env: Env): Promise<void> {
       .run()
     console.log(`[agendamento] escala AVI ${proximo.chave} gerada`)
 
-    const envio = await enviarParaTodas(
-      env,
-      {
-        titulo: `Escala AVI de ${MESES[proximo.mes]}`,
-        corpo: `A escala AVI de ${MESES[proximo.mes]} já está disponível.`,
-        url: '/',
-        tag: 'escala-avi',
-      },
-      linha.congregacao_id,
-    )
-    console.log(`[agendamento] push AVI: ${JSON.stringify(envio)}`)
+    // Mesmo guarda do ramo CAMPO: `geradoEm` do AVI também vive em dado que o
+    // app regrava, então o aviso é marcado à parte.
+    const chaveAviso = `agendamento:avi:${linha.congregacao_id}:${proximo.chave}`
+    const vapid = Boolean(env.PUSH_VAPID_PUBLICA && env.PUSH_VAPID_PRIVADA)
+    if (!vapid) {
+      console.log('[agendamento] VAPID não configurado, aviso AVI adiado')
+    } else if (await marcarAviso(env.DB, chaveAviso)) {
+      const envio = await enviarParaTodas(
+        env,
+        {
+          titulo: `Escala AVI de ${MESES[proximo.mes]}`,
+          corpo: `A escala AVI de ${MESES[proximo.mes]} já está disponível.`,
+          url: '/',
+          tag: 'escala-avi',
+        },
+        linha.congregacao_id,
+      )
+      console.log(`[agendamento] push AVI: ${JSON.stringify(envio)}`)
+    } else {
+      console.log(`[agendamento] aviso ${chaveAviso} já enviado, pulando`)
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Check, MapPin, Plus, Trash } from 'lucide-react'
 import { DIAS_SEMANA, HORARIOS_PADRAO, infoDia } from '../lib/constants'
 import { Botao, Input, Kicker, Modal, PopConfirm, Rotulo, Select, Vazio } from './ui'
+import { novoId } from '../lib/utilitarios'
 
 type FormCampo = Partial<Campo> & {
   diaSemana: number
@@ -10,10 +11,6 @@ type FormCampo = Partial<Campo> & {
   local: string
   fixo: string | null
   ajudanteFixo: string | null
-}
-
-function novoId(): string {
-  return `campo-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 }
 
 function vazio(): FormCampo {
@@ -57,7 +54,7 @@ export default function Locais({ campos, dirigentes, aoAlterarCampos }: LocaisPr
       diaSemana: Number(form.diaSemana),
       fixo: form.fixo || null,
       ajudanteFixo: form.ajudanteFixo || null,
-      id: form.id ?? novoId(),
+      id: form.id ?? novoId('campo'),
     }
 
     const existe = campos.some((c) => c.id === registro.id)

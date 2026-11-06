@@ -153,7 +153,8 @@ export default function TelaDesignacoes({
     return () => {
       vivo = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- recarrega ao mudar mês/usuário
+    // Recarrega ao mudar mês/usuário.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [chave, usuario.id])
 
   function resumoDe(setor: SetorId): ResumoSetor {

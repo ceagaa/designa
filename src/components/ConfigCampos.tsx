@@ -1,7 +1,7 @@
 import type { Campo, ConfigEscala } from '../lib/dominio'
 import { useState } from 'react'
 import { Check, FileText, MapPin } from 'lucide-react'
-import { MESES } from '../lib/constants'
+import { DIAS_DISPARO, HORARIOS_DISPARO, MESES } from '../lib/constants'
 import { Botao, Input, Kicker, Modal, Rotulo, Select, Toggle } from './ui'
 
 /** Horários oferecidos para o feriado: 05:00 às 21:30, de 30 em 30 minutos. */
@@ -11,15 +11,6 @@ const HORARIOS_FERIADO: string[] = Array.from({ length: 34 }, (_, i) => {
   const resto = minutos % 60
   return `${String(hora).padStart(2, '0')}:${String(resto).padStart(2, '0')}`
 })
-
-/** Dias oferecidos para o disparo automático (1–31). */
-const DIAS_DISPARO: number[] = Array.from({ length: 31 }, (_, i) => i + 1)
-
-/** Horários do disparo automático: 00:00 às 23:30, de 30 em 30 minutos. */
-const HORARIOS_DISPARO: string[] = Array.from(
-  { length: 48 },
-  (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 === 0 ? '00' : '30'}`,
-)
 
 const HOJE = new Date()
 const PROXIMO_MES = HOJE.getMonth() === 11 ? 0 : HOJE.getMonth() + 1

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, LogOut, UserRound } from 'lucide-react'
 import SinoNotificacoes from './SinoNotificacoes'
 import type { Notificacao } from './SinoNotificacoes'
+import { iniciais } from '../lib/utilitarios'
 
 interface AppHeaderProps {
   titulo: string
@@ -16,22 +17,10 @@ interface AppHeaderProps {
   aoSair?: () => void
 }
 
-function iniciais(nome: string): string {
-  return (
-    nome
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((p) => p[0] ?? '')
-      .join('')
-      .toUpperCase() || '?'
-  )
-}
-
 /**
  * Header de topo: fundo primary-500, texto branco, título da página à
  * esquerda (depois do voltar, quando há) e, à direita, o sino de notificações
- * seguido do avatar — todos alinhados na mesma linha. O avatar abre um menu
+ * seguido do avatar, todos alinhados na mesma linha. O avatar abre um menu
  * com "Meu perfil" e "Sair".
  */
 export default function AppHeader({

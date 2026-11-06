@@ -2,7 +2,7 @@
  * Autenticação no servidor: hash de senha (PBKDF2-SHA256), sessões em cookie
  * httpOnly, convites com token (validade de 7 dias) e utilitários de slug.
  *
- * O plano Workers Free limita a 10 ms de CPU por requisição — por isso as
+ * O plano Workers Free limita a 10 ms de CPU por requisição, por isso as
  * iterações do PBKDF2 são calibradas (parâmetro `pbkdf2_iteracoes` no D1) para
  * usar ~5 ms e sobrar folga para o restante do Worker.
  */

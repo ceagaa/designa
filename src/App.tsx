@@ -9,13 +9,11 @@ import type { Aviso, TipoToast } from './components/Toast'
 import ConfigCampos from './components/ConfigCampos'
 import {
   TelaAjustes,
-  TelaCongregacao,
   TelaConta,
   TelaDepartamentos,
   TelaNotificacoes,
 } from './components/Configuracoes'
 import EscalaCard from './components/EscalaCard'
-import ExportModal from './components/ExportModal'
 import Locais from './components/Locais'
 import ResumoDesignacao from './components/ResumoDesignacao'
 import Splash from './components/Splash'
@@ -99,7 +97,6 @@ const ABA_DA_TELA: Record<Tela, AbaNav> = {
   pessoas: 'pessoas',
   perfil: 'ajustes',
   ajustes: 'ajustes',
-  ajustesCongregacao: 'ajustes',
   ajustesDepartamentos: 'ajustes',
   ajustesConta: 'ajustes',
   ajustesNotificacoes: 'ajustes',
@@ -125,7 +122,6 @@ export default function App() {
   const [ano, setAno] = useState(() => new Date().getFullYear())
   const [mes, setMes] = useState(() => new Date().getMonth())
   const [manterManuais, setManterManuais] = useState(true)
-  const [modalAberto, setModalAberto] = useState(false)
   const [tabelaAberta, setTabelaAberta] = useState(false)
   const [pdfOcupado, setPdfOcupado] = useState(false)
   const [aviso, setAviso] = useState<Aviso>(null)
@@ -235,7 +231,7 @@ export default function App() {
         titulo: 'Sem sincronização',
         detalhe: 'Toque para tentar gravar na nuvem',
         tom: 'alerta',
-        aoClicar: tentarSincronizar,
+        aoClicar: () => void tentarSincronizar(),
       })
     } else if (status === 'local') {
       lista.push({
@@ -335,7 +331,7 @@ export default function App() {
     return () => {
       vivo = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- encerrarLocal é estável por sessão
+    // EncerrarLocal é estável por sessão.
   }, [sessao, usuario])
 
   const sessaoResolvida = sessao !== 'verificando'
@@ -383,7 +379,7 @@ export default function App() {
       }
     }, 800)
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- encerrarLocal é estável por sessão
+    // EncerrarLocal é estável por sessão.
   }, [estado, pronto, sessao, usuario])
 
   function atualizar(fn: (estado: Estado) => Estado) {
@@ -645,23 +641,21 @@ export default function App() {
                   ? 'Meu perfil'
                   : tela === 'ajustes'
                     ? 'Ajustes'
-                    : tela === 'ajustesCongregacao'
-                      ? 'Congregação'
-                      : tela === 'ajustesDepartamentos'
-                        ? 'Departamentos'
-                        : tela === 'ajustesConta'
-                          ? 'Conta'
-                          : tela === 'ajustesNotificacoes'
-                            ? 'Notificações'
-                            : tela === 'ajustesCampo'
-                              ? 'Configurações · Campo'
-                              : tela === 'ajustesAvi'
-                                ? 'Configurações · AVI'
-                                : tela === 'ajustesTpl'
-                                  ? 'Configurações · TPL'
-                                  : tela === 'locais'
-                                    ? 'Locais de campo'
-                                    : 'Designações'
+                    : tela === 'ajustesDepartamentos'
+                      ? 'Departamentos'
+                      : tela === 'ajustesConta'
+                        ? 'Conta'
+                        : tela === 'ajustesNotificacoes'
+                          ? 'Notificações'
+                          : tela === 'ajustesCampo'
+                            ? 'Configurações · Campo'
+                            : tela === 'ajustesAvi'
+                              ? 'Configurações · AVI'
+                              : tela === 'ajustesTpl'
+                                ? 'Configurações · TPL'
+                                : tela === 'locais'
+                                  ? 'Locais de campo'
+                                  : 'Designações'
 
   const aoVoltarHeader =
     tela === 'montagem'
@@ -672,10 +666,7 @@ export default function App() {
           ? () => (voltarAjuste.current ? voltarAjuste.current() : setTela('designacoes'))
           : tela === 'ajustesCampo' || tela === 'ajustesAvi' || tela === 'ajustesTpl'
             ? () => setTela('ajustesDepartamentos')
-            : tela === 'ajustesCongregacao' ||
-                tela === 'ajustesDepartamentos' ||
-                tela === 'ajustesConta' ||
-                tela === 'ajustesNotificacoes'
+            : tela === 'ajustesDepartamentos' || tela === 'ajustesConta' || tela === 'ajustesNotificacoes'
               ? () => setTela('ajustes')
               : tela === 'perfil'
                 ? () => setTela('designacoes')
@@ -751,7 +742,12 @@ export default function App() {
 
       <AppHeader
         titulo={tabelaAberta ? 'Tabela completa' : tituloHeader}
-        notificacoes={!tabelaAberta && podeGerenciarCampo ? montarNotificacoes() : []}
+        notificacoes={
+          // A leitura de ref (filaDeGravacao) só acontece no clique, em handler
+          // assíncrono, nunca durante o render.
+          // oxlint-disable-next-line react/refs
+          !tabelaAberta && podeGerenciarCampo ? montarNotificacoes() : []
+        }
         nomeUsuario={usuario?.nome ?? ''}
         aoVoltar={tabelaAberta ? () => setTabelaAberta(false) : aoVoltarHeader}
         aoAbrirPerfil={() => setTela('perfil')}
@@ -882,14 +878,12 @@ export default function App() {
         ) : null}
 
         {tela === 'ajustes' && usuario ? (
-          <TelaAjustes usuario={usuario} aoIrPara={setTela} />
-        ) : null}
-
-        {tela === 'ajustesCongregacao' && usuario ? (
-          <TelaCongregacao
+          <TelaAjustes
+            usuario={usuario}
             config={config}
             congregacaoNumero={usuario.congregacao.numero}
-            aoSalvar={async (nome, numero) => {
+            aoIrPara={setTela}
+            aoSalvarCongregacao={async (nome, numero) => {
               const atualizado = await atualizarCongregacao({ nome, numero })
               setUsuario(atualizado)
               atualizar((e) => ({
@@ -1003,23 +997,6 @@ export default function App() {
             manuaisAjudante={registro.manuaisAjudante ?? {}}
           />
         </div>
-      ) : null}
-
-      {modalAberto ? (
-        <ExportModal
-          aberto={modalAberto}
-          aoFechar={() => setModalAberto(false)}
-          noAlvo={cardRef}
-          chave={chave}
-          ano={ano}
-          mes={nomeMes(mes)}
-          config={config}
-          ocorrencias={ocorrencias}
-          efetivas={efetivas}
-          dirigentes={voluntariosCampo}
-          slug={usuario?.congregacao.slug}
-          aoAvisar={avisar}
-        />
       ) : null}
 
       <Toast aviso={aviso} aoFechar={fecharAviso} />

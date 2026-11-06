@@ -33,7 +33,7 @@ function mesesComConteudo(dados: DadosTpl): string[] {
 }
 
 /**
- * Rota pública /tpl/:slug — mesma visão do administrador: cabeçalho do setor,
+ * Rota pública /tpl/:slug, mesma visão do administrador: cabeçalho do setor,
  * card "Próxima designação" (data, voluntários, retirada, turno e local) e a
  * lista de "Próximos dias". Sem botões de PDF/link: aqui só se consulta a escala.
  */

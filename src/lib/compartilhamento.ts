@@ -81,7 +81,7 @@ export interface EntradaPayload {
 
 /**
  * Monta o payload mínimo da designação pronta: cabeçalho + linhas
- * [iso, horário, local, nome, fixo?, ajudante?] — cabe em um link de
+ * [iso, horário, local, nome, fixo?, ajudante?], cabe em um link de
  * WhatsApp. Dias fixos (designação fixa + "Quem dirige") ganham o marcador
  * '1' no 5º campo; o ajudante, quando há, vem no 6º.
  */

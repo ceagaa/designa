@@ -45,14 +45,11 @@ import { Botao, Chip, Input, MenuKebab, Modal, PopConfirm, Rotulo, Select, Vazio
 import type { AcaoMenu, StatusDesignacao } from './CabecalhoDesignacao'
 import { CabecalhoDesignacao } from './CabecalhoDesignacao'
 import { CardHeroTpl, LinhaTpl } from './CardsDesignacao'
+import { novoId } from '../lib/utilitarios'
 
 /** Data de hoje resolvida uma vez (oxlint: sem Date instável no render). */
 const HOJE_ISO = isoDeHoje()
 const [HOJE_ANO, HOJE_MES] = HOJE_ISO.split('-').map(Number)
-
-function novoId(prefixo: string): string {
-  return `${prefixo}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-}
 
 type FormPonto = { tipo: 'ponto'; id?: string; nome: string }
 type FormLocal = { tipo: 'local'; id?: string; nome: string }
@@ -191,7 +188,7 @@ export default function TelaTpl({
   const [horarioEspecifico, setHorarioEspecifico] = useState(false)
   const [excluindo, setExcluindo] = useState<Excluindo>(null)
   const [confirmandoLimpeza, setConfirmandoLimpeza] = useState(false)
-  /** Abre a escala do mês (montar as duplas) — igual ao "Ajustar escala" do Campo. */
+  /** Abre a escala do mês (montar as duplas), igual ao "Ajustar escala" do Campo. */
   const [ajustando, setAjustando] = useState(false)
   /** Abre a lista completa do mês ("Ver escala completa"). */
   const [verCompletaAberto, setVerCompletaAberto] = useState(false)
@@ -229,7 +226,8 @@ export default function TelaTpl({
     return () => {
       vivo = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- recarrega por tentativa
+    // Recarrega por tentativa.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [tentativa])
 
   // Participantes antigos (cadastro do setor) + voluntários atuais do TPL.

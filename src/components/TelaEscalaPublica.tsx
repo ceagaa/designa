@@ -8,7 +8,7 @@ import { buscar } from '../lib/api'
 type Estado = 'carregando' | 'pronto' | 'erro'
 
 /**
- * Rota pública /escala/:slug/CAMPO — visão somente leitura da programação,
+ * Rota pública /escala/:slug/CAMPO, visão somente leitura da programação,
  * com "Próximos dias" (mesmos cards do administrador).
  */
 export default function TelaEscalaPublica({ slug }: { slug: string }) {

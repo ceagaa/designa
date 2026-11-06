@@ -2,18 +2,7 @@ import type { Usuario } from '../lib/dominio'
 import { ROTULO_SETOR } from '../lib/dominio'
 import { Building2, LogOut, ShieldCheck, UserRound } from 'lucide-react'
 import { Botao } from './ui'
-
-function iniciais(nome: string): string {
-  return (
-    nome
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((p) => p[0] ?? '')
-      .join('')
-      .toUpperCase() || '?'
-  )
-}
+import { iniciais } from '../lib/utilitarios'
 
 /**
  * Área de perfil: identidade da conta logada, departamento que gerencia e a

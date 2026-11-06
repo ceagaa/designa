@@ -3,7 +3,7 @@ import type { VarianteBotao } from '../lib/dominio'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
-import { ArrowLeft, ChevronDown, Minus, MoreVertical, Plus, TriangleAlert, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, MoreVertical, TriangleAlert, X } from 'lucide-react'
 
 const VARIA: Record<VarianteBotao, string> = {
   primario: 'bg-teal text-white hover:bg-primario-hover border border-teal hover:border-primario-hover',
@@ -14,10 +14,13 @@ const VARIA: Record<VarianteBotao, string> = {
   fantasma: 'border border-transparent text-muted hover:text-ink hover:bg-line-soft',
   perigo:
     'bg-perigo-fundo text-perigo-texto border border-perigo/20 hover:border-perigo/30',
+  claro: 'bg-neutro-100 text-primary-700 hover:bg-neutro-200',
 }
 
 type BotaoProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variante?: VarianteBotao
+  /** React 19: `ref` entra como prop comum e chega ao <button>. */
+  ref?: React.Ref<HTMLButtonElement>
 }
 
 export function Botao({ variante = 'secundario', className = '', children, ...props }: BotaoProps) {
@@ -196,49 +199,6 @@ export function Toggle({ checked, aoMudar, rotulo, className = '', disabled }: T
   )
 }
 
-type StepperProps = {
-  valor: number
-  aoMudar: (valor: number) => void
-  min?: number
-  max?: number
-  sufixo?: string
-  rotulo: string
-}
-
-/** Seletor numérico −/＋ (Limite mensal da referência). */
-export function Stepper({ valor, aoMudar, min = 0, max = 30, sufixo = 'x', rotulo }: StepperProps) {
-  return (
-    <div className="flex shrink-0 items-center gap-1 rounded-xl bg-canvas p-1">
-      <button
-        type="button"
-        aria-label={`Diminuir ${rotulo}`}
-        onClick={() => aoMudar(Math.max(min, valor - 1))}
-        className="flex size-8 items-center justify-center rounded-lg bg-paper text-ink shadow-sm transition-transform active:scale-95"
-      >
-        <Minus className="size-4" />
-      </button>
-      <span className="w-10 text-center text-sm font-bold text-teal">
-        {valor === 0 && min === 0 ? (
-          <span title="Sem limite">∞</span>
-        ) : (
-          <>
-            {valor}
-            <span className="text-[11px] font-normal text-muted">{sufixo}</span>
-          </>
-        )}
-      </span>
-      <button
-        type="button"
-        aria-label={`Aumentar ${rotulo}`}
-        onClick={() => aoMudar(Math.min(max, valor + 1))}
-        className="flex size-8 items-center justify-center rounded-lg bg-paper text-ink shadow-sm transition-transform active:scale-95"
-      >
-        <Plus className="size-4" />
-      </button>
-    </div>
-  )
-}
-
 type VazioProps = {
   icone?: LucideIcon
   titulo: string
@@ -370,23 +330,23 @@ export function PopConfirm({
         </h2>
         <p className="text-sm leading-relaxed text-muted">{descricao}</p>
         <div className="mt-1 w-full space-y-3">
-          <button
-            type="button"
-            className="botao botao--perigo"
+          <Botao
+            variante="vinho"
+            className="w-full min-h-14 text-base"
             disabled={ocupado}
             onClick={aoConfirmar}
           >
             {ocupado ? 'Aguarde…' : confirmarRotulo}
-          </button>
-          <button
-            type="button"
+          </Botao>
+          <Botao
             ref={cancelar}
-            className="botao botao--claro"
+            variante="claro"
+            className="w-full min-h-14 text-base"
             disabled={ocupado}
             onClick={aoFechar}
           >
             Cancelar
-          </button>
+          </Botao>
         </div>
       </div>
     </dialog>,

@@ -11,93 +11,14 @@ import { REGRAS_PADRAO, SETORES } from './dominio'
 
 export const CHAVE_LOCAL = 'dirigentes:estado:v1'
 
+/**
+ * Estado padrão: vazio, com apenas a configuração inicial. A produção nunca
+ * mostra dados de demonstração, o cadastro novo nasce limpo.
+ */
 export function estadoInicial(): Estado {
   return {
-    dirigentes: [
-      {
-        id: 'dir-1',
-        nome: 'Carlos Andrade',
-        telefone: '(11) 99911-2233',
-        ativo: true,
-        frequencia: 'semanal',
-        dias: [0, 3],
-        horarios: ['09:00', '18:30'],
-      },
-      {
-        id: 'dir-2',
-        nome: 'Marcos Lima',
-        telefone: '(11) 98844-5566',
-        ativo: true,
-        frequencia: 'quinzenal',
-        dias: [0, 4, 6],
-        horarios: ['09:00', '18:30'],
-        ajudante: true,
-        diasAjudante: [3, 4],
-      },
-      {
-        id: 'dir-3',
-        nome: 'João Pedro',
-        telefone: '',
-        ativo: true,
-        frequencia: 'quinzenal',
-        dias: [3, 4],
-        horarios: ['18:30'],
-      },
-      {
-        id: 'dir-4',
-        nome: 'Rafael Souza',
-        telefone: '(11) 97733-8899',
-        ativo: true,
-        frequencia: 'mensal',
-        dias: [0, 3, 4],
-        horarios: ['09:00', '18:30'],
-        ajudante: true,
-        diasAjudante: [4],
-      },
-      {
-        id: 'dir-5',
-        nome: 'Paulo Mendes',
-        telefone: '',
-        ativo: true,
-        frequencia: 'mensal',
-        dias: [0, 6],
-        horarios: ['09:00'],
-        ajudante: true,
-        diasAjudante: [0],
-      },
-      {
-        id: 'dir-6',
-        nome: 'André Oliveira',
-        telefone: '(11) 96622-1100',
-        ativo: false,
-        frequencia: 'bimestral',
-        dias: [3],
-        horarios: ['18:30'],
-      },
-    ],
-    config_campos: [
-      {
-        id: 'campo-1',
-        diaSemana: 0,
-        horario: '09:00',
-        local: 'Esquina da Praça Central',
-        fixo: null,
-      },
-      {
-        id: 'campo-2',
-        diaSemana: 3,
-        horario: '18:30',
-        local: 'Terminal Rodoviário',
-        fixo: null,
-      },
-      {
-        id: 'campo-3',
-        diaSemana: 4,
-        horario: '18:30',
-        local: 'Feira Livre - Av. Brasil',
-        fixo: null,
-      },
-    ],
+    dirigentes: [],
+    config_campos: [],
     escalas: {
       _config: {
         titulo: TITULO_PADRAO,

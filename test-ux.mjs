@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const BASE = process.env.UX_BASE ?? 'http://localhost:5180'
+const BASE = process.env.UX_BASE ?? 'http://localhost:5173'
 const BASE_API = process.env.UX_API ?? 'http://127.0.0.1:8787'
 const DIR = process.env.UX_SHOTS ?? join(tmpdir(), 'opencode', 'ux')
 const SUFIXO = Date.now().toString(36)
@@ -203,9 +203,10 @@ try {
     const fab = page.locator('button[aria-label="Novo voluntário"]')
     if (await fab.count()) await fab.click()
     else await page.click('button:has-text("Cadastrar primeiro voluntário")')
-    // A página de edição pergunta os departamentos antes de mostrar a ficha.
-    await page.locator('button:has-text("Dirige no serviço de campo")').click()
-    await page.locator('button:has-text("Continuar")').click()
+    // O cadastro abre um modal com as opções de departamento antes da ficha.
+    const dialogo = page.locator('[role=dialog]')
+    await dialogo.locator('button:has-text("Dirige no serviço de campo")').click()
+    await dialogo.locator('button:has-text("Continuar")').click()
     await page.waitForSelector('#dir-nome', { timeout: 10000 })
     await page.fill('#dir-nome', nome)
     await chip('Semanal').click()
@@ -326,9 +327,9 @@ try {
   // O formulário muda conforme os departamentos: AVI mostra reuniões e funções.
   await page.locator('button[aria-label="Novo voluntário"]').click()
   await page
-    .locator('button:has-text("Áudio, Vídeo & Indicadores nas reuniões")')
+    .locator('[role=dialog] button:has-text("Áudio, Vídeo & Indicadores nas reuniões")')
     .click()
-  await page.locator('button:has-text("Continuar")').click()
+  await page.locator('[role=dialog] button:has-text("Continuar")').click()
   await page.waitForSelector('#dir-nome', { timeout: 10000 })
   const fichaAvi = page.getByTestId('ficha-voluntario')
   ck(
@@ -362,6 +363,13 @@ try {
       (await page.locator('button:has-text("Sobre o app")').count()) > 0,
   )
   ck('ajustes: Aparência como linha da lista', (await page.locator('button:has-text("Aparência")').count()) > 0)
+  ck(
+    'ajustes: itens sem descricao',
+    (await page.locator('text=Nome e número da congregação').count()) === 0 &&
+      (await page.locator('text=Configuração de cada setor').count()) === 0 &&
+      (await page.locator('text=Tema claro, escuro ou automático').count()) === 0 &&
+      (await page.locator('text=Política de privacidade e versão').count()) === 0,
+  )
   await shot('06-ajustes')
 
   // A Aparência mora na lista: abre o seletor de tema direto daqui.
@@ -388,8 +396,44 @@ try {
   await page.locator('[role=dialog] button[aria-label="Fechar"]').click()
   await page.locator('[role=dialog]').waitFor({ state: 'detached', timeout: 10000 })
 
+  // A Congregação abre em modal, igual a Aparência e Sobre o app.
+  await page.locator('button:has-text("Congregação")').first().click()
+  await page.locator('#cfg-cong').waitFor({ timeout: 10000 })
+  ck(
+    'ajustes: Congregação abre em modal',
+    (await page.locator('[role=dialog] #cfg-cong').count()) === 1 &&
+      (await page.locator('[role=dialog] #cfg-numero').count()) === 1 &&
+      (await page.locator('[role=dialog] h2:has-text("Congregação")').count()) > 0 &&
+      (await page.locator('[role=dialog] button:has-text("Salvar congregação")').count()) === 1,
+  )
+  await page.locator('[role=dialog] button[aria-label="Fechar"]').click()
+  await page.locator('[role=dialog]').waitFor({ state: 'detached', timeout: 10000 })
+
+  // Conta e Notificações: só o título, sem descrição no cabeçalho.
+  await page.locator('button:has-text("Conta")').first().click()
+  await page.waitForSelector('h1:has-text("Conta")', { timeout: 10000 })
+  ck(
+    'ajustes: Conta sem descricao',
+    (await page.locator('text=Sua conta, convites de acesso e a equipe.').count()) === 0,
+  )
+  await page.locator('header button[aria-label="Voltar"]').click()
+  await page.waitForSelector('text=Sobre o app', { timeout: 10000 })
+
+  await page.locator('button:has-text("Notificações")').first().click()
+  await page.waitForSelector('h1:has-text("Notificações")', { timeout: 10000 })
+  ck(
+    'ajustes: Notificações sem descricao',
+    (await page.locator('text=Avisos no aparelho mesmo com o app fechado.').count()) === 0,
+  )
+  await page.locator('header button[aria-label="Voltar"]').click()
+  await page.waitForSelector('text=Sobre o app', { timeout: 10000 })
+
   await page.locator('button:has-text("Departamentos")').first().click()
-  await page.waitForSelector('text=Abra a configuração de cada setor', { timeout: 10000 })
+  await page.waitForSelector('h1:has-text("Departamentos")', { timeout: 10000 })
+  ck(
+    'ajustes: Departamentos sem descricao',
+    (await page.locator('text=Abra a configuração de cada setor').count()) === 0,
+  )
   ck('ajustes: lista de setores em Departamentos', (await page.locator('button:has-text("Saídas de Campo")').count()) > 0)
   await page.getByRole('button', { name: /Saídas de Campo/ }).click()
   await page.waitForSelector('text=Configurações do setor Campo', { timeout: 10000 })
@@ -573,7 +617,7 @@ try {
   await page.click('button:has-text("Áudio, Vídeo & Indicadores")')
   await page.waitForSelector('button[aria-label="Ações da designação"]', { timeout: 15000 })
   // A tela abre na hora; espere o setor terminar de carregar (skeleton sumir) antes
-  // de decidir trocar de mês — senão a ação é ignorada em silêncio.
+  // de decidir trocar de mês, senão a ação é ignorada em silêncio.
   await page.waitForSelector('section.h-\\[15rem\\]', { state: 'hidden', timeout: 20000 })
   let temHeroAvi =
     (await page.locator('text=/Próxima reunião|Primeira reunião/').count()) > 0
@@ -627,9 +671,9 @@ try {
   })
   await page.locator('button[aria-label="Novo voluntário"]').click()
   await page
-    .locator('button:has-text("Áudio, Vídeo & Indicadores nas reuniões")')
+    .locator('[role=dialog] button:has-text("Áudio, Vídeo & Indicadores nas reuniões")')
     .click()
-  await page.locator('button:has-text("Continuar")').click()
+  await page.locator('[role=dialog] button:has-text("Continuar")').click()
   await page.waitForSelector('#dir-nome', { timeout: 10000 })
   await page.fill('#dir-nome', 'Vitor AVI')
   for (const apto of [
@@ -716,9 +760,10 @@ try {
   await page.waitForSelector('text=Quadro de voluntários', { timeout: 15000 })
   async function novoVoluntarioTpl(nome, verificar = false) {
     await page.locator('button[aria-label="Novo voluntário"]').click()
-    // Departamentos primeiro; a ficha do TPL abre em seguida (página, não modal).
-    await page.locator('button:has-text("Testemunho Público Local com o carrinho")').click()
-    await page.locator('button:has-text("Continuar")').click()
+    // Departamentos no modal; a ficha do TPL abre em seguida (página, não modal).
+    const dialogo = page.locator('[role=dialog]')
+    await dialogo.locator('button:has-text("Testemunho Público Local com o carrinho")').click()
+    await dialogo.locator('button:has-text("Continuar")').click()
     await page.waitForSelector('#dir-nome', { timeout: 10000 })
     if (verificar) {
       const fichaTpl = page.getByTestId('ficha-voluntario')
@@ -744,7 +789,7 @@ try {
   await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
   await page.waitForSelector('text=Sobre o app', { timeout: 15000 })
   await page.locator('button:has-text("Departamentos")').first().click()
-  await page.waitForSelector('text=Abra a configuração de cada setor', { timeout: 15000 })
+  await page.waitForSelector('h1:has-text("Departamentos")', { timeout: 15000 })
   await page.getByRole('button', { name: /Testemunho Público Local/ }).click()
   await page.waitForSelector('h3:has-text("Pontos de apoio")', { timeout: 15000 })
   ck('ajustes TPL: sem abas Escala/Estrutura', (await page.getByRole('tab').count()) === 0)
@@ -755,7 +800,7 @@ try {
   await page.fill('#tpl-ponto-nome', 'Praça UX')
   await page.locator('[role=dialog] button:has-text("Salvar")').click()
   // O modal só fecha após a persistência; o item e o botão de período dependem
-  // do ponto já salvo — aguarde o estado real, não o texto do placeholder.
+  // do ponto já salvo, aguarde o estado real, não o texto do placeholder.
   await page.waitForSelector('[role=dialog]', { state: 'detached', timeout: 20000 })
   await page.waitForSelector('section:has(h3:text-is("Pontos de apoio")) li:has-text("Praça UX")', {
     timeout: 15000,

@@ -37,6 +37,7 @@ import type { Tema } from '../lib/tema'
 import { temaSalvo } from '../lib/tema'
 import { Botao, Input, Kicker, Modal, PopConfirm, Rotulo } from './ui'
 import ModalInfo, { EscolherTema } from './ModalInfo'
+import { iniciais } from '../lib/utilitarios'
 
 const DESCRICAO_SETOR: Record<SetorId, string> = {
   CAMPO: 'Designação, voluntários e locais',
@@ -47,18 +48,6 @@ const DESCRICAO_SETOR: Record<SetorId, string> = {
 function dataCurta(iso: string): string {
   const d = new Date(iso)
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function iniciais(nome: string): string {
-  return (
-    nome
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((p) => p[0] ?? '')
-      .join('')
-      .toUpperCase() || '?'
-  )
 }
 
 function textoErroEquipe(codigo: string): string {
@@ -121,13 +110,12 @@ function LinhaNav({
   )
 }
 
-/** Cabeçalho padrão das subpáginas de Ajustes. */
-function CabecalhoSub({ titulo, descricao }: { titulo: string; descricao: string }) {
+/** Cabeçalho padrão das subpáginas de Ajustes: kicker + título, sem descrição. */
+function CabecalhoSub({ titulo }: { titulo: string }) {
   return (
     <header>
       <Kicker className="text-muted">Ajustes</Kicker>
       <h1 className="mt-1 text-[26px] font-bold tracking-tight text-ink">{titulo}</h1>
-      <p className="mt-1.5 text-sm text-muted">{descricao}</p>
     </header>
   )
 }
@@ -135,13 +123,22 @@ function CabecalhoSub({ titulo, descricao }: { titulo: string; descricao: string
 /** Raiz de Ajustes: lista com separadores (Congregação, Departamentos, Conta, Notificações, Sobre o app). */
 export function TelaAjustes({
   usuario,
+  config,
+  congregacaoNumero,
   aoIrPara,
+  aoSalvarCongregacao,
+  aoAvisar,
 }: {
   usuario: Usuario
+  config: ConfigEscala
+  congregacaoNumero: string
   aoIrPara: (tela: Tela) => void
+  aoSalvarCongregacao: (nome: string, numero: string) => Promise<void>
+  aoAvisar?: (texto: string, tipo?: TipoToast) => void
 }) {
   const [sobreAberto, setSobreAberto] = useState(false)
   const [aparenciaAberta, setAparenciaAberta] = useState(false)
+  const [congregacaoAberta, setCongregacaoAberta] = useState(false)
   const [tema, setTema] = useState<Tema>(() => temaSalvo())
   const ehAdmin = usuario.papel === 'ADMIN'
 
@@ -152,40 +149,26 @@ export function TelaAjustes({
           <LinhaNav
             Icone={Building2}
             rotulo="Congregação"
-            descricao="Nome e número da congregação"
-            onClick={() => aoIrPara('ajustesCongregacao')}
+            onClick={() => setCongregacaoAberta(true)}
           />
         ) : null}
         <LinhaNav
           Icone={MapPin}
           rotulo="Departamentos"
-          descricao="Configuração de cada setor"
           onClick={() => aoIrPara('ajustesDepartamentos')}
         />
-        <LinhaNav
-          Icone={UserRound}
-          rotulo="Conta"
-          descricao={ehAdmin ? 'Sua conta e convites de acesso' : 'Sua conta de acesso'}
-          onClick={() => aoIrPara('ajustesConta')}
-        />
+        <LinhaNav Icone={UserRound} rotulo="Conta" onClick={() => aoIrPara('ajustesConta')} />
         <LinhaNav
           Icone={Bell}
           rotulo="Notificações"
-          descricao="Avisos da escala no aparelho"
           onClick={() => aoIrPara('ajustesNotificacoes')}
         />
         <LinhaNav
           Icone={Palette}
           rotulo="Aparência"
-          descricao="Tema claro, escuro ou automático"
           onClick={() => setAparenciaAberta(true)}
         />
-        <LinhaNav
-          Icone={Info}
-          rotulo="Sobre o app"
-          descricao="Política de privacidade e versão"
-          onClick={() => setSobreAberto(true)}
-        />
+        <LinhaNav Icone={Info} rotulo="Sobre o app" onClick={() => setSobreAberto(true)} />
       </ul>
 
       <ModalInfo
@@ -195,6 +178,23 @@ export function TelaAjustes({
         aoMudarTema={setTema}
         semAparencia
       />
+
+      {/* Congregação também mora em modal, igual a Aparência e Sobre o app. */}
+      <Modal
+        aberto={congregacaoAberta}
+        aoFechar={() => setCongregacaoAberta(false)}
+        titulo="Congregação"
+      >
+        <FormCongregacao
+          config={config}
+          congregacaoNumero={congregacaoNumero}
+          aoSalvar={async (nome, numero) => {
+            await aoSalvarCongregacao(nome, numero)
+            setCongregacaoAberta(false)
+          }}
+          aoAvisar={aoAvisar}
+        />
+      </Modal>
 
       <Modal
         aberto={aparenciaAberta}
@@ -209,8 +209,8 @@ export function TelaAjustes({
   )
 }
 
-/** Subpágina Congregação: nome e número para salvar/editar. */
-export function TelaCongregacao({
+/** Formulário da congregação (nome e número) usado no modal de Ajustes. */
+function FormCongregacao({
   config,
   congregacaoNumero,
   aoSalvar,
@@ -244,11 +244,7 @@ export function TelaCongregacao({
   }
 
   return (
-    <div className="space-y-5">
-      <CabecalhoSub
-        titulo="Congregação"
-        descricao="Identificação usada no cabeçalho das escalas e nos links públicos."
-      />
+    <div className="space-y-5 px-5 pb-8 pt-2">
       <div>
         <Rotulo htmlFor="cfg-cong">Nome da congregação</Rotulo>
         <Input
@@ -297,10 +293,7 @@ export function TelaDepartamentos({
 
   return (
     <div className="space-y-4">
-      <CabecalhoSub
-        titulo="Departamentos"
-        descricao="Abra a configuração de cada setor da congregação."
-      />
+      <CabecalhoSub titulo="Departamentos" />
       <ul className="divide-y divide-line">
         {setores.map((setor) => {
           const Icone = setor === 'CAMPO' ? MapPin : setor === 'AUDIO_VIDEO' ? Radio : BookOpen
@@ -462,10 +455,7 @@ export function TelaConta({
 
   return (
     <div className="space-y-6">
-      <CabecalhoSub
-        titulo="Conta"
-        descricao={admin ? 'Sua conta, convites de acesso e a equipe.' : 'Sua conta de acesso.'}
-      />
+      <CabecalhoSub titulo="Conta" />
 
       <ul className="divide-y divide-line">
         <li className="flex items-center gap-4 px-1 py-4">
@@ -740,10 +730,7 @@ export function TelaNotificacoes({
 
   return (
     <div className="space-y-6">
-      <CabecalhoSub
-        titulo="Notificações"
-        descricao="Avisos no aparelho mesmo com o app fechado."
-      />
+      <CabecalhoSub titulo="Notificações" />
 
       <div className="rounded-xl border-l-2 border-teal bg-teal-tint p-4">
         <p className="text-sm font-semibold text-teal">Notificações push</p>

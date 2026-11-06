@@ -113,6 +113,15 @@ export const TITULO_PADRAO = 'Programação para serviço de campo'
 export const CONGREGACAO_PADRAO = 'Sua Congregação'
 export const CITACAO = 'Mas que todas as coisas ocorram com decência e ordem - 1 Cor 14:40'
 
+/** Dias oferecidos para o disparo automático (1 a 31). */
+export const DIAS_DISPARO: number[] = Array.from({ length: 31 }, (_, i) => i + 1)
+
+/** Horários do disparo automático: 00:00 às 23:30, de 30 em 30 minutos. */
+export const HORARIOS_DISPARO: string[] = Array.from(
+  { length: 48 },
+  (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 === 0 ? '00' : '30'}`,
+)
+
 export function infoDia(idx: number): InfoDia {
   return DIAS_SEMANA[idx] ?? DIAS_SEMANA[0]
 }

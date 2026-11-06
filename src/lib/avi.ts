@@ -7,6 +7,7 @@ import type {
 } from './dominio'
 import { FUNCOES_AVI } from './dominio'
 import { lerChaveMes } from './datas'
+import { hash } from './utilitarios'
 
 /** Título oficial da aba AVI (planilha de referência). */
 export const TITULO_AVI = 'Audio/Vídeo & Indicadores'
@@ -174,16 +175,8 @@ function aceitaSecao(irmao: IrmaoProjecao, secao: 'fds' | 'meio'): boolean {
   return secao === 'meio' ? reunioes === 'semana' : reunioes === 'fds'
 }
 
-function hash(texto: string): number {
-  let h = 5381
-  for (let i = 0; i < texto.length; i += 1) {
-    h = ((h << 5) + h + texto.charCodeAt(i)) | 0
-  }
-  return Math.abs(h)
-}
-
 /**
- * Rodízio do AVI — mesma inteligência do Campo aplicada às aptidões:
+ * Rodízio do AVI, mesma inteligência do Campo aplicada às aptidões:
  * candidatos ativos aptos para a função, menor carga no mês primeiro,
  * desempate por quem espera há mais tempo e semente determinística.
  * Ajustes manuais nunca são sobrescritos (a sugestão automática continua

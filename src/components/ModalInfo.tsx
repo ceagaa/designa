@@ -13,7 +13,7 @@ import { Modal } from './ui'
  * `Modal` compartilhado e com os textos do designa.
  */
 
-const VERSAO = '1.0.0'
+const VERSAO = '2.0.1'
 
 const POLITICA = {
   introducao: 'A gente guarda o mínimo possível pra escala funcionar:',

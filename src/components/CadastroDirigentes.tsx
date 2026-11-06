@@ -32,8 +32,9 @@ import {
   frequenciaValida,
   infoDia,
 } from '../lib/constants'
-import { Botao, Chip, Input, PopConfirm, Rotulo, Vazio } from './ui'
+import { Botao, Chip, Input, Modal, PopConfirm, Rotulo, Vazio } from './ui'
 import { BarraFixa } from './CabecalhoDesignacao'
+import { iniciais, novoId } from '../lib/utilitarios'
 
 type FormDirigente = Partial<Dirigente> & {
   nome: string
@@ -101,10 +102,6 @@ const REUNIOES_AVI: ReadonlyArray<{ valor: ReuniaoAvi; rotulo: string }> = [
   { valor: 'fds', rotulo: 'Final de semana' },
   { valor: 'ambos', rotulo: 'Os dois' },
 ]
-
-function novoId(): string {
-  return `dir-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-}
 
 /**
  * Departamentos da ficha. Fichas antigas (sem `departamentos`) caem no AVI
@@ -244,18 +241,6 @@ function CabecalhoDepartamento({
   )
 }
 
-function iniciais(nome: string): string {
-  return (
-    nome
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((p) => p[0] ?? '')
-      .join('')
-      .toUpperCase() || '?'
-  )
-}
-
 interface CadastroDirigentesProps {
   dirigentes: Dirigente[]
   campos: Campo[]
@@ -275,8 +260,9 @@ interface CadastroDirigentesProps {
 
 /**
  * Tela de Voluntários: a lista mostra só nome, departamentos e disponibilidade.
- * Tocar num nome (ou em "Novo voluntário") abre a página de edição, com a
- * ficha completa e os ajustes em chips — igual aos campos do AVI.
+ * "Novo voluntário" abre um modal com as opções de cadastro (departamentos) e,
+ * depois do Continuar, a página de edição com a ficha completa em chips ,
+ * igual aos campos do AVI.
  */
 export default function CadastroDirigentes({
   dirigentes,
@@ -291,8 +277,10 @@ export default function CadastroDirigentes({
   aoConfigurar,
 }: CadastroDirigentesProps) {
   const [form, setForm] = useState<FormDirigente | null>(null)
-  /** Cadastro novo começa perguntando os departamentos; edição vai direto à ficha. */
-  const [etapa, setEtapa] = useState<'departamento' | 'ficha'>('ficha')
+  /** Cadastro novo abre um modal com as opções de departamento antes da ficha. */
+  const [opcoesAbertas, setOpcoesAbertas] = useState(false)
+  /** Departamentos marcados no modal de opções (novo ou ao trocar). */
+  const [depsEscolhidas, setDepsEscolhidas] = useState<SetorId[]>([])
   const [erro, setErro] = useState('')
   const [excluindo, setExcluindo] = useState<Dirigente | null>(null)
   const [aptidoesForm, setAptidoesForm] = useState<AptidaoId[]>([])
@@ -315,7 +303,7 @@ export default function CadastroDirigentes({
   const temCampo = dirigentes.some((d) =>
     departamentosDaFicha(d, aptidoes).includes('CAMPO'),
   )
-  /** Departamentos marcados na etapa inicial (ou os atuais, ao editar). */
+  /** Departamentos escolhidos no modal de opções (ou os atuais, ao editar). */
   const departamentosAtuais = DEPARTAMENTOS.filter((dep) =>
     form?.departamentos.includes(dep.id),
   )
@@ -326,9 +314,10 @@ export default function CadastroDirigentes({
   function abrir(novo: Dirigente | null = null) {
     setErro('')
     if (!novo) {
-      setForm(formularioVazio(frequenciaPadrao))
+      // O modal de opções escolhe os departamentos antes de montar a ficha.
       setAptidoesForm([])
-      setEtapa('departamento')
+      setDepsEscolhidas([])
+      setOpcoesAbertas(true)
       return
     }
     const departamentos = departamentosDaFicha(novo, aptidoes)
@@ -342,7 +331,7 @@ export default function CadastroDirigentes({
       diasAjudante: [...(novo.diasAjudante ?? [])],
     })
     setAptidoesForm(aptidoes?.[novo.id] ?? [])
-    setEtapa('ficha')
+    setOpcoesAbertas(false)
   }
 
   function fechar() {
@@ -372,15 +361,24 @@ export default function CadastroDirigentes({
     })
   }
 
-  /** Marca/desmarca um departamento na etapa de escolha (mínimo 1). */
+  /** Marca/desmarca um departamento no modal de opções (mínimo 1). */
   function alternarDepartamento(id: SetorId) {
-    setForm((f) => {
-      if (!f) return f
-      const departamentos = f.departamentos.includes(id)
-        ? f.departamentos.filter((s) => s !== id)
-        : ordenarDepartamentos([...f.departamentos, id])
-      return { ...f, departamentos }
-    })
+    setDepsEscolhidas((atual) =>
+      atual.includes(id)
+        ? atual.filter((s) => s !== id)
+        : ordenarDepartamentos([...atual, id]),
+    )
+  }
+
+  /** Fecha o modal de opções e segue para a ficha com os departamentos escolhidos. */
+  function continuarOpcoes() {
+    if (!depsEscolhidas.length) return
+    setOpcoesAbertas(false)
+    setForm((f) =>
+      f
+        ? { ...f, departamentos: depsEscolhidas }
+        : { ...formularioVazio(frequenciaPadrao), departamentos: depsEscolhidas },
+    )
   }
 
   function alternarNaLista(campo: 'dias' | 'horarios' | 'diasAjudante', valor: number | string) {
@@ -411,11 +409,10 @@ export default function CadastroDirigentes({
     }
     if (!form.departamentos.length) {
       setErro('Escolha pelo menos um departamento.')
-      setEtapa('departamento')
       return
     }
 
-    const id = form.id ?? novoId()
+    const id = form.id ?? novoId('dir')
     const departamentos = ordenarDepartamentos(form.departamentos)
     const incluiCampo = departamentos.includes('CAMPO')
     const incluiAvi = departamentos.includes('AUDIO_VIDEO')
@@ -489,6 +486,71 @@ export default function CadastroDirigentes({
     />
   )
 
+  /** Modal com as opções de cadastro: escolher departamentos antes da ficha. */
+  const modalOpcoes = (
+    <Modal
+      aberto={opcoesAbertas}
+      aoFechar={() => setOpcoesAbertas(false)}
+      titulo={form?.id ? 'Departamentos' : 'Novo voluntário'}
+    >
+      <section className="space-y-2 px-5 pb-8 pt-2">
+        <p className="text-sm text-muted">
+          Escolha um ou mais departamentos. As opções da ficha aparecem em seguida.
+        </p>
+        {DEPARTAMENTOS.map((dep) => {
+          const ativo = depsEscolhidas.includes(dep.id)
+          return (
+            <button
+              key={dep.id}
+              type="button"
+              aria-pressed={ativo}
+              onClick={() => alternarDepartamento(dep.id)}
+              className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all active:scale-[0.99] ${
+                ativo
+                  ? 'border-teal bg-teal-tint'
+                  : 'border-line bg-canvas hover:border-teal'
+              }`}
+            >
+              <span
+                className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+                  ativo ? 'bg-white text-teal' : 'bg-teal-tint text-teal'
+                }`}
+                aria-hidden="true"
+              >
+                <dep.Icone className="size-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-ink">{dep.rotulo}</span>
+                <span className="block text-[13px] leading-snug text-muted">{dep.descricao}</span>
+              </span>
+              <span
+                className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                  ativo ? 'border-teal bg-teal text-white' : 'border-line'
+                }`}
+                aria-hidden="true"
+              >
+                {ativo ? <Check className="size-3.5" strokeWidth={3} /> : null}
+              </span>
+            </button>
+          )
+        })}
+        <Botao
+          variante="primario"
+          className="w-full py-3.5 text-base shadow-sm"
+          disabled={!depsEscolhidas.length}
+          onClick={continuarOpcoes}
+        >
+          Continuar
+        </Botao>
+        {!depsEscolhidas.length ? (
+          <p className="text-center text-[13px] text-muted">
+            Marque pelo menos um departamento para continuar.
+          </p>
+        ) : null}
+      </section>
+    </Modal>
+  )
+
   if (form) {
     const novo = !form.id
     const incluiCampo = form.departamentos.includes('CAMPO')
@@ -512,333 +574,277 @@ export default function CadastroDirigentes({
               {novo ? 'Novo voluntário' : form.nome || 'Voluntário'}
             </h1>
             <p className="text-[13px] text-muted">
-              {novo ? 'Escolha os departamentos e preencha a ficha' : 'Ficha e disponibilidade'}
+              {novo ? 'Preencha a ficha e salve' : 'Ficha e disponibilidade'}
             </p>
           </div>
         </header>
 
-        {etapa === 'departamento' ? (
-          <section className="space-y-2">
-            <p className="text-sm text-muted">
-              Escolha um ou mais departamentos. As opções da ficha aparecem em seguida.
+        <div className="space-y-5">
+          {/* Os departamentos foram escolhidos no modal: aqui só confirmamos. */}
+          <div className="flex items-center gap-3 rounded-xl bg-teal-tint px-3 py-2.5">
+            <span
+              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-teal"
+              aria-hidden="true"
+            >
+              <IconeDepartamento className="size-5" />
+            </span>
+            <p className="min-w-0 flex-1">
+              <span className="block text-[11px] font-bold uppercase tracking-wide text-primary-700/70">
+                {departamentosAtuais.length > 1 ? 'Departamentos' : 'Departamento'}
+              </span>
+              <span className="block text-sm font-bold text-primary-700">
+                {departamentosAtuais.map((dep) => dep.rotulo).join(' · ')}
+              </span>
             </p>
-            {DEPARTAMENTOS.map((dep) => {
-              const ativo = form.departamentos.includes(dep.id)
-              return (
-                <button
-                  key={dep.id}
-                  type="button"
-                  aria-pressed={ativo}
-                  onClick={() => alternarDepartamento(dep.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all active:scale-[0.99] ${
-                    ativo
-                      ? 'border-teal bg-teal-tint'
-                      : 'border-line bg-canvas hover:border-teal'
-                  }`}
-                >
-                  <span
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-                      ativo ? 'bg-white text-teal' : 'bg-teal-tint text-teal'
-                    }`}
-                    aria-hidden="true"
+            <Botao
+              variante="fantasma"
+              className="shrink-0 text-primary-700"
+              onClick={() => {
+                setDepsEscolhidas(form.departamentos)
+                setOpcoesAbertas(true)
+              }}
+            >
+              Trocar
+            </Botao>
+          </div>
+
+          <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm">
+            <div>
+              <Rotulo htmlFor="dir-nome">Nome</Rotulo>
+              <Input
+                id="dir-nome"
+                value={form.nome}
+                onChange={(e) => alternar('nome', e.target.value)}
+                placeholder="Ex.: Carlos Andrade"
+                autoComplete="name"
+                autoCapitalize="words"
+                spellCheck={false}
+                enterKeyHint="next"
+                autoFocus={novo}
+              />
+            </div>
+          </section>
+
+          {incluiCampo ? (
+            <section
+              data-departamento="CAMPO"
+              className="space-y-4 rounded-2xl bg-card p-4 shadow-sm"
+            >
+              <CabecalhoDepartamento id="CAMPO" descricao="Dias e horários" />
+
+              <fieldset>
+                <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                  Dias disponíveis
+                </legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {ORDEM_DIAS.map((idx) => (
+                    <Chip
+                      key={idx}
+                      ativo={form.dias.includes(idx)}
+                      onClick={() => alternarNaLista('dias', idx)}
+                    >
+                      {infoDia(idx).curto}
+                    </Chip>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                  Horários disponíveis
+                </legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {horarios.map((h) => (
+                    <Chip
+                      key={h}
+                      ativo={form.horarios.includes(h)}
+                      onClick={() => alternarNaLista('horarios', h)}
+                    >
+                      {h}
+                    </Chip>
+                  ))}
+                </div>
+              </fieldset>
+
+              <RegrasDesignacao
+                setor="CAMPO"
+                regras={regrasCampo}
+                aoAlterar={(patch) => alterarRegras('CAMPO', patch)}
+              />
+
+              <div className="border-t border-line-soft pt-4">
+                <p className="mb-1.5 text-[13px] font-semibold text-ink">Ajudante</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Chip
+                    ativo={form.ajudante === true}
+                    onClick={() => alternar('ajudante', form.ajudante !== true)}
                   >
-                    <dep.Icone className="size-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-ink">{dep.rotulo}</span>
-                    <span className="block text-[13px] leading-snug text-muted">
-                      {dep.descricao}
-                    </span>
-                  </span>
-                  <span
-                    className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                      ativo ? 'border-teal bg-teal text-white' : 'border-line'
-                    }`}
-                    aria-hidden="true"
-                  >
-                    {ativo ? <Check className="size-3.5" strokeWidth={3} /> : null}
-                  </span>
-                </button>
-              )
-            })}
+                    Marcar como ajudante
+                  </Chip>
+                </div>
+                {form.ajudante === true ? (
+                  <fieldset className="mt-3">
+                    <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                      Dias como ajudante
+                    </legend>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ORDEM_DIAS.map((idx) => (
+                        <Chip
+                          key={idx}
+                          ativo={(form.diasAjudante ?? []).includes(idx)}
+                          onClick={() => alternarNaLista('diasAjudante', idx)}
+                        >
+                          {infoDia(idx).curto}
+                        </Chip>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-[13px] text-muted">
+                      Sem nenhum dia marcado, ajuda em qualquer dia. No rodízio, a
+                      frequência e o limite mensal acima também valem para as vezes como
+                      ajudante.
+                    </p>
+                  </fieldset>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {incluiAvi ? (
+            <section
+              data-departamento="AUDIO_VIDEO"
+              className="space-y-4 rounded-2xl bg-card p-4 shadow-sm"
+            >
+              <CabecalhoDepartamento id="AUDIO_VIDEO" descricao="Funções e reuniões" />
+
+              <div>
+                <p className="mb-1.5 text-[13px] font-semibold text-ink">
+                  Designações AVI
+                </p>
+                {aoDefinirAptidoes ? (
+                  <>
+                    <div className="flex flex-wrap gap-1.5">
+                      {FUNCOES_AVI.map((f) => (
+                        <Chip
+                          key={f.id}
+                          ativo={aptidoesForm.includes(f.id)}
+                          onClick={() => alternarAptidaoForm(f.id)}
+                        >
+                          {f.rotulo}
+                        </Chip>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-[13px] text-muted">
+                      Marque as funções em que o voluntário pode servir.
+                    </p>
+                  </>
+                ) : (
+                  <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-primary-700">
+                    As designações AVI são definidas pelo administrador.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[13px] font-semibold text-ink">Reuniões</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {REUNIOES_AVI.map((op) => (
+                    <Chip
+                      key={op.valor}
+                      ativo={(form.reunioes ?? 'ambos') === op.valor}
+                      onClick={() => alternar('reunioes', op.valor)}
+                    >
+                      {op.rotulo}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              <RegrasDesignacao
+                setor="AUDIO_VIDEO"
+                regras={regrasAvi}
+                aoAlterar={(patch) => alterarRegras('AUDIO_VIDEO', patch)}
+              />
+            </section>
+          ) : null}
+
+          {incluiCampo || incluiAvi ? (
+            <>
+              <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm">
+                <div>
+                  <p className="mb-1.5 text-[13px] font-semibold text-ink">Disponibilidade</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Chip
+                      ativo={form.ativo !== false}
+                      onClick={() => alternar('ativo', true)}
+                    >
+                      Disponível
+                    </Chip>
+                    <Chip
+                      ativo={form.ativo === false}
+                      onClick={() => alternar('ativo', false)}
+                    >
+                      Inativo
+                    </Chip>
+                  </div>
+                  <p className="mt-1.5 text-[13px] text-muted">
+                    Inativo continua na lista, mas fica fora do rodízio.
+                  </p>
+                </div>
+              </section>
+            </>
+          ) : null}
+
+          {!novo && (incluiCampo || incluiAvi) ? (
+            <p className="rounded-xl bg-canvas px-3 py-2 text-[13px] text-muted">
+              <span className="font-semibold text-ink">
+                {contagem[form.id ?? ''] ?? 0} designaç
+                {(contagem[form.id ?? ''] ?? 0) === 1 ? 'ão' : 'ões'}
+              </span>{' '}
+              em {mes + 1}/{String(ano).slice(2)}
+            </p>
+          ) : null}
+
+          {erro ? (
+            <p role="alert" className="text-sm font-semibold text-crimson">
+              {erro}
+            </p>
+          ) : null}
+
+          {avisoRodizio ? (
+            <p className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+              Sem dias ou horários marcados este voluntário fica fora do rodízio automático.
+            </p>
+          ) : null}
+
+          <div className="space-y-4">
             <Botao
               variante="primario"
               className="w-full py-3.5 text-base shadow-sm"
-              disabled={!form.departamentos.length}
-              onClick={() => setEtapa('ficha')}
+              onClick={salvar}
             >
-              Continuar
+              Salvar voluntário
             </Botao>
-            {!form.departamentos.length ? (
-              <p className="text-center text-[13px] text-muted">
-                Marque pelo menos um departamento para continuar.
-              </p>
-            ) : null}
-          </section>
-        ) : (
-          <div className="space-y-5">
-            {/* Os departamentos foram escolhidos na etapa anterior: aqui só confirmamos. */}
-            <div className="flex items-center gap-3 rounded-xl bg-teal-tint px-3 py-2.5">
-              <span
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-teal"
-                aria-hidden="true"
-              >
-                <IconeDepartamento className="size-5" />
-              </span>
-              <p className="min-w-0 flex-1">
-                <span className="block text-[11px] font-bold uppercase tracking-wide text-primary-700/70">
-                  {departamentosAtuais.length > 1 ? 'Departamentos' : 'Departamento'}
-                </span>
-                <span className="block text-sm font-bold text-primary-700">
-                  {departamentosAtuais.map((dep) => dep.rotulo).join(' · ')}
-                </span>
-              </p>
-              <Botao
-                variante="fantasma"
-                className="shrink-0 text-primary-700"
-                onClick={() => setEtapa('departamento')}
-              >
-                Trocar
-              </Botao>
-            </div>
 
-            <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm">
-              <div>
-                <Rotulo htmlFor="dir-nome">Nome</Rotulo>
-                <Input
-                  id="dir-nome"
-                  value={form.nome}
-                  onChange={(e) => alternar('nome', e.target.value)}
-                  placeholder="Ex.: Carlos Andrade"
-                  autoComplete="name"
-                  autoCapitalize="words"
-                  spellCheck={false}
-                  enterKeyHint="next"
-                  autoFocus={novo}
-                />
+            {/* Ação destrutiva no fim da ficha, separada do salvar. */}
+            {form.id ? (
+              <div className="border-t border-line pt-4">
+                <Botao
+                  variante="perigo"
+                  className="w-full"
+                  onClick={() => {
+                    const alvo = dirigentes.find((d) => d.id === form.id)
+                    if (alvo) setExcluindo(alvo)
+                  }}
+                >
+                  <Trash className="size-4" aria-hidden="true" />
+                  Excluir voluntário
+                </Botao>
               </div>
-            </section>
-
-            {incluiCampo ? (
-              <section
-                data-departamento="CAMPO"
-                className="space-y-4 rounded-2xl bg-card p-4 shadow-sm"
-              >
-                <CabecalhoDepartamento id="CAMPO" descricao="Dias e horários" />
-
-                <fieldset>
-                  <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                    Dias disponíveis
-                  </legend>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ORDEM_DIAS.map((idx) => (
-                      <Chip
-                        key={idx}
-                        ativo={form.dias.includes(idx)}
-                        onClick={() => alternarNaLista('dias', idx)}
-                      >
-                        {infoDia(idx).curto}
-                      </Chip>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <fieldset>
-                  <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                    Horários disponíveis
-                  </legend>
-                  <div className="flex flex-wrap gap-1.5">
-                    {horarios.map((h) => (
-                      <Chip
-                        key={h}
-                        ativo={form.horarios.includes(h)}
-                        onClick={() => alternarNaLista('horarios', h)}
-                      >
-                        {h}
-                      </Chip>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <RegrasDesignacao
-                  setor="CAMPO"
-                  regras={regrasCampo}
-                  aoAlterar={(patch) => alterarRegras('CAMPO', patch)}
-                />
-
-                <div className="border-t border-line-soft pt-4">
-                  <p className="mb-1.5 text-[13px] font-semibold text-ink">Ajudante</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Chip
-                      ativo={form.ajudante === true}
-                      onClick={() => alternar('ajudante', form.ajudante !== true)}
-                    >
-                      Marcar como ajudante
-                    </Chip>
-                  </div>
-                  {form.ajudante === true ? (
-                    <fieldset className="mt-3">
-                      <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                        Dias como ajudante
-                      </legend>
-                      <div className="flex flex-wrap gap-1.5">
-                        {ORDEM_DIAS.map((idx) => (
-                          <Chip
-                            key={idx}
-                            ativo={(form.diasAjudante ?? []).includes(idx)}
-                            onClick={() => alternarNaLista('diasAjudante', idx)}
-                          >
-                            {infoDia(idx).curto}
-                          </Chip>
-                        ))}
-                      </div>
-                      <p className="mt-1.5 text-[13px] text-muted">
-                        Sem nenhum dia marcado, ajuda em qualquer dia. No rodízio, a
-                        frequência e o limite mensal acima também valem para as vezes como
-                        ajudante.
-                      </p>
-                    </fieldset>
-                  ) : null}
-                </div>
-              </section>
             ) : null}
-
-            {incluiAvi ? (
-              <section
-                data-departamento="AUDIO_VIDEO"
-                className="space-y-4 rounded-2xl bg-card p-4 shadow-sm"
-              >
-                <CabecalhoDepartamento id="AUDIO_VIDEO" descricao="Funções e reuniões" />
-
-                <div>
-                  <p className="mb-1.5 text-[13px] font-semibold text-ink">
-                    Designações AVI
-                  </p>
-                  {aoDefinirAptidoes ? (
-                    <>
-                      <div className="flex flex-wrap gap-1.5">
-                        {FUNCOES_AVI.map((f) => (
-                          <Chip
-                            key={f.id}
-                            ativo={aptidoesForm.includes(f.id)}
-                            onClick={() => alternarAptidaoForm(f.id)}
-                          >
-                            {f.rotulo}
-                          </Chip>
-                        ))}
-                      </div>
-                      <p className="mt-1.5 text-[13px] text-muted">
-                        Marque as funções em que o voluntário pode servir.
-                      </p>
-                    </>
-                  ) : (
-                    <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-primary-700">
-                      As designações AVI são definidas pelo administrador.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <p className="mb-1.5 text-[13px] font-semibold text-ink">Reuniões</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {REUNIOES_AVI.map((op) => (
-                      <Chip
-                        key={op.valor}
-                        ativo={(form.reunioes ?? 'ambos') === op.valor}
-                        onClick={() => alternar('reunioes', op.valor)}
-                      >
-                        {op.rotulo}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                <RegrasDesignacao
-                  setor="AUDIO_VIDEO"
-                  regras={regrasAvi}
-                  aoAlterar={(patch) => alterarRegras('AUDIO_VIDEO', patch)}
-                />
-              </section>
-            ) : null}
-
-            {incluiCampo || incluiAvi ? (
-              <>
-                <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm">
-                  <div>
-                    <p className="mb-1.5 text-[13px] font-semibold text-ink">Disponibilidade</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <Chip
-                        ativo={form.ativo !== false}
-                        onClick={() => alternar('ativo', true)}
-                      >
-                        Disponível
-                      </Chip>
-                      <Chip
-                        ativo={form.ativo === false}
-                        onClick={() => alternar('ativo', false)}
-                      >
-                        Inativo
-                      </Chip>
-                    </div>
-                    <p className="mt-1.5 text-[13px] text-muted">
-                      Inativo continua na lista, mas fica fora do rodízio.
-                    </p>
-                  </div>
-                </section>
-              </>
-            ) : null}
-
-            {!novo && (incluiCampo || incluiAvi) ? (
-              <p className="rounded-xl bg-canvas px-3 py-2 text-[13px] text-muted">
-                <span className="font-semibold text-ink">
-                  {contagem[form.id ?? ''] ?? 0} designaç
-                  {(contagem[form.id ?? ''] ?? 0) === 1 ? 'ão' : 'ões'}
-                </span>{' '}
-                em {mes + 1}/{String(ano).slice(2)}
-              </p>
-            ) : null}
-
-            {erro ? (
-              <p role="alert" className="text-sm font-semibold text-crimson">
-                {erro}
-              </p>
-            ) : null}
-
-            {avisoRodizio ? (
-              <p className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
-                Sem dias ou horários marcados este voluntário fica fora do rodízio automático.
-              </p>
-            ) : null}
-
-            <div className="space-y-4">
-              <Botao
-                variante="primario"
-                className="w-full py-3.5 text-base shadow-sm"
-                onClick={salvar}
-              >
-                Salvar voluntário
-              </Botao>
-
-              {/* Ação destrutiva no fim da ficha, separada do salvar. */}
-              {form.id ? (
-                <div className="border-t border-line pt-4">
-                  <Botao
-                    variante="perigo"
-                    className="w-full"
-                    onClick={() => {
-                      const alvo = dirigentes.find((d) => d.id === form.id)
-                      if (alvo) setExcluindo(alvo)
-                    }}
-                  >
-                    <Trash className="size-4" aria-hidden="true" />
-                    Excluir voluntário
-                  </Botao>
-                </div>
-              ) : null}
-            </div>
           </div>
-        )}
+        </div>
         {modalExclusao}
+        {modalOpcoes}
       </div>
     )
   }
@@ -964,6 +970,8 @@ export default function CadastroDirigentes({
           Novo voluntário
         </Botao>
       </BarraFixa>
+
+      {modalOpcoes}
     </div>
   )
 }

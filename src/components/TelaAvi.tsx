@@ -12,7 +12,9 @@ import {
 import { FUNCOES_AVI } from '../lib/dominio'
 import {
   CONGREGACAO_PADRAO,
+  DIAS_DISPARO,
   DIAS_SEMANA,
+  HORARIOS_DISPARO,
   infoDia,
   nomeDiaCurto,
 } from '../lib/constants'
@@ -76,12 +78,6 @@ function atendeReuniao(
   return secao === 'meio' ? reunioes === 'semana' : reunioes === 'fds'
 }
 
-const DIAS_DISPARO = Array.from({ length: 31 }, (_, i) => i + 1)
-const HORARIOS_DISPARO = Array.from(
-  { length: 48 },
-  (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 === 0 ? '00' : '30'}`,
-)
-
 /** Tela do setor AVI: escala mensal por designação, cadastro unificado e exportação. */
 export default function TelaAvi({
   aoAvisar,
@@ -91,7 +87,7 @@ export default function TelaAvi({
   slug,
 }: {
   aoAvisar: (texto: string, tipo?: TipoToast) => void
-  /** Abre a tela Voluntários (designações AVI) — administrador. */
+  /** Abre a tela Voluntários (designações AVI), administrador. */
   aoIrParaPessoas?: () => void
   /** Diz ao header global como "voltar" dentro da tela (fecha o editor de escala). */
   aoRegistrarVoltar?: (aoVoltar: (() => void) | null) => void
@@ -110,7 +106,7 @@ export default function TelaAvi({
     'gerar' | 'adiantar' | 'limparEscala' | null
   >(null)
   const [ocupado, setOcupado] = useState(false)
-  /** Abre a tabela do mês (ajuste dia a dia) — igual ao "Ajustar escala" do Campo. */
+  /** Abre a tabela do mês (ajuste dia a dia), igual ao "Ajustar escala" do Campo. */
   const [ajustando, setAjustando] = useState(false)
   /** Abre a lista completa do mês ("Ver escala completa"). */
   const [verCompletaAberto, setVerCompletaAberto] = useState(false)
@@ -149,7 +145,8 @@ export default function TelaAvi({
     return () => {
       vivo = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- recarrega por tentativa
+    // Recarrega por tentativa.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [tentativa])
 
   const registro = registroAviDe(dados, chave)
@@ -325,7 +322,7 @@ export default function TelaAvi({
   /**
    * Estado mais recente do setor, direto da nuvem. Evita a corrida em que a
    * tela gera a escala com aptidões recém-salvas (voluntário criado em outra
-   * tela) que ainda não estavam em memória — a geração sairia vazia.
+   * tela) que ainda não estavam em memória, a geração sairia vazia.
    */
   async function dadosAtualizados(): Promise<{ dados: DadosAvi; irmoes: typeof irmoes }> {
     try {
@@ -775,23 +772,23 @@ export default function TelaAvi({
 
       >
         <div className="space-y-3 px-5 pb-6 pt-1">
-          <button
-            type="button"
-            className="botao botao--primario"
+          <Botao
+            variante="primario"
+            className="w-full min-h-14 text-base"
             onClick={() => {
               if (confirmando === 'gerar') executarGeracao()
               else if (confirmando === 'adiantar') adiantarProximoMes()
             }}
           >
             {confirmando === 'gerar' ? 'Gerar' : 'Adiantar'}
-          </button>
-          <button
-            type="button"
-            className="botao botao--claro"
+          </Botao>
+          <Botao
+            variante="claro"
+            className="w-full min-h-14 text-base"
             onClick={() => setConfirmando(null)}
           >
             Cancelar
-          </button>
+          </Botao>
         </div>
       </Modal>
 

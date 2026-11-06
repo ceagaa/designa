@@ -184,71 +184,6 @@
     padding: 0.75rem 0;
   }
 
-  .botao {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    min-height: 56px;
-    padding: 0 20px;
-    border: 0;
-    border-radius: 999px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition:
-      background-color 150ms ease,
-      color 150ms ease,
-      border-color 150ms ease,
-      transform 100ms ease;
-  }
-
-  .botao:active {
-    transform: scale(0.985);
-  }
-
-  .botao:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .botao--primario {
-    background: var(--color-primary-600);
-    color: #ffffff;
-  }
-
-  .botao--primario:hover {
-    background: var(--color-primario-hover);
-  }
-
-  .botao--claro {
-    background: var(--color-neutro-100);
-    color: var(--color-primary-700);
-  }
-
-  .botao--claro:hover {
-    background: var(--color-neutro-200);
-  }
-
-  .botao--invertido {
-    background: #ffffff;
-    color: var(--color-primary-800);
-  }
-
-  .botao--invertido:hover {
-    background: rgba(255, 255, 255, 0.9);
-  }
-
-  .botao--perigo {
-    background: var(--color-perigo);
-    color: #ffffff;
-  }
-
-  .botao--perigo:hover {
-    background: var(--color-perigo-hover);
-  }
-
   .campo {
     width: 100%;
     border: 2px solid transparent;
@@ -504,7 +439,7 @@
 
 /*
  * Destaque de HOJE: borda "ao vivo" (anel pulsante) nos cards da
- * designação do dia atual — variante clara (fundo claro) e branca
+ * designação do dia atual, variante clara (fundo claro) e branca
  * (sobre o hero teal).
  */
 @keyframes anel-vivo {

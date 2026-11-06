@@ -30,7 +30,7 @@ const HOJE_ISO = isoDeHoje()
 const [HOJE_ANO, HOJE_MES] = HOJE_ISO.split('-').map(Number)
 
 /**
- * Rota pública /escala/:slug/AVI — mesma visão do administrador: cabeçalho do
+ * Rota pública /escala/:slug/AVI, mesma visão do administrador: cabeçalho do
  * setor, card "Próxima reunião" e a lista de "Designações futuras". Sem botões de
  * PDF/link: aqui só se consulta a escala.
  */

@@ -71,7 +71,7 @@ export default function TelaVer({ payload }: { payload: string }) {
       ? 'Próxima designação'
       : 'Última saída'
 
-  /** Próximas saídas depois do card de destaque — mesma lista do admin. */
+  /** Próximas saídas depois do card de destaque, mesma lista do admin. */
   const restantes = futuras.filter((linha) => linha.key !== destaque?.key)
 
   if (!dados) {

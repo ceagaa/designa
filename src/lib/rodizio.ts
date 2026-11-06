@@ -1,6 +1,7 @@
 import type { Dirigente, Ocorrencia } from './dominio'
 import { regrasDoDepartamento } from './dominio'
 import { frequenciaDe } from './constants'
+import { hash } from './utilitarios'
 
 /**
  * Intervalo mínimo em dias entre duas designações do mesmo dirigente,
@@ -64,14 +65,6 @@ interface Estatistica {
 interface CandidatoEscolhido {
   c: Estatistica
   placar: number[]
-}
-
-function hash(texto: string): number {
-  let h = 5381
-  for (let i = 0; i < texto.length; i += 1) {
-    h = ((h << 5) + h + texto.charCodeAt(i)) | 0
-  }
-  return Math.abs(h)
 }
 
 function preparar(dirigentes: Dirigente[], ocorrencias: Ocorrencia[]): Estatistica[] {

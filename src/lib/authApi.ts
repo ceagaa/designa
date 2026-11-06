@@ -174,7 +174,7 @@ export async function atualizarCongregacao(dados: {
   return resposta.usuario
 }
 
-/** Membro da equipe (contas da congregação) — admin. */
+/** Membro da equipe (contas da congregação), admin. */
 export interface MembroEquipe {
   id: string
   nome: string

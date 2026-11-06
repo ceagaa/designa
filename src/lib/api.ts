@@ -106,7 +106,7 @@ export async function salvarEstado(estado: Estado): Promise<DestinoEstado> {
     headers: { 'content-type': 'application/json', ...cabecalhosPin() },
     body: corpo,
     // `keepalive` deixa a gravação terminar mesmo se o app for fechado ou
-    // recarregado (F5) enquanto o PUT está em voo — sem ele, uma "Limpar
+    // recarregado (F5) enquanto o PUT está em voo, sem ele, uma "Limpar
     // designação" seguida de F5 se perde e a escala antiga volta do servidor.
     // Só quando o corpo cabe no limite do spec (estados enormes caem no normal).
     keepalive: corpo.length < LIMITE_KEEPALIVE,
