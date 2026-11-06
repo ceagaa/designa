@@ -102,9 +102,7 @@ export default function TelaAvi({
   const [tentativa, setTentativa] = useState(0)
   const [ano, setAno] = useState(() => new Date().getFullYear())
   const [mes, setMes] = useState(() => new Date().getMonth())
-  const [confirmando, setConfirmando] = useState<
-    'gerar' | 'adiantar' | 'limparEscala' | null
-  >(null)
+  const [confirmando, setConfirmando] = useState<'gerar' | 'limparEscala' | null>(null)
   const [ocupado, setOcupado] = useState(false)
   /** Abre a tabela do mês (ajuste dia a dia), igual ao "Ajustar escala" do Campo. */
   const [ajustando, setAjustando] = useState(false)
@@ -190,7 +188,6 @@ export default function TelaAvi({
   /** Próximas reuniões depois do card de destaque (sem repetir o que já aparece). */
   const posteriores = destaque ? proximas.filter((o) => o.iso > destaque.iso) : []
   const lista = posteriores.slice(0, 8)
-  const restam = posteriores.length - lista.length
   const compartilhavel = gerado && preenchidos > 0
 
   function itemAvi(oc: { iso: string; diaSemana: number }) {
@@ -216,11 +213,6 @@ export default function TelaAvi({
     ? `${nomeDiaCurto(destaque.diaSemana)}, ${destaque.iso.slice(8, 10)}/${destaque.iso.slice(5, 7)}`
     : ''
 
-  const proximo = mes === 11 ? { ano: ano + 1, mes: 0 } : { ano, mes: mes + 1 }
-  const proximoChave = chaveMes(proximo.ano, proximo.mes)
-  const proximoPronto = Boolean(registroAviDe(dados, proximoChave).geradoEm)
-  const proximoNome = nomeMes(proximo.mes)
-
   // Enquanto o setor carrega, a tela já abre: chip neutro e conteúdo por extensão.
   const status: StatusDesignacao = !carregado
     ? { rotulo: '…', estilo: 'bg-canvas text-muted', ponto: 'bg-muted' }
@@ -242,6 +234,14 @@ export default function TelaAvi({
 
   const acoesMenu: AcaoMenu[] = [
     {
+      icone: <Eye className="size-4" />,
+      cor: 'bg-teal-tint text-teal',
+      titulo: 'Ver escala completa',
+      texto: ocorrencias.length ? 'Lista todas as reuniões do mês' : 'Sem reuniões neste mês',
+      desabilitado: !ocorrencias.length,
+      onClick: () => setVerCompletaAberto(true),
+    },
+    {
       icone: <Sparkles className="size-4" />,
       cor: 'bg-teal text-white',
       titulo: 'Gerar escala',
@@ -250,21 +250,6 @@ export default function TelaAvi({
         : 'Monta o mês pelo rodízio, mantendo ajustes',
       desabilitado: !ocorrencias.length,
       onClick: pedirGeracao,
-    },
-    {
-      icone: <CalendarDays className="size-4" />,
-      cor: 'bg-success-bg text-success',
-      titulo: proximoPronto
-        ? `Ver escala de ${proximoNome}`
-        : `Adiantar escala de ${proximoNome}`,
-      texto: proximoPronto
-        ? 'Próxima escala já gerada, confira.'
-        : 'Gera a escala do mês seguinte com antecedência',
-      desabilitado: !proximoPronto && (!ocorrencias.length || !irmoes.length),
-      onClick: () => {
-        if (proximoPronto) mudarPara(proximo.ano, proximo.mes)
-        else setConfirmando('adiantar')
-      },
     },
     {
       icone: <PencilLine className="size-4" />,
@@ -361,21 +346,6 @@ export default function TelaAvi({
   function pedirGeracao() {
     if (gerado) setConfirmando('gerar')
     else executarGeracao()
-  }
-
-  function adiantarProximoMes() {
-    if (ocupado) return
-    setOcupado(true)
-    setConfirmando(null)
-    void dadosAtualizados().then((estado) => {
-      const geradoNovo = gerarAviDoMes(estado.dados, estado.irmoes, proximoChave, {
-        forcar: true,
-      })
-      return persistir(geradoNovo).then(() => {
-        setOcupado(false)
-        aoAvisar(`Escala AVI de ${proximoNome} de ${proximo.ano} gerada.`)
-      })
-    })
   }
 
   function alterarSlot(slot: string, idIrmao: string) {
@@ -704,20 +674,6 @@ export default function TelaAvi({
                   <LinhaAvi key={oc.iso} item={itemAvi(oc)} />
                 ))}
               </div>
-              {restam > 0 ? (
-                <p className="px-1 text-[13px] text-muted">
-                  + {restam} reunião{restam === 1 ? '' : 'ões'} neste mês
-                </p>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={() => setVerCompletaAberto(true)}
-                className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-teal underline underline-offset-2 transition-colors hover:text-primario-hover"
-              >
-                <Eye className="size-4" aria-hidden="true" />
-                Ver escala completa
-              </button>
             </section>
           ) : null}
         </>
@@ -755,32 +711,20 @@ export default function TelaAvi({
       </Modal>
 
       <Modal
-        aberto={confirmando === 'gerar' || confirmando === 'adiantar'}
+        aberto={confirmando === 'gerar'}
         aoFechar={() => setConfirmando(null)}
         cartaoAviso
         focoAoAbrir="ultimo"
-        titulo={
-          confirmando === 'gerar'
-            ? 'Gerar novamente?'
-            : `Adiantar escala de ${proximoNome}?`
-        }
-        descricao={
-          confirmando === 'gerar'
-            ? `A escala de ${nomeMes(mes)} de ${ano} será refeita. Os ajustes manuais são preservados.`
-            : `A escala de ${proximoNome} de ${proximo.ano} será gerada agora pelo rodízio.`
-        }
-
+        titulo="Gerar novamente?"
+        descricao={`A escala de ${nomeMes(mes)} de ${ano} será refeita. Os ajustes manuais são preservados.`}
       >
         <div className="space-y-3 px-5 pb-6 pt-1">
           <Botao
             variante="primario"
             className="w-full min-h-14 text-base"
-            onClick={() => {
-              if (confirmando === 'gerar') executarGeracao()
-              else if (confirmando === 'adiantar') adiantarProximoMes()
-            }}
+            onClick={() => executarGeracao()}
           >
-            {confirmando === 'gerar' ? 'Gerar' : 'Adiantar'}
+            Gerar
           </Botao>
           <Botao
             variante="claro"

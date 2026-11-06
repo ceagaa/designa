@@ -9,7 +9,6 @@ import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  CalendarDays,
   Eye,
   FileDown,
   ListPlus,
@@ -488,16 +487,14 @@ export default function TelaTpl({
               ponto: 'bg-crimson animate-pulse',
             }
 
-  const proximo = mes === 11 ? { ano: ano + 1, mes: 0 } : { ano, mes: mes + 1 }
-  const proximoNome = nomeMes(proximo.mes)
-
   const acoesMenu: AcaoMenu[] = [
     {
-      icone: <CalendarDays className="size-4" />,
-      cor: 'bg-success-bg text-success',
-      titulo: `Ver escala de ${proximoNome}`,
-      texto: 'Abre o mês seguinte para montar as duplas',
-      onClick: () => mudarPara(proximo.ano, proximo.mes),
+      icone: <Eye className="size-4" />,
+      cor: 'bg-teal-tint text-teal',
+      titulo: 'Ver escala completa',
+      texto: ocorrencias.length ? 'Lista todas as saídas do mês' : 'Sem períodos neste mês',
+      desabilitado: !ocorrencias.length,
+      onClick: () => setVerCompletaAberto(true),
     },
     {
       icone: <PencilLine className="size-4" />,
@@ -539,7 +536,6 @@ export default function TelaTpl({
   /** Próximas saídas depois do card de destaque (sem repetir o que já aparece). */
   const posteriores = destaque ? proximas.filter((o) => o.key !== destaque.key) : proximas
   const lista = posteriores.slice(0, 8)
-  const restam = posteriores.length - lista.length
 
   function nomesDe(ids: Array<string | undefined>): Array<string | null> {
     return ids.map((id) => (id ? (porId.get(id)?.nome ?? null) : null))
@@ -863,20 +859,6 @@ export default function TelaTpl({
                     )
                   })}
                 </div>
-                {restam > 0 ? (
-                  <p className="px-1 text-[13px] text-muted">
-                    + {restam} saída{restam === 1 ? '' : 's'} neste mês
-                  </p>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={() => setVerCompletaAberto(true)}
-                  className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-teal underline underline-offset-2 transition-colors hover:text-primario-hover"
-                >
-                  <Eye className="size-4" aria-hidden="true" />
-                  Ver escala completa
-                </button>
               </section>
             ) : null}
           </>

@@ -2,7 +2,6 @@ import type { Campo, Dirigente, Ocorrencia } from '../lib/dominio'
 import { useState } from 'react'
 import {
   CalendarDays,
-  CalendarPlus,
   Eye,
   FileDown,
   PencilLine,
@@ -36,10 +35,6 @@ interface ResumoDesignacaoProps {
   campos: Campo[]
   pronta: boolean
   gerado: boolean
-  proximoNome: string
-  proximoPronto: boolean
-  aoAdiantar: () => void
-  aoVerProximo: () => void
   aoMontar: () => void
   aoGerar: () => void
   aoLimparDesignacao: () => void
@@ -61,10 +56,6 @@ export default function ResumoDesignacao({
   campos,
   pronta,
   gerado,
-  proximoNome,
-  proximoPronto,
-  aoAdiantar,
-  aoVerProximo,
   aoMontar,
   aoGerar,
   aoLimparDesignacao,
@@ -75,7 +66,6 @@ export default function ResumoDesignacao({
   aoCadastrar,
 }: ResumoDesignacaoProps) {
   const [gerarAberto, setGerarAberto] = useState(false)
-  const [adiantarAberto, setAdiantarAberto] = useState(false)
   const [limparAberto, setLimparAberto] = useState(false)
   const [verCompletaAberto, setVerCompletaAberto] = useState(false)
 
@@ -141,24 +131,20 @@ export default function ResumoDesignacao({
 
   const acoesMenu: AcaoMenu[] = [
     {
+      icone: <Eye className="size-4" />,
+      cor: 'bg-teal-tint text-teal',
+      titulo: 'Ver escala completa',
+      texto: ocorrencias.length ? 'Lista todos os dias do mês' : 'Sem dias de campo neste mês',
+      desabilitado: !ocorrencias.length,
+      onClick: () => setVerCompletaAberto(true),
+    },
+    {
       icone: <Sparkles className="size-4" />,
       cor: 'bg-teal text-white',
       titulo: 'Gerar escala',
       texto: semCampos ? 'Cadastre dias de campo primeiro' : 'Monta o mês pelo rodízio',
       desabilitado: semCampos,
       onClick: () => setGerarAberto(true),
-    },
-    {
-      icone: <CalendarPlus className="size-4" />,
-      cor: 'bg-success-bg text-success',
-      titulo: proximoPronto
-        ? `Ver escala de ${proximoNome}`
-        : `Adiantar escala de ${proximoNome}`,
-      texto: proximoPronto
-        ? 'Próxima escala já gerada, confira.'
-        : 'Gera a escala do mês seguinte com antecedência',
-      desabilitado: !proximoPronto && (semCampos || semDirigentes),
-      onClick: () => (proximoPronto ? aoVerProximo() : setAdiantarAberto(true)),
     },
     {
       icone: <PencilLine className="size-4" />,
@@ -272,15 +258,6 @@ export default function ResumoDesignacao({
               />
             ))}
           </div>
-
-          <button
-            type="button"
-            onClick={() => setVerCompletaAberto(true)}
-            className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-teal underline underline-offset-2 transition-colors hover:text-primario-hover"
-          >
-            <Eye className="size-4" aria-hidden="true" />
-            Ver escala completa
-          </button>
         </section>
       ) : null}
 
@@ -360,37 +337,6 @@ export default function ResumoDesignacao({
             variante="claro"
             className="w-full min-h-14 text-base"
             onClick={() => setGerarAberto(false)}
-          >
-            Cancelar
-          </Botao>
-        </div>
-      </Modal>
-
-      {/* Confirmar adiantamento */}
-      <Modal
-        aberto={adiantarAberto}
-        aoFechar={() => setAdiantarAberto(false)}
-        titulo={`Adiantar escala de ${proximoNome}?`}
-        cartaoAviso
-        focoAoAbrir="ultimo"
-        descricao={`Gera a escala do mês seguinte agora, além de ${MESES[mes]} de ${ano}.`}
-      >
-        <div className="space-y-3 px-5 pb-6 pt-1">
-          <Botao
-            variante="primario"
-            className="w-full min-h-14 text-base"
-            onClick={() => {
-              setAdiantarAberto(false)
-              aoAdiantar()
-            }}
-          >
-            <CalendarPlus className="size-5" aria-hidden="true" />
-            Adiantar
-          </Botao>
-          <Botao
-            variante="claro"
-            className="w-full min-h-14 text-base"
-            onClick={() => setAdiantarAberto(false)}
           >
             Cancelar
           </Botao>

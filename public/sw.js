@@ -1,6 +1,6 @@
 /* Service worker do Designa: shell offline + notificações push.
    Em desenvolvimento (localhost) não intercepta nada, o Vite serve os módulos. */
-const CACHE = 'designa-v2.0.1'
+const CACHE = 'designa-v2.1.3'
 const SHELL = [
   '/',
   '/manifest.webmanifest',

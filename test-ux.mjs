@@ -135,6 +135,24 @@ async function acaoMenu(texto) {
   await page.locator(`[role=menu] button:has-text("${texto}")`).click()
 }
 
+/**
+ * O acesso à lista do mês ("Ver escala completa") vive dentro do menu ⋮:
+ * clica no item (com o menu já aberto ou reabrindo) e confere o modal.
+ */
+async function verificarEscalaCompleta(setor, menuAberto) {
+  if (menuAberto) {
+    await page.locator('[role=menu] button:has-text("Ver escala completa")').click()
+  } else {
+    await acaoMenu('Ver escala completa')
+  }
+  const dialogo = page.locator('[role=dialog]')
+  await dialogo.waitFor({ timeout: 10000 })
+  const titulo = (await page.locator('#modal-titulo').innerText().catch(() => '')).trim()
+  ck(`${setor}: escala completa abre pelo menu ⋮`, titulo === 'Escala completa', titulo)
+  await dialogo.locator('button[aria-label="Fechar"]').click()
+  await dialogo.waitFor({ state: 'detached', timeout: 10000 })
+}
+
 async function baixarPdfDoResumo(tela, seletorEditor) {
   await page.locator('header button[aria-label="Voltar"]').click()
   await page.waitForSelector(seletorEditor, { state: 'detached', timeout: 20000 })
@@ -480,15 +498,23 @@ try {
     'campo: sem barra fixa Gerar/PDF/Link',
     (await page.locator('button:text-is("Gerar"), button:text-is("PDF"), button:text-is("Link")').count()) === 0,
   )
+  ck(
+    'campo: sem botão solto Ver escala completa',
+    (await page.locator('button:text-is("Ver escala completa")').count()) === 0,
+  )
   await abrirMenuAcoes()
   ck(
-    'campo: menu ⋮ com gerar, ajustar, limpar, PDF e link',
-    (await page.locator('[role=menu] button:has-text("Gerar escala")').count()) > 0 &&
+    'campo: menu ⋮ com ver escala, gerar, ajustar, limpar, PDF e link',
+    (await page.locator('[role=menu] button:has-text("Ver escala completa")').count()) > 0 &&
+      (await page.locator('[role=menu] button:has-text("Gerar escala")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Ajustar escala")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Limpar designação")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Baixar PDF")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Compartilhar link")').count()) > 0,
   )
+  await verificarEscalaCompleta('campo', true)
+  // O clique no item fecha o menu, então reabrimos para o PDF.
+  await abrirMenuAcoes()
   let dl = page.waitForEvent('download', { timeout: 30000 }).catch(() => null)
   await page.locator('[role=menu] button:has-text("Baixar PDF")').click()
   let arquivo = await dl
@@ -651,16 +677,22 @@ try {
     'avi: sem barra fixa Gerar/PDF/Link',
     (await page.locator('button:text-is("Gerar"), button:text-is("PDF"), button:text-is("Link")').count()) === 0,
   )
+  ck(
+    'avi: sem botão solto Ver escala completa',
+    (await page.locator('button:text-is("Ver escala completa")').count()) === 0,
+  )
   await abrirMenuAcoes()
   ck(
-    'avi: menu ⋮ com gerar, ajustar, limpar, PDF e link',
-    (await page.locator('[role=menu] button:has-text("Gerar escala")').count()) > 0 &&
+    'avi: menu ⋮ com ver escala, gerar, ajustar, limpar, PDF e link',
+    (await page.locator('[role=menu] button:has-text("Ver escala completa")').count()) > 0 &&
+      (await page.locator('[role=menu] button:has-text("Gerar escala")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Ajustar escala")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Limpar designação")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Baixar PDF")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Compartilhar link")').count()) > 0,
   )
   await fecharMenuAcoes()
+  await verificarEscalaCompleta('avi')
   // Voluntário AVI com aptidões: o cartão do PDF precisa mostrar os nomes.
   await page.getByRole('button', { name: 'Voluntários', exact: true }).click()
   await page.waitForSelector('h2:has-text("Quadro de voluntários")', { timeout: 15000 })
@@ -855,15 +887,21 @@ try {
     'tpl: sem barra fixa Ajustar/PDF/Link',
     (await page.locator('button:text-is("Ajustar"), button:text-is("PDF"), button:text-is("Link")').count()) === 0,
   )
+  ck(
+    'tpl: sem botão solto Ver escala completa',
+    (await page.locator('button:text-is("Ver escala completa")').count()) === 0,
+  )
   await abrirMenuAcoes()
   ck(
-    'tpl: menu ⋮ com ajustar, limpar, PDF e link',
-    (await page.locator('[role=menu] button:has-text("Ajustar escala")').count()) > 0 &&
+    'tpl: menu ⋮ com ver escala, ajustar, limpar, PDF e link',
+    (await page.locator('[role=menu] button:has-text("Ver escala completa")').count()) > 0 &&
+      (await page.locator('[role=menu] button:has-text("Ajustar escala")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Limpar designação")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Baixar PDF")').count()) > 0 &&
       (await page.locator('[role=menu] button:has-text("Compartilhar link")').count()) > 0,
   )
   await fecharMenuAcoes()
+  await verificarEscalaCompleta('tpl')
   await acaoMenu('Ajustar escala')
   const selectsTpl = page.locator('select[id^="tpl-"]')
   await selectsTpl.first().waitFor({ timeout: 15000 })

@@ -6,7 +6,7 @@ A ideia é simples: cada voluntário tem uma ficha, cada departamento tem seu je
 
 A interface é pensada para o celular primeiro, com botões grandes, uma coluna só e tudo o que é importante alcançável com o polegar. Funciona bem no computador também.
 
-Versão atual: **2.0.1**.
+Versão atual: **2.1.3**.
 
 ## O que dá para fazer
 

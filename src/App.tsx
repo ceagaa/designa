@@ -34,7 +34,7 @@ import { chaveMes, ocorrenciasDoMes, nomeMes } from './lib/datas'
 import { estadoInicial, registroDe } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
 import { designarDia } from './lib/rodizio'
-import { Erro401, carregarEstado, gerarEscalaRemota, salvarEstado } from './lib/api'
+import { Erro401, carregarEstado, salvarEstado } from './lib/api'
 import { atualizarCongregacao, sair as sairAuth, sessaoAtual } from './lib/authApi'
 import { baixarPdf } from './lib/export'
 
@@ -406,28 +406,6 @@ export default function App() {
         ? `Designação de ${nomeMes(mes)} de ${ano} gerada.`
         : 'Nenhum dia de campo neste mês.',
     )
-  }
-
-  /** Gera (ou tenta gerar) a escala do mês seguinte: Worker primeiro, local se offline. */
-  async function adiantarProximoMes() {
-    if (proximoPronto) {
-      avisar(`Escala de ${nomeMes(proximo.mes)} já existe.`)
-      return
-    }
-    const resultado = await gerarEscalaRemota(proximo.chave)
-    if (resultado.ok) {
-      setEstado(resultado.estado)
-      avisar(`Escala de ${nomeMes(proximo.mes)} de ${proximo.ano} gerada.`)
-      return
-    }
-    if (resultado.motivo === 'existe') {
-      const { estado: doServidor } = await carregarEstado()
-      setEstado(doServidor)
-      avisar(`Escala de ${nomeMes(proximo.mes)} já existe no servidor.`)
-      return
-    }
-    setEstado(gerarEscalaDoMes(estado, proximo.chave))
-    avisar(`Sem conexão: escala de ${nomeMes(proximo.mes)} gerada neste aparelho.`, 'erro')
   }
 
   /** Aplica o mesmo valor a várias ocorrências (linha agrupada de dia fixo). */
@@ -830,13 +808,6 @@ export default function App() {
             campos={campos}
             pronta={pronta}
             gerado={gerado}
-            proximoNome={nomeMes(proximo.mes)}
-            proximoPronto={proximoPronto}
-            aoAdiantar={adiantarProximoMes}
-            aoVerProximo={() => {
-              setAno(proximo.ano)
-              setMes(proximo.mes)
-            }}
             aoMontar={() => setTabelaAberta(true)}
             aoGerar={gerar}
             aoLimparDesignacao={limparDesignacao}
