@@ -351,11 +351,7 @@ export function CardHeroTpl({
 }) {
   const dupla = nomes.filter((n): n is string => Boolean(n))
   return (
-    <section
-      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl ${
-        ehHoje ? 'escala-hoje-branco' : ''
-      }`}
-    >
+    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl">
       <div
         className="pointer-events-none absolute -bottom-10 -right-8 size-44 rounded-full bg-white/10 blur-2xl"
         aria-hidden="true"
@@ -407,11 +403,7 @@ export function LinhaTpl({ item }: { item: ItemListaTpl }) {
   const ehHoje = item.iso === HOJE_ISO
   const dupla = item.nomes.filter((n): n is string => Boolean(n))
   return (
-    <article
-      className={`flex w-full items-start gap-3 rounded-xl bg-card p-4 shadow-sm ${
-        ehHoje ? 'escala-hoje' : ''
-      }`}
-    >
+    <article className="flex w-full items-start gap-3 rounded-xl bg-card p-4 shadow-sm">
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
         <CalendarDays className="size-5" aria-hidden="true" />
       </span>
