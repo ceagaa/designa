@@ -1,51 +1,52 @@
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { ChevronRight, Monitor, Moon, Palette, ShieldCheck, Sun, Tag } from 'lucide-react'
+import { ChevronRight, Monitor, Moon, Palette, ScrollText, ShieldCheck, Sun, Tag } from 'lucide-react'
 import type { Tema } from '../lib/tema'
 import { definirTema } from '../lib/tema'
 import { Modal } from './ui'
 
 /**
- * Sheet "Sobre o app": lista de opções (Política, Aparência, Versão), cada uma
- * abrindo a própria página dentro do sheet, com voltar no cabeçalho. UI/UX do
- * módulo modal-sobre (folha inferior PicPay: linhas de 68px com ícone de 24px,
- * seta e divisor de 1px, chips de tema e card de versão), montado sobre o
- * `Modal` compartilhado e com os textos do designa.
+ * Sheet "Sobre o app": lista de opções (Política, Termos, Aparência, Versão).
+ * As duas primeiras navegam para as páginas públicas `/privacidade` e
+ * `/termos`, que são as URLs exigidas pelo consent screen do Google; as
+ * outras abrem a própria subpágina dentro do sheet, com voltar no cabeçalho.
+ * UI/UX do módulo modal-sobre (folha inferior PicPay: linhas de 68px com
+ * ícone de 24px, seta e divisor de 1px, chips de tema e card de versão),
+ * montado sobre o `Modal` compartilhado e com os textos do designa.
  */
 
 const VERSAO = '2.1.4'
 
-const POLITICA = {
-  introducao: 'A gente guarda o mínimo possível pra escala funcionar:',
-  pontos: [
-    {
-      titulo: 'O que ficamos guardando',
-      texto: 'Nome e telefone de quem colabora, o setor de cada um, e o e-mail de quem tem conta.',
-    },
-    {
-      titulo: 'Publicidade e revenda',
-      texto: 'Nada de anúncio, nada de revenda, nada de compartilhar seus dados com terceiros. Suas informações ficam numa base protegida e o acesso é por conta, cada pessoa vê só o que lhe cabe.',
-    },
-    {
-      titulo: 'Quer mudar ou apagar algo?',
-      texto: 'Se um dia quiser sair, é só pedir. A gente apaga o cadastro e tudo que é dele. Simples assim.',
-    },
-  ],
-}
+type Pagina = 'lista' | 'aparencia' | 'versao'
 
-type Pagina = 'lista' | 'politica' | 'aparencia' | 'versao'
+/** Itens da lista que só existem como página pública fora do sheet. */
+type ItemLegal = 'privacidade' | 'termos'
 
 type ItemLista = {
-  id: Exclude<Pagina, 'lista'>
+  id: ItemLegal | Exclude<Pagina, 'lista'>
   rotulo: string
   Icone: LucideIcon
 }
 
 const ITENS: ItemLista[] = [
-  { id: 'politica', rotulo: 'Política de privacidade', Icone: ShieldCheck },
+  { id: 'privacidade', rotulo: 'Política de Privacidade', Icone: ShieldCheck },
+  { id: 'termos', rotulo: 'Termos de Serviço', Icone: ScrollText },
   { id: 'aparencia', rotulo: 'Aparência', Icone: Palette },
   { id: 'versao', rotulo: 'Versão', Icone: Tag },
 ]
+
+/** Páginas legais saem do sheet e abrem a rota pública correspondente. */
+function abrirItem(id: ItemLista['id'], setPagina: (p: Pagina) => void) {
+  if (id === 'privacidade') {
+    window.location.assign('/privacidade')
+    return
+  }
+  if (id === 'termos') {
+    window.location.assign('/termos')
+    return
+  }
+  setPagina(id)
+}
 
 const TEMAS: { id: Tema; rotulo: string; Icone: LucideIcon }[] = [
   { id: 'auto', rotulo: 'Automático', Icone: Monitor },
@@ -136,7 +137,7 @@ export default function ModalInfo({
               <li key={id}>
                 <button
                   type="button"
-                  onClick={() => setPagina(id)}
+                  onClick={() => abrirItem(id, setPagina)}
                   className="flex min-h-[68px] w-full items-center gap-4 rounded-xl px-3 py-3 text-left transition-colors hover:bg-line-soft"
                 >
                   <Icone className="size-6 shrink-0 text-teal" strokeWidth={1.8} aria-hidden="true" />
@@ -148,23 +149,6 @@ export default function ModalInfo({
               </li>
             ))}
           </ul>
-        ) : null}
-
-        {pagina === 'politica' ? (
-          <div>
-            <p className="mb-4 text-[15px] leading-[1.625] text-ink-soft">{POLITICA.introducao}</p>
-            <ul className="flex flex-col gap-4">
-              {POLITICA.pontos.map((ponto) => (
-                <li key={ponto.titulo} className="flex gap-3">
-                  <span className="mt-2 size-2 shrink-0 rounded-full bg-teal" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-[15px] font-extrabold leading-snug text-ink">{ponto.titulo}</p>
-                    <p className="mt-0.5 text-[14px] leading-[1.625] text-ink-soft">{ponto.texto}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
         ) : null}
 
         {pagina === 'aparencia' ? (

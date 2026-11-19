@@ -167,10 +167,10 @@ try {
   // ---------- 1) Marca na tela de login (apos splash) ----------
   await page.goto(BASE, { waitUntil: 'networkidle', timeout: 45000 })
   await page.waitForSelector('#lg-email', { state: 'visible', timeout: 20000 })
-  ck('login: titulo visual e logotipo', await page.locator('h1 img[src="/img/LOGOTIPO.png"]').first().isVisible())
+  ck('login: titulo visual e logotipo', await page.locator('h1 img[src^="/img/LOGOTIPO"]').first().isVisible())
   ck(
     'login: logotipo Designa visivel',
-    await page.locator('img[src="/img/LOGOTIPO.png"]').first().isVisible(),
+    await page.locator('img[src^="/img/LOGOTIPO"]').first().isVisible(),
   )
   ck('login: sem titulo Designa duplicado', (await page.locator('h1').first().innerText()).trim() === '')
   ck('login: sem referencia a Sao Joao', !(await page.content()).includes('Paraíso'))
@@ -974,18 +974,16 @@ try {
     ck('publico CAMPO: sem botão Ir para o app', (await page.locator('button:has-text("Ir para o app")').count()) === 0)
     await shot('15-publico-campo')
 
-    // Modal de info: lista de opções e subpáginas.
+    // Modal de info: lista de opções, subpágina de aparência e páginas legais.
     await page.locator('button[aria-label="Sobre o app"]').first().click()
     await page.locator('[role=dialog]').waitFor({ timeout: 10000 })
     ck(
-      'info: lista com as 3 opções',
-      (await page.locator('[role=dialog] button:has-text("Política de privacidade")').count()) > 0 &&
+      'info: lista com as 4 opções',
+      (await page.locator('[role=dialog] button:has-text("Política de Privacidade")').count()) === 1 &&
+        (await page.locator('[role=dialog] button:has-text("Termos de Serviço")').count()) === 1 &&
         (await page.locator('[role=dialog] button:has-text("Aparência")').count()) > 0 &&
         (await page.locator('[role=dialog] button:has-text("Versão")').count()) > 0,
     )
-    await page.locator('[role=dialog] button:has-text("Política de privacidade")').click()
-    ck('info: subpágina Política abre', (await page.locator('[role=dialog]').getByText(/Nada de anúncio/).count()) > 0)
-    await page.locator('[role=dialog] button[aria-label="Voltar"]').click()
     await page.locator('[role=dialog] button:has-text("Aparência")').click()
     ck(
       'info: Aparência oferece os 3 temas',
@@ -999,9 +997,32 @@ try {
     await shot('15b-info-aparencia')
     await page.locator('[role=dialog] button[aria-label="Fechar"]').click()
     await page.locator('[role=dialog]').waitFor({ state: 'detached', timeout: 10000 })
+
+    // Os botões legais saem do sheet e abrem as páginas públicas.
+    const urlPublica = page.url()
     await page.locator('button[aria-label="Sobre o app"]').first().click()
-    ck('info: ao reabrir volta para a lista', (await page.locator('[role=dialog] button:has-text("Política de privacidade")').count()) > 0)
-    await page.locator('[role=dialog] button[aria-label="Fechar"]').click()
+    await page.locator('[role=dialog]').waitFor({ timeout: 10000 })
+    ck(
+      'info: ao reabrir volta para a lista',
+      (await page.locator('[role=dialog] button:has-text("Política de Privacidade")').count()) > 0,
+    )
+    await page.locator('[role=dialog] button:has-text("Política de Privacidade")').click()
+    await page.waitForURL('**/privacidade', { timeout: 20000 })
+    await page.waitForSelector('h1:has-text("Política de Privacidade")', { timeout: 15000 })
+    ck('info: Política abre a página pública', (await page.locator('h1:has-text("Política de Privacidade")').count()) > 0)
+    ck('info: Política sem travessão', !(await page.locator('body').innerText()).includes('—'))
+    await shot('15c-privacidade')
+
+    await page.goto(urlPublica, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.waitForSelector('button[aria-label="Sobre o app"]', { timeout: 15000 })
+    await page.locator('button[aria-label="Sobre o app"]').first().click()
+    await page.locator('[role=dialog]').waitFor({ timeout: 10000 })
+    await page.locator('[role=dialog] button:has-text("Termos de Serviço")').click()
+    await page.waitForURL('**/termos', { timeout: 20000 })
+    await page.waitForSelector('h1:has-text("Termos de Serviço")', { timeout: 15000 })
+    ck('info: Termos abrem a página pública', (await page.locator('h1:has-text("Termos de Serviço")').count()) > 0)
+    ck('info: Termos sem travessão', !(await page.locator('body').innerText()).includes('—'))
+    await shot('15d-termos')
 
     await page.goto(`${BASE}/escala/${encodeURIComponent(slug)}/AVI`, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForSelector('text=/Próxima reunião|Primeira reunião|próximas designações|Não há mais reuniões|Nenhuma escala publicada|Não foi possível carregar/', { timeout: 20000 })

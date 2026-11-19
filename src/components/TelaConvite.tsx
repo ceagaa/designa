@@ -5,6 +5,7 @@ import type { Usuario } from '../lib/dominio'
 import { ROTULO_SETOR } from '../lib/dominio'
 import { ErroAuth, aceitarConvite, infoConvite, textoErroAuth } from '../lib/authApi'
 import { Botao, Input, Kicker, Rotulo } from './ui'
+import Logo from './Logo'
 
 interface InfoConvite {
   congregacao: string
@@ -27,7 +28,6 @@ export default function TelaConvite({
 }) {
   const [fase, setFase] = useState<Fase>({ id: 'verificando' })
   const [nome, setNome] = useState('')
-  const [sobrenome, setSobrenome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -56,10 +56,10 @@ export default function TelaConvite({
   async function enviar(evento: FormEvent) {
     evento.preventDefault()
     setErro(null)
-    const completo = `${nome.trim()} ${sobrenome.trim()}`.trim()
+    const completo = nome.trim()
     const emailLimpo = email.trim().toLowerCase()
     if (completo.length < 3) {
-      setErro('Informe nome e sobrenome.')
+      setErro('Informe seu nome completo.')
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailLimpo)) {
@@ -154,13 +154,8 @@ export default function TelaConvite({
     <div className="flex min-h-svh flex-col justify-center px-5 py-8">
       <div className="mx-auto w-full max-w-md">
         <header className="mb-5 text-center">
-          <span
-            className="mx-auto flex w-fit items-center justify-center rounded-2xl bg-white px-5 py-3 shadow-lg"
-            aria-hidden="true"
-          >
-            <img src="/img/LOGOTIPO.png" alt="" className="h-9 w-auto" draggable={false} />
-          </span>
-          <h1 className="mt-4 text-[22px] font-bold leading-snug tracking-tight text-ink">
+          <Logo alt="" className="mx-auto h-9 w-auto" />
+          <h1 className="mt-4 text-[18px] font-bold leading-snug tracking-tight text-ink">
             Você foi convidado para gerenciar{' '}
             <span className="text-teal">{ROTULO_SETOR[info.setor]}</span> na Congregação{' '}
             {info.congregacao}.
@@ -168,32 +163,18 @@ export default function TelaConvite({
         </header>
 
         <form onSubmit={enviar} className="space-y-4" noValidate>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Rotulo htmlFor="cv-nome">Nome</Rotulo>
-              <Input
-                id="cv-nome"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                autoComplete="given-name"
-                autoCapitalize="words"
-                placeholder="Nome"
-                autoFocus
-                enterKeyHint="next"
-              />
-            </div>
-            <div>
-              <Rotulo htmlFor="cv-sobrenome">Sobrenome</Rotulo>
-              <Input
-                id="cv-sobrenome"
-                value={sobrenome}
-                onChange={(e) => setSobrenome(e.target.value)}
-                autoComplete="family-name"
-                autoCapitalize="words"
-                placeholder="Sobrenome"
-                enterKeyHint="next"
-              />
-            </div>
+          <div>
+            <Rotulo htmlFor="cv-nome">Nome Completo</Rotulo>
+            <Input
+              id="cv-nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              autoComplete="name"
+              autoCapitalize="words"
+              placeholder="Nome completo"
+              autoFocus
+              enterKeyHint="next"
+            />
           </div>
           <div>
             <Rotulo htmlFor="cv-email">E-mail</Rotulo>
@@ -210,9 +191,6 @@ export default function TelaConvite({
               placeholder="voce@exemplo.com"
               enterKeyHint="next"
             />
-            <p className="mt-1 text-[12px] text-muted">
-              É com este e-mail que você entra depois, neste aparelho ou em outro.
-            </p>
           </div>
           <div>
             <Rotulo htmlFor="cv-senha">Senha</Rotulo>

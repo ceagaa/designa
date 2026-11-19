@@ -1,11 +1,13 @@
 /**
  * Splash (12 do manual): fundo em degradê teal com brilho radial e o
- * logotipo sozinho, em versão branca (o PNG é recolorido com filtro),
- * sem cartão ou qualquer caixa atrás dele.
+ * logotipo sozinho, na versão branca (`LOGOTIPOW.png`), sem caixa ou
+ * qualquer fundo atrás dele.
  *
  * O texto visível é `aria-hidden` de propósito: o anúncio para leitores de
  * tela vem do `role="status"` com a frase sr-only.
  */
+import Logo from './Logo'
+
 export default function Splash({ saindo }: { saindo: boolean }) {
   return (
     <div
@@ -22,12 +24,7 @@ export default function Splash({ saindo }: { saindo: boolean }) {
 
       <div className="relative flex flex-col items-center" aria-hidden="true">
         <div className="splash-logo">
-          <img
-            src="/img/LOGOTIPO.png"
-            alt=""
-            className="w-60 max-w-none brightness-0 invert drop-shadow-[0_2px_10px_rgba(0,0,0,0.18)] sm:w-72"
-            draggable={false}
-          />
+          <Logo sempreBranca alt="" className="w-60 max-w-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.18)] sm:w-72" />
         </div>
       </div>
     </div>

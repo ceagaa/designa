@@ -23,6 +23,7 @@ import TelaAviPublica from './components/TelaAviPublica'
 import TelaConvite from './components/TelaConvite'
 import TelaDesignacoes from './components/TelaDesignacoes'
 import TelaEscalaPublica from './components/TelaEscalaPublica'
+import TelaLegal from './components/TelaLegal'
 import TelaLogin from './components/TelaLogin'
 import TelaPessoas from './components/TelaPessoas'
 import TelaPerfil from './components/TelaPerfil'
@@ -30,6 +31,7 @@ import TelaTpl from './components/TelaTpl'
 import TelaTplPublica from './components/TelaTplPublica'
 import TelaVer from './components/TelaVer'
 import { compartilharPagina, lerHashVer } from './lib/compartilhamento'
+import type { TipoLegal } from './lib/legais'
 import { chaveMes, ocorrenciasDoMes, nomeMes } from './lib/datas'
 import { estadoInicial, registroDe } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
@@ -40,11 +42,12 @@ import { baixarPdf } from './lib/export'
 
 type StatusId = 'carregando' | 'salvando' | 'sincronizado' | 'local' | 'erro'
 
-/** Rotas públicas (não exigem sessão): convite do ajudante e escala por slug. */
+/** Rotas públicas (não exigem sessão): convite, escala por slug e páginas legais. */
 type RotaPublica =
   | { tipo: 'convite'; token: string }
   | { tipo: 'tpl'; slug: string }
   | { tipo: 'escala'; slug: string; setor: 'CAMPO' | 'AUDIO_VIDEO' }
+  | { tipo: 'legal'; documento: TipoLegal }
   | null
 
 function lerRotaPublica(): RotaPublica {
@@ -53,6 +56,9 @@ function lerRotaPublica(): RotaPublica {
     const token = new URLSearchParams(window.location.search).get('token') ?? ''
     return token ? { tipo: 'convite', token } : null
   }
+  // Páginas legais do consent screen do Google: endereço fixo e sem login.
+  if (caminho.startsWith('/privacidade')) return { tipo: 'legal', documento: 'privacidade' }
+  if (caminho.startsWith('/termos')) return { tipo: 'legal', documento: 'termos' }
   const escala = caminho.match(/^\/escala\/([^/]+)\/([^/]+)\/?$/)
   if (escala) {
     const slug = decodeURIComponent(escala[1])
@@ -665,6 +671,15 @@ export default function App() {
     return (
       <div className="min-h-svh">
         <TelaConvite token={rota.token} aoEntrar={aoEntrar} />
+        <Toast aviso={aviso} aoFechar={fecharAviso} />
+      </div>
+    )
+  }
+
+  if (rota?.tipo === 'legal') {
+    return (
+      <div className="min-h-svh">
+        <TelaLegal tipo={rota.documento} />
         <Toast aviso={aviso} aoFechar={fecharAviso} />
       </div>
     )

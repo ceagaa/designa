@@ -1,9 +1,10 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
-import { ArrowRight, Eye, EyeOff, Loader2, ShieldCheck, UserPlus } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Loader2, UserPlus } from 'lucide-react'
 import type { Usuario } from '../lib/dominio'
 import { ErroAuth, criarConta, entrar, textoErroAuth } from '../lib/authApi'
 import { Botao, Input, Kicker, Rotulo } from './ui'
+import Logo from './Logo'
 
 type Modo = 'entrar' | 'criar'
 
@@ -81,12 +82,7 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
       <div className="mx-auto grid w-full max-w-5xl items-center gap-10 md:grid-cols-2 md:gap-16">
         <header className="text-center md:text-left">
           <h1 className="mx-auto w-fit md:mx-0">
-            <img
-              src="/img/LOGOTIPO.png"
-              alt="Designa"
-              className="h-14 w-auto md:h-20"
-              draggable={false}
-            />
+            <Logo alt="Designa" className="h-14 w-auto md:h-20" />
           </h1>
           <p className="mt-6 text-sm font-semibold uppercase tracking-wider text-teal">
             Designações mecânicas automáticas
@@ -268,11 +264,6 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
                 </button>
               </>
             )}
-          </p>
-
-          <p className="mt-4 flex items-start justify-center gap-1.5 text-center text-[12px] text-muted">
-            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-            Recebeu um convite? O link do convite já abre direto o cadastro do seu setor.
           </p>
         </div>
       </div>
