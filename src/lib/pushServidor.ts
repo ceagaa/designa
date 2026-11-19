@@ -99,7 +99,7 @@ async function jwtVapid(privada: string, aud: string): Promise<string> {
   const dados = `${b64({ typ: 'JWT', alg: 'ES256' })}.${b64({
     aud,
     exp: agora + 43200,
-    sub: 'https://dirigentes.sswebtechcontato.workers.dev',
+    sub: 'https://designa.2swebtech.com.br',
   })}`
   const assinatura = new Uint8Array(
     await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, chave, textoBytes(dados)),
