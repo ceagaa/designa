@@ -1,7 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "dirigentes",
-  "workers_dev": true,
+  "name": "designa",
+  // Só no domínio próprio: é a única origem JavaScript autorizada no OAuth do
+  // Google. O Worker antigo "dirigentes" foi removido da conta.
+  "workers_dev": false,
   "main": "src/server.ts",
   "compatibility_date": "2026-10-21",
   "vars": {

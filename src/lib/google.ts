@@ -37,8 +37,16 @@ declare global {
   interface Window extends JanelaGoogle {}
 }
 
-/** Client ID do Google, público, lido do `.env` no build. */
-export const CLIENTE_ID_GOOGLE = (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim()
+/**
+ * Client ID público do projeto, o mesmo do `wrangler.jsonc`
+ * (`vars.GOOGLE_CLIENT_ID`). Ele viaja para o navegador de qualquer forma, por
+ * isso mora no código: assim um build feito sem o `.env` (outra máquina, CI)
+ * continua desenhando o botão em vez de compilá-lo para fora.
+ */
+const CLIENTE_ID_PADRAO = '328567818313-gdcglqclpen5cg8nf37d47c0ur0ml8t6.apps.googleusercontent.com'
+
+/** Client ID do Google: `VITE_GOOGLE_CLIENT_ID` quando existe, senão o padrão. */
+export const CLIENTE_ID_GOOGLE = (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim() || CLIENTE_ID_PADRAO
 
 /** Só existe configuração quando há Client ID preenchido. */
 export const googleConfigurado = CLIENTE_ID_GOOGLE.length > 0
