@@ -107,8 +107,9 @@ export async function renderizarBotaoGoogle(
     theme: escuro ? 'filled_black' : 'outline',
     size: 'large',
     text: 'continue_with',
-    shape: 'rectangular',
-    width: 320,
+    // Pílula, igual aos botões do app (`rounded-full`), no máximo que o GIS aceita.
+    shape: 'pill',
+    width: 400,
     locale: 'pt-BR',
   })
 }

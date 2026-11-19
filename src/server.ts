@@ -262,6 +262,26 @@ const ERROS_GOOGLE = new Set([
   'jwks_chave_desconhecida',
 ])
 
+/** Traduz a falha do verificador em um código legível para o cliente. */
+function falhaGoogle(erro: unknown): { codigo: string; status: 401 | 500 } {
+  const codigo = erro instanceof Error ? erro.message : 'credencial_invalida'
+  if (codigo === 'email_nao_verificado') {
+    return { codigo: 'google_email_nao_verificado', status: 401 }
+  }
+  if (ERROS_GOOGLE.has(codigo)) return { codigo: 'google_credencial_invalida', status: 401 }
+  console.error('[google]', erro)
+  return { codigo: 'google_falha', status: 500 }
+}
+
+/** Nome a exibir: o do Google, o do formulário ou o trecho antes do @. */
+function nomeGoogleDe(payload: PayloadGoogle, email: string, nomeFormulario = ''): string {
+  const doGoogle =
+    (payload.name ?? '').trim() ||
+    `${payload.given_name ?? ''} ${payload.family_name ?? ''}`.trim() ||
+    email.split('@')[0]
+  return nomeFormulario.length >= 3 ? nomeFormulario : doGoogle
+}
+
 /**
  * Login com Google (ID token do Google Identity Services). O Worker confere a
  * assinatura contra o JWKS do Google, `iss`, `aud` e validade antes de agir:
@@ -286,21 +306,13 @@ app.post('/api/auth/google', async (c) => {
   try {
     payload = await verificarGoogle(credential, clienteId)
   } catch (erro) {
-    const codigo = erro instanceof Error ? erro.message : 'credencial_invalida'
-    if (codigo === 'email_nao_verificado') {
-      return c.json({ erro: 'google_email_nao_verificado' }, 401)
-    }
-    if (ERROS_GOOGLE.has(codigo)) return c.json({ erro: 'google_credencial_invalida' }, 401)
-    console.error('[google]', erro)
-    return c.json({ erro: 'google_falha' }, 500)
+    const falha = falhaGoogle(erro)
+    return c.json({ erro: falha.codigo }, falha.status)
   }
 
   const email = normalizarEmail(payload.email ?? '')
   if (!emailValido(email)) return c.json({ erro: 'google_credencial_invalida' }, 401)
-  const nomeGoogle =
-    (payload.name ?? '').trim() ||
-    `${payload.given_name ?? ''} ${payload.family_name ?? ''}`.trim() ||
-    email.split('@')[0]
+  const nomeGoogle = nomeGoogleDe(payload, email)
 
   const linha = await c.env.DB
     .prepare('SELECT id FROM usuarios WHERE email = ?')
@@ -509,7 +521,11 @@ app.get('/api/convites/:token', async (c) => {
   }
 })
 
-/** Convidado cria a conta do ajudante (com o próprio e-mail) e entra autenticado. */
+/**
+ * Convidado cria a conta do ajudante e entra autenticado. Pode vir do
+ * formulário (nome, e-mail e senha) ou do botão Google (`credential`), quando
+ * nome e e-mail saem do token verificado e a senha vira aleatória.
+ */
 app.post('/api/convites/aceitar', async (c) => {
   if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
   try {
@@ -518,14 +534,34 @@ app.post('/api/convites/aceitar', async (c) => {
       nome?: unknown
       email?: unknown
       senha?: unknown
+      credential?: unknown
     }>()
     const token = String(corpo.token ?? '')
-    const nome = String(corpo.nome ?? '').trim()
-    const email = normalizarEmail(String(corpo.email ?? ''))
+    let nome = String(corpo.nome ?? '').trim()
+    let email = normalizarEmail(String(corpo.email ?? ''))
     const senha = String(corpo.senha ?? '')
+    const credential = String(corpo.credential ?? '')
+
+    // Convite pelo Google: nome e e-mail saem do credential verificado,
+    // a senha vira um valor aleatório desconhecido (só se entra pelo Google).
+    if (credential) {
+      const clienteId = c.env.GOOGLE_CLIENT_ID?.trim()
+      if (!clienteId) return c.json({ erro: 'google_nao_configurado' }, 503)
+      try {
+        const payload = await verificarGoogle(credential, clienteId)
+        email = normalizarEmail(payload.email ?? '')
+        nome = nomeGoogleDe(payload, email, nome)
+      } catch (falha) {
+        const erro = falhaGoogle(falha)
+        return c.json({ erro: erro.codigo }, erro.status)
+      }
+    }
+
     if (nome.length < 3) return c.json({ erro: 'nome_invalido' }, 400)
     if (!emailValido(email)) return c.json({ erro: 'email_invalido' }, 400)
-    if (senha.length < TAMANHO_MINIMO_SENHA) return c.json({ erro: 'senha_curta' }, 400)
+    if (!credential && senha.length < TAMANHO_MINIMO_SENHA) {
+      return c.json({ erro: 'senha_curta' }, 400)
+    }
 
     const convite = await c.env.DB
       .prepare(
@@ -554,7 +590,15 @@ app.post('/api/convites/aceitar', async (c) => {
         `INSERT INTO usuarios (id, congregacao_id, email, nome, senha_hash, papel, setor, criado_em)
          VALUES (?, ?, ?, ?, ?, 'AJUDANTE', ?, ?)`,
       )
-      .bind(usuarioId, convite.congregacao_id, email, nome, await guardarSenha(c.env.DB, senha), convite.setor, agora)
+      .bind(
+        usuarioId,
+        convite.congregacao_id,
+        email,
+        nome,
+        await guardarSenha(c.env.DB, credential ? `${novoToken()}${novoToken()}` : senha),
+        convite.setor,
+        agora,
+      )
       .run()
 
     const marcado = await c.env.DB

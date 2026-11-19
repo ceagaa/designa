@@ -196,6 +196,14 @@ try {
       'login: botão Continuar com o Google visível',
       (await page.locator('iframe[src*="accounts.google.com"]').count()) > 0,
     )
+    // A ordem pedida: primeiro o botão do Google, depois o formulário.
+    const googleAntes = await page.evaluate(() => {
+      const botao = document.querySelector('iframe[src*="accounts.google.com"]')
+      const form = document.querySelector('form')
+      if (!botao || !form) return false
+      return Boolean(botao.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+    ck('login: botão Google antes do formulário', googleAntes)
   }
   await shot('01-login')
 

@@ -152,6 +152,8 @@ export async function aceitarConvite(dados: {
   nome: string
   email: string
   senha: string
+  /** Com Google: o Worker tira nome e e-mail do credential e ignora a senha. */
+  credential?: string
 }): Promise<{ usuario: Usuario; email: string }> {
   const resposta = await pedir<{ usuario: Usuario; email: string }>('/api/convites/aceitar', {
     method: 'POST',

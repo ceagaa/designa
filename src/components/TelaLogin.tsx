@@ -49,7 +49,8 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
       setEmail(resposta.email)
       setSenha('')
       setCredencialGoogle(credential)
-      setModo('criar')
+      // Na aba Entrar pula para o cadastro; na aba Criar conta já está no lugar.
+      if (modo === 'entrar') setModo('criar')
     } catch (falha) {
       setErro(falha instanceof ErroAuth ? textoErroAuth(falha.codigo) : 'Falha de conexão, tente novamente.')
     } finally {
@@ -63,10 +64,10 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
     aoGoogleRef.current = aoEntrarComGoogle
   })
 
-  // Desenha o botão oficial do Google no modo Entrar (só com Client ID no .env).
+  // Desenha o botão oficial do Google antes do formulário (só com Client ID no .env).
   const alvoGoogle = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (modo !== 'entrar' || !googleConfigurado) return
+    if (viaGoogle || !googleConfigurado) return
     const alvo = alvoGoogle.current
     if (!alvo) return
     let vivo = true
@@ -79,7 +80,7 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
     return () => {
       vivo = false
     }
-  }, [modo])
+  }, [modo, viaGoogle])
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault()
@@ -196,6 +197,18 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
               Criar conta
             </button>
           </div>
+
+          {/* Primeiro o Google, depois o formulário (Entrar e Criar conta). */}
+          {!viaGoogle && googleConfigurado ? (
+            <div className="mt-5">
+              <div ref={alvoGoogle} className="flex justify-center" />
+              <div className="mt-4 flex items-center gap-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-line" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-faint">ou</span>
+                <span className="h-px flex-1 bg-line" />
+              </div>
+            </div>
+          ) : null}
 
           <form onSubmit={enviar} className="mt-5 space-y-4" noValidate>
             {ehCriar ? (
@@ -318,17 +331,6 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
               {ocupado ? 'Aguarde…' : ehCriar ? 'Criar conta' : 'Entrar'}
             </Botao>
           </form>
-
-          {!ehCriar && googleConfigurado ? (
-            <div className="mt-5">
-              <div className="flex items-center gap-3" aria-hidden="true">
-                <span className="h-px flex-1 bg-line" />
-                <span className="text-[11px] font-bold uppercase tracking-wider text-faint">ou</span>
-                <span className="h-px flex-1 bg-line" />
-              </div>
-              <div ref={alvoGoogle} className="mt-4 flex justify-center" />
-            </div>
-          ) : null}
 
           <p className="mt-5 text-center text-[13px] text-muted">
             {viaGoogle ? (
