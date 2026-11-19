@@ -159,8 +159,14 @@ export async function senhaFantasma(db: Banco): Promise<false> {
   return false
 }
 
-export function novoToken(): string {
-  return b64u(crypto.getRandomValues(new Uint8Array(32)))
+/**
+ * Token aleatório em base64url. Por padrão 32 bytes (256 bits), usado em
+ * sessões e senhas geradas. Convites usam menos bytes: são links compartilhados
+ * em conversa, usados uma vez e com validade de 7 dias, e 16 bytes (128 bits)
+ * já torna o chute impossível sem encurtar o endereço.
+ */
+export function novoToken(bytes = 32): string {
+  return b64u(crypto.getRandomValues(new Uint8Array(bytes)))
 }
 
 export function novoId(prefixo: string): string {

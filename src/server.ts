@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Dirigente, Estado } from './lib/dominio'
-import { departamentosDe, pertenceAoSetor, regrasDoDepartamento } from './lib/dominio'
+import { departamentosDe, pertenceAoSetor, regrasDoDepartamento, ROTULO_SETOR } from './lib/dominio'
 import { estadoVazio, normalizarEstado, registroDe } from './lib/estadoInicial'
 import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
 import { chaveMes, lerChaveMes, ocorrenciasDoMes } from './lib/datas'
@@ -435,7 +435,8 @@ app.post('/api/convites', async (c) => {
   try {
     const corpo = await c.req.json<{ setor?: unknown }>()
     if (!ehSetor(corpo.setor)) return c.json({ erro: 'setor_invalido' }, 400)
-    const token = novoToken()
+    // 16 bytes = 22 caracteres no link: suficiente para um convite de uso único.
+    const token = novoToken(16)
     const agora = new Date()
     const expira = new Date(agora.getTime() + 7 * 86400000).toISOString()
     await c.env.DB
@@ -1060,28 +1061,86 @@ async function nomeDaCongregacao(env: Env, slug: string): Promise<string | null>
   }
 }
 
-/** Monta o bloco og/twitter da rota pública, com URL absoluta para o roboto. */
+/** Bloco og/twitter comum a todas as rotas públicas, com URL absoluta. */
+function blocoOg(opcoes: {
+  url: URL
+  titulo: string
+  descricao: string
+  imagem: string
+  tema: string
+}): string {
+  const { url, titulo, descricao, imagem, tema } = opcoes
+  return [
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="Designa" />`,
+    `<meta property="og:title" content="${escaparAtributo(titulo)}" />`,
+    `<meta property="og:description" content="${escaparAtributo(descricao)}" />`,
+    `<meta property="og:url" content="${escaparAtributo(url.toString())}" />`,
+    `<meta property="og:image" content="${escaparAtributo(imagem)}" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:title" content="${escaparAtributo(titulo)}" />`,
+    `<meta name="twitter:description" content="${escaparAtributo(descricao)}" />`,
+    `<meta name="twitter:image" content="${escaparAtributo(imagem)}" />`,
+    `<meta name="theme-color" content="${tema}" />`,
+  ].join('\n    ')
+}
+
+/** Monta o bloco og/twitter da escala pública do setor. */
 function metatagsPublicas(
   url: URL,
   setor: SetorPublico,
   congregacao: string | null,
 ): string {
   const info = OG_POR_SETOR[setor]
-  const titulo = congregacao ? `${info.titulo}, ${congregacao}` : info.titulo
-  const imagem = new URL(info.imagem, url).toString()
-  return [
-    `<meta property="og:type" content="website" />`,
-    `<meta property="og:site_name" content="Designa" />`,
-    `<meta property="og:title" content="${escaparAtributo(titulo)}" />`,
-    `<meta property="og:description" content="${escaparAtributo(info.descricao)}" />`,
-    `<meta property="og:url" content="${escaparAtributo(url.toString())}" />`,
-    `<meta property="og:image" content="${escaparAtributo(imagem)}" />`,
-    `<meta name="twitter:card" content="summary_large_image" />`,
-    `<meta name="twitter:title" content="${escaparAtributo(titulo)}" />`,
-    `<meta name="twitter:description" content="${escaparAtributo(info.descricao)}" />`,
-    `<meta name="twitter:image" content="${escaparAtributo(imagem)}" />`,
-    `<meta name="theme-color" content="${info.tema}" />`,
-  ].join('\n    ')
+  return blocoOg({
+    url,
+    titulo: congregacao ? `${info.titulo}, ${congregacao}` : info.titulo,
+    descricao: info.descricao,
+    imagem: new URL(info.imagem, url).toString(),
+    tema: info.tema,
+  })
+}
+
+/**
+ * Monta o bloco og/twitter do link de convite. A imagem é a do setor para o
+ * qual a pessoa foi convidada, para a prévia do WhatsApp não prometer o
+ * departamento errado quando o link for compartilhado.
+ */
+function metatagsConvite(
+  url: URL,
+  setor: SetorPublico,
+  congregacao: string | null,
+): string {
+  const info = OG_POR_SETOR[setor]
+  return blocoOg({
+    url,
+    titulo: congregacao ? `Convite para a Designa, ${congregacao}` : 'Convite para a Designa',
+    descricao: `Você foi convidado para gerenciar ${ROTULO_SETOR[setor]}. Aceite o convite e crie sua conta.`,
+    imagem: new URL(info.imagem, url).toString(),
+    tema: info.tema,
+  })
+}
+
+/** Baixa o index.html pelos assets. Devolve null quando os assets falham. */
+async function indexHtml(env: Env, requisicao: Request): Promise<Response | null> {
+  try {
+    return await env.ASSETS.fetch(requisicao)
+  } catch (erro) {
+    console.error('[og] falha ao buscar index.html nos assets:', erro)
+    return null
+  }
+}
+
+/** Troca as og:tags herdadas do index.html pelas da rota pública. */
+async function responderComOg(resposta: Response, tags: string): Promise<Response> {
+  const html = limparMetatagsLegadas(await resposta.text())
+  const comOg = html.includes('</head>')
+    ? html.replace('</head>', `    ${tags}\n  </head>`)
+    : `${tags}\n${html}`
+  const cabecalhos = new Headers(resposta.headers)
+  cabecalhos.delete('content-length')
+  cabecalhos.delete('etag')
+  return new Response(comOg, { status: resposta.status, headers: cabecalhos })
 }
 
 /**
@@ -1106,31 +1165,60 @@ async function paginaPublicaComOg(c: {
     setor = 'TPL'
   }
 
-  let resposta: Response
-  try {
-    resposta = await c.env.ASSETS.fetch(c.req.raw)
-  } catch (erro) {
-    console.error('[og] falha ao buscar index.html nos assets:', erro)
-    return c.json({ erro: 'falha_assets' }, 500)
-  }
+  const resposta = await indexHtml(c.env, c.req.raw)
+  if (!resposta) return c.json({ erro: 'falha_assets' }, 500)
 
   // Sem setor válido ou fora do index.html (SPA): devolve como está.
   if (!setor || resposta.status !== 200) return resposta
 
   const congregacao = await nomeDaCongregacao(c.env, slug)
-  const html = limparMetatagsLegadas(await resposta.text())
-  const tags = metatagsPublicas(url, setor, congregacao)
-  const comOg = html.includes('</head>')
-    ? html.replace('</head>', `    ${tags}\n  </head>`)
-    : `${tags}\n${html}`
-  const cabecalhos = new Headers(resposta.headers)
-  cabecalhos.delete('content-length')
-  cabecalhos.delete('etag')
-  return new Response(comOg, { status: resposta.status, headers: cabecalhos })
+  return responderComOg(resposta, metatagsPublicas(url, setor, congregacao))
+}
+
+/**
+ * Link de convite (/aceitar-convite?token=…): o Worker devolve o index.html
+ * com a og:image do setor do convite. Convite inexistente, usado ou vencido
+ * segue com as tags padrão do index.html.
+ */
+async function paginaConviteComOg(c: {
+  env: Env
+  req: { raw: Request }
+}): Promise<Response> {
+  const url = new URL(c.req.raw.url)
+  const token = url.searchParams.get('token') ?? ''
+  let setor: SetorPublico | null = null
+  let congregacao: string | null = null
+
+  if (token.length >= 10) {
+    try {
+      const linha = await c.env.DB
+        .prepare(
+          `SELECT v.setor, c.nome
+             FROM convites v JOIN congregacoes c ON c.id = v.congregacao_id
+            WHERE v.token = ? AND v.usado_em IS NULL AND v.expira_em > ?`,
+        )
+        .bind(token, new Date().toISOString())
+        .first<{ setor: string; nome: string }>()
+      if (linha) {
+        setor = setorPublico(linha.setor)
+        congregacao = linha.nome
+      }
+    } catch {
+      /* sem og própria: segue com as tags do index.html */
+    }
+  }
+
+  const resposta = await indexHtml(c.env, c.req.raw)
+  if (!resposta) return new Response('falha_assets', { status: 500 })
+  if (!setor || resposta.status !== 200) return resposta
+
+  return responderComOg(resposta, metatagsConvite(url, setor, congregacao))
 }
 
 app.get('/escala/*', (c) => paginaPublicaComOg(c))
 app.get('/tpl/*', (c) => paginaPublicaComOg(c))
+app.get('/aceitar-convite', (c) => paginaConviteComOg(c))
+app.get('/aceitar-convite/', (c) => paginaConviteComOg(c))
 
 /* --------------------------------- Push --------------------------------- */
 

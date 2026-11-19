@@ -15,7 +15,7 @@ import { Modal } from './ui'
  * montado sobre o `Modal` compartilhado e com os textos do designa.
  */
 
-const VERSAO = '2.1.4'
+const VERSAO = '2.1.6'
 
 type Pagina = 'lista' | 'aparencia' | 'versao'
 
