@@ -141,7 +141,7 @@ const TERMOS: DocumentoLegal = {
   rotulo: 'Termos de Serviço',
   titulo: 'Termos de Serviço',
   introducao:
-    'Estes termos valem para quem usa o Designa. São poucas regras, escritas em português claro, para que fique entendido o que pode e o que não pode.',
+    'Estes termos valem para quem usa o Designa.',
   secoes: [
     {
       titulo: 'Aceite dos termos',
