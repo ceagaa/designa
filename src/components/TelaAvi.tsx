@@ -538,7 +538,7 @@ export default function TelaAvi({
       )}
 
       {falhaCarga ? (
-        <p className="flex items-center justify-between gap-2 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+        <p className="flex items-center justify-between gap-2 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
           Não foi possível carregar os dados do setor.
           <button
             type="button"
@@ -554,7 +554,7 @@ export default function TelaAvi({
         <>
 
           {carregado && funcoesSemApto.length ? (
-            <p className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+            <p className="rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               Nenhum irmão apto para: {funcoesSemApto.map((f) => f.rotulo).join(', ')}. Marque as
               designações em Voluntários.
             </p>

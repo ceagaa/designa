@@ -247,7 +247,7 @@ export default function TelaConvite({
           {erro ? (
             <p
               role="alert"
-              className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] font-semibold text-ink"
+              className="rounded-xl bg-crimson-bg px-3 py-2 text-[13px] font-semibold text-ink"
             >
               {erro}
             </p>

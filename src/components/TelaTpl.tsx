@@ -566,7 +566,7 @@ export default function TelaTpl({
             </div>
 
           {falhaCarga ? (
-            <p className="flex items-center justify-between gap-2 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+            <p className="flex items-center justify-between gap-2 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               Não foi possível carregar os dados do setor.
               <button
                 type="button"
@@ -579,7 +579,7 @@ export default function TelaTpl({
           ) : null}
 
           {carregado && semEstrutura ? (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               <p className="min-w-0 flex-1">
                 Cadastre pontos de apoio e períodos na configuração antes de montar a
                 escala.
@@ -593,7 +593,7 @@ export default function TelaTpl({
               </Botao>
             </div>
           ) : carregado && semParticipantes ? (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               <p className="min-w-0 flex-1">
                 Nenhum voluntário do TPL ativo. Cadastre em Voluntários para montar as
                 duplas.
@@ -742,7 +742,7 @@ export default function TelaTpl({
             />
 
             {falhaCarga ? (
-              <p className="flex items-center justify-between gap-2 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+              <p className="flex items-center justify-between gap-2 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
                 Não foi possível carregar os dados do setor.
                 <button
                   type="button"
@@ -755,7 +755,7 @@ export default function TelaTpl({
             ) : null}
 
             {carregado && semEstrutura ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+              <div className="flex flex-wrap items-center gap-3 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
                 <p className="min-w-0 flex-1">
                   Cadastre pontos de apoio e períodos na configuração antes de montar a
                   escala.
@@ -769,7 +769,7 @@ export default function TelaTpl({
                 </Botao>
               </div>
             ) : carregado && semParticipantes ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+              <div className="flex flex-wrap items-center gap-3 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
                 <p className="min-w-0 flex-1">
                   Nenhum voluntário do TPL ativo. Cadastre em Voluntários para montar as
                   duplas.
@@ -866,7 +866,7 @@ export default function TelaTpl({
       ) : (
         <div className="space-y-6">
           {falhaCarga ? (
-            <p className="flex items-center justify-between gap-2 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+            <p className="flex items-center justify-between gap-2 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               Não foi possível carregar os dados do setor.
               <button
                 type="button"

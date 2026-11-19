@@ -503,7 +503,7 @@ export function TelaConta({
             </ul>
 
             {linkNovo ? (
-              <div className="rounded-xl border-l-2 border-teal bg-teal-tint p-4">
+              <div className="rounded-xl bg-teal-tint p-4">
                 <Kicker className="text-teal">Link gerado para {ROTULO_SETOR[linkNovo.setor]}</Kicker>
                 <p className="mt-1 break-all font-mono text-[12px] text-ink">{linkNovo.href}</p>
                 <div className="mt-2 flex items-center gap-2">
@@ -519,7 +519,7 @@ export function TelaConta({
             ) : null}
 
             {conviteErro ? (
-              <p role="alert" className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] font-semibold text-ink">
+              <p role="alert" className="rounded-xl bg-crimson-bg px-3 py-2 text-[13px] font-semibold text-ink">
                 {conviteErro}
               </p>
             ) : null}
@@ -732,7 +732,7 @@ export function TelaNotificacoes({
     <div className="space-y-6">
       <CabecalhoSub titulo="Notificações" />
 
-      <div className="rounded-xl border-l-2 border-teal bg-teal-tint p-4">
+      <div className="rounded-xl bg-teal-tint p-4">
         <p className="text-sm font-semibold text-teal">Notificações push</p>
         <p className="mt-0.5 text-[13px] text-ink">
           {!push
@@ -771,7 +771,7 @@ export function TelaNotificacoes({
       </Botao>
 
       {testeMensagem ? (
-        <p className="rounded-xl border-l-2 border-teal bg-teal-tint px-3 py-2 text-[13px] text-ink">
+        <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-ink">
           {testeMensagem}
         </p>
       ) : null}

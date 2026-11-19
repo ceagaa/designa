@@ -304,7 +304,7 @@ export default function ResumoDesignacao({
       >
         <div className="space-y-3 px-5 pb-6 pt-1">
           {semCampos ? (
-            <p className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+            <p className="rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               Cadastre os dias de campo primeiro (aba Locais).
             </p>
           ) : null}

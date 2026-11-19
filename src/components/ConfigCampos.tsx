@@ -181,7 +181,7 @@ export default function ConfigCampos({
           />
         </div>
         {fixaLigada && !campos.some((c) => c.fixo) ? (
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
             <p className="min-w-0 flex-1">
               Nenhum dia tem “Quem dirige” definido: informe o voluntário fixo de cada dia na
               tela Locais.
@@ -282,7 +282,7 @@ export default function ConfigCampos({
             }
           />
         </div>
-        <p className="rounded-xl border-l-2 border-teal bg-teal-tint px-3 py-2 text-[13px] text-ink">
+        <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-ink">
           A escala de {MESES[PROXIMO_MES]} será gerada no dia {config.disparo_dia}, às{' '}
           {config.disparo_hora}, e os aparelhos receberão um aviso.
         </p>

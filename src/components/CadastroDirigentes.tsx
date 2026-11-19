@@ -811,7 +811,7 @@ export default function CadastroDirigentes({
           ) : null}
 
           {avisoRodizio ? (
-            <p className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+            <p className="rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
               Sem dias ou horários marcados este voluntário fica fora do rodízio automático.
             </p>
           ) : null}
@@ -945,7 +945,7 @@ export default function CadastroDirigentes({
       {modalExclusao}
 
       {!campos.length && temCampo ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-crimson-bg px-3 py-2 text-[13px] text-ink">
           <p className="flex min-w-0 flex-1 items-start gap-2">
             <CircleAlert className="mt-0.5 size-4 shrink-0 text-crimson" aria-hidden="true" />
             Configure os dias de campo na tela Locais para que o rodízio comece a distribuir.
