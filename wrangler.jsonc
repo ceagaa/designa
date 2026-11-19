@@ -4,6 +4,11 @@
   "workers_dev": true,
   "main": "src/server.ts",
   "compatibility_date": "2026-10-21",
+  "vars": {
+    // Client ID público do OAuth do Google. Mesmo valor do VITE_GOOGLE_CLIENT_ID
+    // no .env: o Worker usa para conferir o `aud` do ID token do login com Google.
+    "GOOGLE_CLIENT_ID": "328567818313-gdcglqclpen5cg8nf37d47c0ur0ml8t6.apps.googleusercontent.com"
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",

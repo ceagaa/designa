@@ -33,6 +33,8 @@ import {
   slugUnico,
   tokenDoCookie,
 } from './lib/authServidor'
+import { verificarGoogle } from './lib/googleServidor'
+import type { PayloadGoogle } from './lib/googleServidor'
 
 interface D1Statement {
   bind(...params: unknown[]): D1Statement
@@ -55,6 +57,12 @@ interface Env {
   PUSH_VAPID_PUBLICA?: string
   /** Escalar privada VAPID (base64url) do push. Configure com `wrangler secret put PUSH_VAPID_PRIVADA`. */
   PUSH_VAPID_PRIVADA?: string
+  /**
+   * Client ID do OAuth do Google, para conferir o `aud` do ID token.
+   * É valor público (igual ao do frontend), por isso pode ficar em `vars` do
+   * wrangler.jsonc. Configure com `wrangler var put GOOGLE_CLIENT_ID ...`.
+   */
+  GOOGLE_CLIENT_ID?: string
 }
 
 interface LinhaEstado {
@@ -231,6 +239,122 @@ app.post('/api/auth/login', async (c) => {
   } catch (erro) {
     console.error('[login]', erro)
     return c.json({ erro: 'falha_login' }, 500)
+  }
+})
+
+/** Corpo aceito por `/api/auth/google`. */
+type CorpoGoogle = {
+  credential?: unknown
+  congregacaoNome?: unknown
+  congregacaoNumero?: unknown
+}
+
+/** Códigos do verificador do Google que valem 401 legível no cliente. */
+const ERROS_GOOGLE = new Set([
+  'credencial_invalida',
+  'assinatura_invalida',
+  'iss_invalido',
+  'aud_invalida',
+  'token_expirado',
+  'sem_email',
+  'jwks_sem_chave',
+  'jwks_indisponivel',
+  'jwks_chave_desconhecida',
+])
+
+/**
+ * Login com Google (ID token do Google Identity Services). O Worker confere a
+ * assinatura contra o JWKS do Google, `iss`, `aud` e validade antes de agir:
+ * e-mail já cadastrado → abre a sessão; e-mail novo → devolve `sem_conta` com
+ * nome e e-mail, e o frontend volta com a congregação para criar a conta.
+ */
+app.post('/api/auth/google', async (c) => {
+  if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
+  const clienteId = c.env.GOOGLE_CLIENT_ID?.trim()
+  if (!clienteId) return c.json({ erro: 'google_nao_configurado' }, 503)
+
+  let corpo: CorpoGoogle
+  try {
+    corpo = await c.req.json<CorpoGoogle>()
+  } catch {
+    return c.json({ erro: 'google_credencial_invalida' }, 401)
+  }
+  const credential = String(corpo.credential ?? '')
+  if (!credential) return c.json({ erro: 'google_credencial_invalida' }, 401)
+
+  let payload: PayloadGoogle
+  try {
+    payload = await verificarGoogle(credential, clienteId)
+  } catch (erro) {
+    const codigo = erro instanceof Error ? erro.message : 'credencial_invalida'
+    if (codigo === 'email_nao_verificado') {
+      return c.json({ erro: 'google_email_nao_verificado' }, 401)
+    }
+    if (ERROS_GOOGLE.has(codigo)) return c.json({ erro: 'google_credencial_invalida' }, 401)
+    console.error('[google]', erro)
+    return c.json({ erro: 'google_falha' }, 500)
+  }
+
+  const email = normalizarEmail(payload.email ?? '')
+  if (!emailValido(email)) return c.json({ erro: 'google_credencial_invalida' }, 401)
+  const nomeGoogle =
+    (payload.name ?? '').trim() ||
+    `${payload.given_name ?? ''} ${payload.family_name ?? ''}`.trim() ||
+    email.split('@')[0]
+
+  const linha = await c.env.DB
+    .prepare('SELECT id FROM usuarios WHERE email = ?')
+    .bind(email)
+    .first<{ id: string }>()
+
+  // Conta existente: mesma pessoa, mesmo cadastro, entra direto.
+  if (linha) {
+    const token = await criarSessao(c.env.DB, linha.id)
+    const usuario = await sessaoPorToken(c.env.DB, token)
+    c.header('Set-Cookie', cookieSessao(token))
+    return c.json({ usuario })
+  }
+
+  // Conta nova sem congregação ainda: devolve os dados para o frontend preencher.
+  const congNome = String(corpo.congregacaoNome ?? '').trim()
+  if (congNome.length < 3) return c.json({ status: 'sem_conta', nome: nomeGoogle, email })
+
+  const congNumero = String(corpo.congregacaoNumero ?? '').trim()
+  if (congNumero.length > 30) return c.json({ erro: 'numero_congregacao_invalido' }, 400)
+
+  try {
+    const agora = new Date().toISOString()
+    const congregacaoId = novoId('cong')
+    const slug = await slugUnico(c.env.DB, slugBase(nomeGoogle, congNumero))
+    await c.env.DB
+      .prepare('INSERT INTO congregacoes (id, nome, numero, slug, criado_em) VALUES (?, ?, ?, ?, ?)')
+      .bind(congregacaoId, congNome, congNumero, slug, agora)
+      .run()
+
+    // Senha aleatória e desconhecida: quem criou por Google entra só por Google.
+    const senha = `${novoToken()}${novoToken()}`
+    const usuarioId = novoId('usr')
+    await c.env.DB
+      .prepare(
+        `INSERT INTO usuarios (id, congregacao_id, email, nome, senha_hash, papel, setor, criado_em)
+         VALUES (?, ?, ?, ?, ?, 'ADMIN', NULL, ?)`,
+      )
+      .bind(usuarioId, congregacaoId, email, nomeGoogle, await guardarSenha(c.env.DB, senha), agora)
+      .run()
+
+    // A primeira congregação assume o estado legado (mesmo do cadastro normal).
+    await c.env.DB
+      .prepare('UPDATE estado SET congregacao_id = ? WHERE congregacao_id IS NULL')
+      .bind(congregacaoId)
+      .run()
+
+    const token = await criarSessao(c.env.DB, usuarioId)
+    const usuario = await sessaoPorToken(c.env.DB, token)
+    c.header('Set-Cookie', cookieSessao(token))
+    return c.json({ usuario }, 201)
+  } catch (erro) {
+    console.error('[google cadastro]', erro)
+    return c.json({ erro: 'falha_cadastro' }, 500)
   }
 })
 

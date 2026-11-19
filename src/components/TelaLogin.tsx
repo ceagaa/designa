@@ -1,8 +1,9 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Eye, EyeOff, Loader2, UserPlus } from 'lucide-react'
 import type { Usuario } from '../lib/dominio'
-import { ErroAuth, criarConta, entrar, textoErroAuth } from '../lib/authApi'
+import { ErroAuth, criarConta, entrar, entrarComGoogle, textoErroAuth } from '../lib/authApi'
+import { googleConfigurado, renderizarBotaoGoogle } from '../lib/google'
 import { Botao, Input, Kicker, Rotulo } from './ui'
 import Logo from './Logo'
 
@@ -20,12 +21,65 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
   const [nome, setNome] = useState('')
   const [congregacaoNome, setCongregacaoNome] = useState('')
   const [congregacaoNumero, setCongregacaoNumero] = useState('')
+  /** Credential do Google de quem ainda não tem conta no D1 (cadastro pendente). */
+  const [credencialGoogle, setCredencialGoogle] = useState<string | null>(null)
+
+  /** Chegou pelo Google e falta só a congregação: sem campo de senha. */
+  const viaGoogle = credencialGoogle !== null
 
   function trocarModo(novo: Modo) {
     setModo(novo)
     setErro(null)
     setVerSenha(false)
+    // Sair do cadastro pendente descarta o credential do Google.
+    if (novo === 'entrar') setCredencialGoogle(null)
   }
+
+  /** Callback do Google Identity Services: conta existente entra, nova prefills. */
+  async function aoEntrarComGoogle(credential: string) {
+    setErro(null)
+    setOcupado(true)
+    try {
+      const resposta = await entrarComGoogle(credential)
+      if ('usuario' in resposta) {
+        aoEntrar(resposta.usuario)
+        return
+      }
+      setNome(resposta.nome)
+      setEmail(resposta.email)
+      setSenha('')
+      setCredencialGoogle(credential)
+      setModo('criar')
+    } catch (falha) {
+      setErro(falha instanceof ErroAuth ? textoErroAuth(falha.codigo) : 'Falha de conexão, tente novamente.')
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  // Guarda a versão mais recente do callback para o efeito do botão usar.
+  const aoGoogleRef = useRef(aoEntrarComGoogle)
+  useEffect(() => {
+    aoGoogleRef.current = aoEntrarComGoogle
+  })
+
+  // Desenha o botão oficial do Google no modo Entrar (só com Client ID no .env).
+  const alvoGoogle = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (modo !== 'entrar' || !googleConfigurado) return
+    const alvo = alvoGoogle.current
+    if (!alvo) return
+    let vivo = true
+    renderizarBotaoGoogle(alvo, (credential) => {
+      if (vivo) void aoGoogleRef.current(credential)
+    }).catch(() => {
+      // GIS fora do ar: o alvo fica vazio e o login por e-mail segue normal.
+      if (vivo) alvo.replaceChildren()
+    })
+    return () => {
+      vivo = false
+    }
+  }, [modo])
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault()
@@ -41,13 +95,16 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
         setErro('Informe seu nome completo.')
         return
       }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
-        setErro('Informe um e-mail válido.')
-        return
-      }
-      if (senha.length < 6) {
-        setErro('A senha precisa de pelo menos 6 caracteres.')
-        return
+      // No cadastro pelo Google, e-mail e senha vêm do próprio Google.
+      if (!viaGoogle) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
+          setErro('Informe um e-mail válido.')
+          return
+        }
+        if (senha.length < 6) {
+          setErro('A senha precisa de pelo menos 6 caracteres.')
+          return
+        }
       }
       if (congregacaoNome.trim().length < 3) {
         setErro('Informe o nome da congregação.')
@@ -60,19 +117,32 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
       const usuario =
         modo === 'entrar'
           ? await entrar(email.trim(), senha)
-          : await criarConta({
-              nome: nome.trim(),
-              email: email.trim(),
-              senha,
-              congregacaoNome: congregacaoNome.trim(),
-              congregacaoNumero: congregacaoNumero.trim(),
-            })
+          : viaGoogle
+            ? await completarCadastroGoogle()
+            : await criarConta({
+                nome: nome.trim(),
+                email: email.trim(),
+                senha,
+                congregacaoNome: congregacaoNome.trim(),
+                congregacaoNumero: congregacaoNumero.trim(),
+              })
       aoEntrar(usuario)
     } catch (falha) {
       setErro(falha instanceof ErroAuth ? textoErroAuth(falha.codigo) : 'Falha de conexão, tente novamente.')
     } finally {
       setOcupado(false)
     }
+  }
+
+  /** Envia a congregação para o Worker criar a conta a partir do credential. */
+  async function completarCadastroGoogle(): Promise<Usuario> {
+    const resposta = await entrarComGoogle(credencialGoogle ?? '', {
+      congregacaoNome: congregacaoNome.trim(),
+      congregacaoNumero: congregacaoNumero.trim(),
+    })
+    if ('usuario' in resposta) return resposta.usuario
+    // Sem congregação válida o Worker devolve de novo o prefill.
+    throw new ErroAuth(400, 'congregacao_invalida')
   }
 
   const ehCriar = modo === 'criar'
@@ -152,42 +222,51 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
                 inputMode="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                readOnly={viaGoogle}
                 autoComplete="email"
                 placeholder="voce@exemplo.com"
                 enterKeyHint={ehCriar ? 'next' : 'next'}
-                autoFocus={!ehCriar}
+                autoFocus={!ehCriar && !viaGoogle}
+                className={viaGoogle ? 'bg-line-soft text-muted' : ''}
               />
+              {viaGoogle ? (
+                <p className="mt-1.5 text-xs font-semibold text-teal">
+                  Conta do Google, validada pelo próprio Google.
+                </p>
+              ) : null}
             </div>
 
-            <div>
-              <Rotulo htmlFor="lg-senha">Senha</Rotulo>
-              <div className="relative">
-                <Input
-                  id="lg-senha"
-                  type={verSenha ? 'text' : 'password'}
-                  className="pr-11"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  autoComplete={ehCriar ? 'new-password' : 'current-password'}
-                  placeholder={ehCriar ? 'Mínimo de 6 caracteres' : 'Sua senha'}
-                  enterKeyHint={ehCriar ? 'next' : 'done'}
-                />
-                <button
-                  type="button"
-                  onClick={() => setVerSenha((v) => !v)}
-                  aria-pressed={verSenha}
-                  aria-label={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
-                  title={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-muted transition-colors hover:bg-canvas hover:text-teal"
-                >
-                  {verSenha ? (
-                    <EyeOff className="size-4" aria-hidden="true" />
-                  ) : (
-                    <Eye className="size-4" aria-hidden="true" />
-                  )}
-                </button>
+            {!viaGoogle ? (
+              <div>
+                <Rotulo htmlFor="lg-senha">Senha</Rotulo>
+                <div className="relative">
+                  <Input
+                    id="lg-senha"
+                    type={verSenha ? 'text' : 'password'}
+                    className="pr-11"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    autoComplete={ehCriar ? 'new-password' : 'current-password'}
+                    placeholder={ehCriar ? 'Mínimo de 6 caracteres' : 'Sua senha'}
+                    enterKeyHint={ehCriar ? 'next' : 'done'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVerSenha((v) => !v)}
+                    aria-pressed={verSenha}
+                    aria-label={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                    title={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-muted transition-colors hover:bg-canvas hover:text-teal"
+                  >
+                    {verSenha ? (
+                      <EyeOff className="size-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="size-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : null}
 
             {ehCriar ? (
               <>
@@ -240,8 +319,30 @@ export default function TelaLogin({ aoEntrar }: { aoEntrar: (usuario: Usuario) =
             </Botao>
           </form>
 
+          {!ehCriar && googleConfigurado ? (
+            <div className="mt-5">
+              <div className="flex items-center gap-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-line" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-faint">ou</span>
+                <span className="h-px flex-1 bg-line" />
+              </div>
+              <div ref={alvoGoogle} className="mt-4 flex justify-center" />
+            </div>
+          ) : null}
+
           <p className="mt-5 text-center text-[13px] text-muted">
-            {ehCriar ? (
+            {viaGoogle ? (
+              <>
+                Prefere usar e-mail e senha?{' '}
+                <button
+                  type="button"
+                  onClick={() => trocarModo('entrar')}
+                  className="font-semibold text-teal underline-offset-2 hover:underline"
+                >
+                  Entrar com senha
+                </button>
+              </>
+            ) : ehCriar ? (
               <>
                 Já tem conta?{' '}
                 <button

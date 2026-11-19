@@ -1,5 +1,5 @@
 ﻿import { chromium } from 'playwright-core'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -49,6 +49,10 @@ page.on('console', (m) => {
   const txt = m.text()
   // O /api/auth/eu responde 401 nas páginas públicas (sem sessão); é esperado.
   if (/401/.test(txt)) return
+  // Google Identity Services: origem autorizada no console do Google (configuração
+  // de fora do repositório), não bug do app. A presença do botão é conferida à parte.
+  const origem = m.location()?.url ?? ''
+  if (/GSI_LOGGER/.test(txt) || /accounts\.google\.com/.test(origem)) return
   errosConsole.push('console: ' + txt.slice(0, 200))
 })
 
@@ -174,6 +178,25 @@ try {
   )
   ck('login: sem titulo Designa duplicado', (await page.locator('h1').first().innerText()).trim() === '')
   ck('login: sem referencia a Sao Joao', !(await page.content()).includes('Paraíso'))
+
+  // Botão do Google: obrigatório só quando o Client ID está no .env (sem ele o
+  // GIS nem é chamado e o login por e-mail segue normal).
+  let clienteGoogle = ''
+  try {
+    clienteGoogle =
+      readFileSync('.env', 'utf8').match(/^VITE_GOOGLE_CLIENT_ID=(.+)$/m)?.[1]?.trim() ?? ''
+  } catch {
+    /* sem .env: login com Google não configurado */
+  }
+  if (clienteGoogle) {
+    await page
+      .waitForSelector('iframe[src*="accounts.google.com"]', { timeout: 15000 })
+      .catch(() => {})
+    ck(
+      'login: botão Continuar com o Google visível',
+      (await page.locator('iframe[src*="accounts.google.com"]').count()) > 0,
+    )
+  }
   await shot('01-login')
 
   // ---------- 2) Criar conta ----------

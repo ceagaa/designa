@@ -108,6 +108,27 @@ export async function criarConta(dados: CadastroAdmin): Promise<Usuario> {
   return resposta.usuario
 }
 
+/** Resposta do login com Google: sessão pronta ou dados para completar o cadastro. */
+export type RespostaGoogle =
+  | { usuario: Usuario }
+  | { status: 'sem_conta'; nome: string; email: string }
+
+/**
+ * Login com Google (ID token do GIS). Sem cadastro ainda, o Worker devolve
+ * `sem_conta`; mandando a congregação junto, ele cria a conta e a sessão.
+ */
+export async function entrarComGoogle(
+  credential: string,
+  cadastro?: { congregacaoNome: string; congregacaoNumero: string },
+): Promise<RespostaGoogle> {
+  const resposta = await pedir<RespostaGoogle>('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ credential, ...(cadastro ?? {}) }),
+  })
+  if ('usuario' in resposta) guardarSessaoLocal(resposta.usuario)
+  return resposta
+}
+
 export async function sair(): Promise<void> {
   limparSessaoLocal()
   try {
@@ -239,6 +260,13 @@ export function textoErroAuth(codigo: string): string {
     falha_aceite: 'Não foi possível concluir o convite agora. Tente de novo.',
     numero_congregacao_invalido: 'O número da congregação deve ter até 30 caracteres.',
     falha_atualizacao_congregacao: 'Não foi possível atualizar a congregação agora.',
+    google_nao_configurado:
+      'Entrar com Google ainda não está liberado neste app. Use e-mail e senha.',
+    google_credencial_invalida:
+      'Não foi possível validar a conta do Google. Tente de novo ou use e-mail e senha.',
+    google_email_nao_verificado:
+      'Este e-mail do Google ainda não está verificado. Confirme-o no Google e tente de novo.',
+    google_falha: 'Não foi possível entrar com Google agora. Tente de novo.',
   }
   return textos[codigo] ?? 'Não foi possível concluir. Verifique os dados e tente de novo.'
 }

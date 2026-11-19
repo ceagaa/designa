@@ -65,6 +65,20 @@ npx wrangler secret put PUSH_VAPID_PUBLICA
 npx wrangler secret put PUSH_VAPID_PRIVADA
 ```
 
+### Entrar com Google
+
+O botão **Continuar com Google** é opcional: enquanto os valores abaixo estiverem vazios, ele simplesmente não aparece na tela de login.
+
+1. No Google Cloud, crie um **ID de cliente OAuth do tipo Aplicativo da Web** e autorize as **Origens JavaScript autorizadas** `https://designa.2swebtech.com.br` e `http://localhost:5173`.
+2. Cole o mesmo Client ID nos dois lugares (é valor público, não é segredo):
+   - `.env` → `VITE_GOOGLE_CLIENT_ID=...` (o botão do frontend, embutido no build)
+   - `wrangler.jsonc` → `vars.GOOGLE_CLIENT_ID` (o Worker confere o `aud` do token)
+3. Rode `npm run build` e `npm run deploy`.
+
+O fluxo é de ID token, sem redirecionamento: o Worker confere a assinatura contra o JWKS do Google, `iss`, `aud`, validade e e-mail verificado, e então abre a sessão no D1. Se o e-mail ainda não tem conta, o login devolve `sem_conta` e a tela de cadastro já vem com nome e e-mail preenchidos, pedindo só a congregação.
+
+As páginas exigidas pelo consent screen do Google ficam públicas em `/privacidade` e `/termos` (botões em **Sobre o app**).
+
 ## Por dentro
 
 - **Frontend:** React 19 + Vite + Tailwind CSS
