@@ -25,13 +25,35 @@ interface SinoProps {
   notificacoes: Notificacao[]
 }
 
+/** Notificações já exibidas neste aparelho (sobrevive ao recarregar a página). */
+const CHAVE_VISTAS = 'dirigentes:notificacoes-vistas'
+
+function vistasSalvas(): Set<string> {
+  try {
+    const bruto = localStorage.getItem(CHAVE_VISTAS)
+    const lista: unknown = bruto ? JSON.parse(bruto) : []
+    return new Set(Array.isArray(lista) ? lista.filter((id): id is string => typeof id === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function salvarVistas(vistas: Set<string>): void {
+  try {
+    localStorage.setItem(CHAVE_VISTAS, JSON.stringify([...vistas]))
+  } catch {
+    /* armazenamento indisponível */
+  }
+}
+
 /**
  * Sino de notificações do header: lista o que precisa de atenção
  * (pendências, escala do próximo mês, sincronização) com badge de novas.
+ * O que já foi visto fica guardado no aparelho e não volta a contar como novo.
  */
 export default function SinoNotificacoes({ notificacoes }: SinoProps) {
   const [aberto, setAberto] = useState(false)
-  const [vistas, setVistas] = useState<Set<string>>(() => new Set())
+  const [vistas, setVistas] = useState<Set<string>>(vistasSalvas)
   const raiz = useRef<HTMLDivElement>(null)
 
   const novas = notificacoes.filter((n) => !vistas.has(n.id)).length
@@ -55,7 +77,11 @@ export default function SinoNotificacoes({ notificacoes }: SinoProps) {
   function alternar() {
     const proximo = !aberto
     setAberto(proximo)
-    if (proximo) setVistas(new Set(notificacoes.map((n) => n.id)))
+    if (proximo) {
+      const todas = new Set([...vistas, ...notificacoes.map((n) => n.id)])
+      setVistas(todas)
+      salvarVistas(todas)
+    }
   }
 
   return (

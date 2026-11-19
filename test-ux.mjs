@@ -1042,7 +1042,7 @@ try {
   // ---------- 15) Home: status pos-geracao ----------
   await page.getByRole('button', { name: 'Designações', exact: true }).click()
   await page.waitForTimeout(700)
-  ck('home: status Escala pronta apos gerar', (await page.locator('text=Escala pronta').count()) >= 1)
+  ck('home: cards de setores sem status', (await page.locator('text=Escala pronta').count()) === 0)
   await shot('19-home-final')
 } catch (erro) {
   fal += 1

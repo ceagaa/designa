@@ -1,6 +1,7 @@
 /**
- * Splash (12 do manual): fundo em degradê teal com brilho radial e o logotipo
- * sozinho, em cartão branco arredondado que cresce de 0.72 → 1.
+ * Splash (12 do manual): fundo em degradê teal com brilho radial e o
+ * logotipo sozinho, em versão branca (o PNG é recolorido com filtro),
+ * sem cartão ou qualquer caixa atrás dele.
  *
  * O texto visível é `aria-hidden` de propósito: o anúncio para leitores de
  * tela vem do `role="status"` com a frase sr-only.
@@ -20,11 +21,11 @@ export default function Splash({ saindo }: { saindo: boolean }) {
       <span className="sr-only">Carregando Designa…</span>
 
       <div className="relative flex flex-col items-center" aria-hidden="true">
-        <div className="splash-logo grid place-items-center rounded-[28px] bg-white px-10 py-8 shadow-logo sm:px-12">
+        <div className="splash-logo">
           <img
             src="/img/LOGOTIPO.png"
             alt=""
-            className="w-60 max-w-none sm:w-72"
+            className="w-60 max-w-none brightness-0 invert drop-shadow-[0_2px_10px_rgba(0,0,0,0.18)] sm:w-72"
             draggable={false}
           />
         </div>
