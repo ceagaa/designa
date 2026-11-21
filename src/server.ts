@@ -1346,24 +1346,29 @@ async function executarAgendamento(env: Env): Promise<void> {
     if (!devido) continue
 
     const novo = gerarEscalaDoMes(estado, proximo.chave)
-    if (novo === estado) continue
-
-    await env.DB
-      .prepare('UPDATE estado SET dirigentes = ?, config_campos = ?, escalas = ?, updated_at = ? WHERE id = ?')
-      .bind(
-        JSON.stringify(novo.dirigentes),
-        JSON.stringify(novo.config_campos),
-        JSON.stringify(novo.escalas),
-        new Date().toISOString(),
-        linha.id ?? '',
+    if (novo !== estado) {
+      await env.DB
+        .prepare('UPDATE estado SET dirigentes = ?, config_campos = ?, escalas = ?, updated_at = ? WHERE id = ?')
+        .bind(
+          JSON.stringify(novo.dirigentes),
+          JSON.stringify(novo.config_campos),
+          JSON.stringify(novo.escalas),
+          new Date().toISOString(),
+          linha.id ?? '',
+        )
+        .run()
+      console.log(
+        `[agendamento] escala ${proximo.chave} gerada (disparo dia ${config.disparo_dia} às ${config.disparo_hora})`,
       )
-      .run()
-    console.log(
-      `[agendamento] escala ${proximo.chave} gerada (disparo dia ${config.disparo_dia} às ${config.disparo_hora})`,
-    )
+    }
 
     // O PUT do app pode ter apagado `geradoEm`, então a geração acima roda de
-    // novo; o aviso, porém, só sai uma vez por mês e congregação.
+    // novo; o aviso, porém, só sai uma vez por mês e congregação. Ele fica
+    // FORA do `novo !== estado`: se a escala do mês já existia (gerada antes
+    // pelo próprio app), pular o push junto deixaria o aparelho sem aviso.
+    // Mês limpo pelo usuário não avisa (não há escala a anunciar).
+    if (registroDe(novo.escalas, proximo.chave).limpa) continue
+
     const chaveAviso = `agendamento:escala:${linha.congregacao_id ?? 'legado'}:${proximo.chave}`
     const vapid = Boolean(env.PUSH_VAPID_PUBLICA && env.PUSH_VAPID_PRIVADA)
     if (!vapid) {
@@ -1410,19 +1415,20 @@ async function executarAgendamento(env: Env): Promise<void> {
       ).map(projetarIrmao),
       proximo.chave,
     )
-    if (novo === dados) continue
-
-    await env.DB
-      .prepare(
-        `UPDATE setor_dados SET dados = ?, updated_at = ?
-          WHERE congregacao_id = ? AND setor = 'AUDIO_VIDEO'`,
-      )
-      .bind(JSON.stringify(novo), new Date().toISOString(), linha.congregacao_id)
-      .run()
-    console.log(`[agendamento] escala AVI ${proximo.chave} gerada`)
+    if (novo !== dados) {
+      await env.DB
+        .prepare(
+          `UPDATE setor_dados SET dados = ?, updated_at = ?
+            WHERE congregacao_id = ? AND setor = 'AUDIO_VIDEO'`,
+        )
+        .bind(JSON.stringify(novo), new Date().toISOString(), linha.congregacao_id)
+        .run()
+      console.log(`[agendamento] escala AVI ${proximo.chave} gerada`)
+    }
 
     // Mesmo guarda do ramo CAMPO: `geradoEm` do AVI também vive em dado que o
-    // app regrava, então o aviso é marcado à parte.
+    // app regrava, então o aviso é marcado à parte — e também fora do
+    // `novo !== dados`, para avisar quando a escala do mês já existia.
     const chaveAviso = `agendamento:avi:${linha.congregacao_id}:${proximo.chave}`
     const vapid = Boolean(env.PUSH_VAPID_PUBLICA && env.PUSH_VAPID_PRIVADA)
     if (!vapid) {
