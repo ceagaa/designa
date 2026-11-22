@@ -248,6 +248,11 @@ try {
   await page.waitForSelector('text=/Quadro de voluntários|Nenhum voluntário cadastrado/', { timeout: 15000 })
   /** Chip (button aria-pressed) dentro da página de edição do voluntário. */
   const chip = (texto) => page.locator(`button[aria-pressed]:text-is("${texto}")`).first()
+  /** Escolha única em lista de radios; `dep` limita a um departamento da ficha. */
+  const radio = (texto, dep) => {
+    const base = dep ? page.locator(`[data-departamento="${dep}"]`) : page
+    return base.getByRole('radio', { name: texto, exact: true })
+  }
   async function novaPessoa(nome, comoAjudante) {
     const fab = page.locator('button[aria-label="Novo voluntário"]')
     if (await fab.count()) await fab.click()
@@ -258,11 +263,13 @@ try {
     await dialogo.locator('button:has-text("Continuar")').click()
     await page.waitForSelector('#dir-nome', { timeout: 10000 })
     await page.fill('#dir-nome', nome)
-    await chip('Semanal').click()
-    await chip('Até 3x').click()
+    await radio('Semanal').check()
+    await radio('Até 3x').check()
     await chip(DIA_CURTO).click()
     await chip('18:30').click()
-    if (comoAjudante) await chip('Marcar como ajudante').click()
+    if (comoAjudante) {
+      await page.getByRole('switch', { name: 'Marcar como ajudante' }).click()
+    }
     await salvarComEspera()
     // A página só volta para a lista quando a ficha persiste.
     await page.waitForSelector('h2:has-text("Quadro de voluntários")', { timeout: 20000 })
@@ -286,7 +293,7 @@ try {
   await page.locator('button:has-text("Continuar")').click()
   await page.waitForSelector('#dir-nome', { timeout: 10000 })
   await page.fill('#dir-nome', 'Paula Multi')
-  await chip('Semanal').click()
+  await radio('Semanal', 'CAMPO').check()
   await chip(DIA_CURTO).click()
   await chip('18:30').click()
   await salvarComEspera()
@@ -338,17 +345,17 @@ try {
   ck(
     'voluntários: frequência própria de cada departamento',
     (await cardCampoMulti
-      .locator('button[aria-pressed]:text-is("Semanal")')
-      .getAttribute('aria-pressed')) === 'true' &&
+      .getByRole('radio', { name: 'Semanal', exact: true })
+      .isChecked()) &&
       (await cardCampoMulti
-        .locator('button[aria-pressed]:text-is("1x no mês")')
-        .getAttribute('aria-pressed')) === 'true' &&
+        .getByRole('radio', { name: '1x no mês', exact: true })
+        .isChecked()) &&
       (await cardAviMulti
-        .locator('button[aria-pressed]:text-is("Mensal")')
-        .getAttribute('aria-pressed')) === 'true' &&
+        .getByRole('radio', { name: 'Mensal', exact: true })
+        .isChecked()) &&
       (await cardAviMulti
-        .locator('button[aria-pressed]:text-is("Até 3x")')
-        .getAttribute('aria-pressed')) === 'true',
+        .getByRole('radio', { name: 'Até 3x', exact: true })
+        .isChecked()),
   )
   await page.locator('button[aria-label="Voltar para voluntários"]').click()
   await page.waitForSelector('h2:has-text("Quadro de voluntários")', { timeout: 10000 })
@@ -364,9 +371,12 @@ try {
     (await fichaCampo.getByText('Reuniões').count()) === 0 &&
       (await fichaCampo.getByText('Designações AVI').count()) === 0,
   )
-  ck('voluntários: chip de frequência', (await chip('Semanal').count()) > 0)
-  ck('voluntários: chips de frequência mensal', (await chip('Até 3x').count()) > 0)
-  ck('voluntários: chips de disponibilidade', (await chip('Inativo').count()) > 0)
+  ck('voluntários: lista de frequência', (await radio('Semanal').count()) > 0)
+  ck('voluntários: lista de frequência mensal', (await radio('Até 3x').count()) > 0)
+  ck(
+    'voluntários: interruptor de disponibilidade',
+    (await page.getByRole('switch', { name: 'Disponível' }).count()) > 0,
+  )
   ck('voluntários: salvar em largura total', await page.locator('button:has-text("Salvar voluntário")').evaluate((el) => el.getBoundingClientRect().width > el.parentElement.getBoundingClientRect().width - 4).catch(() => false))
   ck('voluntários: excluir no fim da ficha', await page.locator('button:has-text("Excluir voluntário")').isVisible().catch(() => false))
   await shot('05a-voluntario-edicao')

@@ -8,7 +8,7 @@ import type {
   ReuniaoAvi,
   SetorId,
 } from '../lib/dominio'
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import {
   BookOpen,
   Check,
@@ -32,7 +32,7 @@ import {
   frequenciaValida,
   infoDia,
 } from '../lib/constants'
-import { Botao, Chip, Input, Modal, PopConfirm, Rotulo, Vazio } from './ui'
+import { Botao, Chip, Input, Kicker, Modal, PopConfirm, Rotulo, Toggle, Vazio } from './ui'
 import { BarraFixa } from './CabecalhoDesignacao'
 import { iniciais, novoId } from '../lib/utilitarios'
 
@@ -159,6 +159,96 @@ function regrasDaFicha(
   }
 }
 
+/** Subcard interno: agrupa opções relacionadas com cabeçalho próprio (NN/g:
+ * apresentar escolhas como grupos claramente separados reduz a sensação de
+ * "tudo junto"). */
+function SubPainel({
+  titulo,
+  descricao,
+  children,
+}: {
+  titulo: string
+  descricao?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-xl bg-canvas p-3.5">
+      <div className="mb-3">
+        <Kicker className="block text-muted">{titulo}</Kicker>
+        {descricao ? <p className="mt-1 text-[12px] text-muted">{descricao}</p> : null}
+      </div>
+      <div className="space-y-4">{children}</div>
+    </div>
+  )
+}
+
+type OpcaoEscolha = { valor: string | number; rotulo: string }
+
+/**
+ * Escolha única em lista vertical: 1 opção por linha, alvo de toque ~44px.
+ * NN/g: lista sempre visível tem carga cognitiva menor que dropdown/select, e
+ * o radio deixa claro que só uma opção vale — ao contrário dos chips, que
+ * servem à seleção múltipla. É `input[type=radio]` nativo: setas do grupo,
+ * anúncio no leitor de tela e clique no rótulo inteiro vêm de graça.
+ */
+function ListaEscolha({
+  rotulo,
+  opcoes,
+  valor,
+  aoEscolher,
+  legenda = true,
+  ajuda,
+}: {
+  rotulo: string
+  opcoes: ReadonlyArray<OpcaoEscolha>
+  valor: string | number
+  aoEscolher: (valor: string | number) => void
+  /** Esconde a legenda visível quando o subcard já rotula o grupo. */
+  legenda?: boolean
+  ajuda?: string
+}) {
+  const nome = useId()
+  return (
+    <fieldset>
+      <legend className={legenda ? 'mb-1.5 text-[13px] font-semibold text-ink' : 'sr-only'}>
+        {rotulo}
+      </legend>
+      <div className="space-y-1.5">
+        {opcoes.map((op) => {
+          const ativo = op.valor === valor
+          return (
+            <label
+              key={op.valor}
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-teal ${
+                ativo
+                  ? 'border-teal bg-teal-tint'
+                  : 'border-line bg-paper hover:border-teal'
+              }`}
+            >
+              <input
+                type="radio"
+                name={nome}
+                value={op.valor}
+                checked={ativo}
+                onChange={() => aoEscolher(op.valor)}
+                className="size-4.5 shrink-0 accent-teal"
+              />
+              <span
+                className={`min-w-0 flex-1 text-sm ${
+                  ativo ? 'font-bold text-ink' : 'font-semibold text-ink-soft'
+                }`}
+              >
+                {op.rotulo}
+              </span>
+            </label>
+          )
+        })}
+      </div>
+      {ajuda ? <p className="mt-1.5 text-[13px] text-muted">{ajuda}</p> : null}
+    </fieldset>
+  )
+}
+
 /** Frequência e teto mensal do rodízio, próprios do departamento. */
 function RegrasDesignacao({
   setor,
@@ -170,46 +260,22 @@ function RegrasDesignacao({
   aoAlterar: (patch: Partial<RegrasDepartamento>) => void
 }) {
   return (
-    <div
-      data-regras={setor}
-      className="space-y-4 border-t border-line-soft pt-4"
-    >
-      <div>
-        <p className="mb-1.5 text-[13px] font-semibold text-ink">
-          Frequência de designação
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {FREQUENCIAS.map((f) => (
-            <Chip
-              key={f.id}
-              ativo={regras.frequencia === f.id}
-              onClick={() => aoAlterar({ frequencia: f.id })}
-            >
-              {f.label}
-            </Chip>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-1.5 text-[13px] font-semibold text-ink">
-          Frequência mensal
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {FREQUENCIAS_MENSAL.map((op) => (
-            <Chip
-              key={op.valor}
-              ativo={regras.limiteMensal === op.valor}
-              onClick={() => aoAlterar({ limiteMensal: op.valor })}
-            >
-              {op.rotulo}
-            </Chip>
-          ))}
-        </div>
-        <p className="mt-1.5 text-[13px] text-muted">
-          Limite de designações no mês neste departamento.
-        </p>
-      </div>
+    <div data-regras={setor}>
+      <SubPainel titulo="Regras do rodízio" descricao="Frequência e limite neste departamento">
+        <ListaEscolha
+          rotulo="Frequência de designação"
+          opcoes={FREQUENCIAS.map((f) => ({ valor: f.id, rotulo: f.label }))}
+          valor={regras.frequencia}
+          aoEscolher={(valor) => aoAlterar({ frequencia: valor as FrequenciaId })}
+        />
+        <ListaEscolha
+          rotulo="Frequência mensal"
+          opcoes={FREQUENCIAS_MENSAL}
+          valor={regras.limiteMensal}
+          aoEscolher={(valor) => aoAlterar({ limiteMensal: Number(valor) as 1 | 2 | 3 })}
+          ajuda="Limite de designações no mês neste departamento."
+        />
+      </SubPainel>
     </div>
   )
 }
@@ -632,39 +698,41 @@ export default function CadastroDirigentes({
             >
               <CabecalhoDepartamento id="CAMPO" descricao="Dias e horários" />
 
-              <fieldset>
-                <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                  Dias disponíveis
-                </legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {ORDEM_DIAS.map((idx) => (
-                    <Chip
-                      key={idx}
-                      ativo={form.dias.includes(idx)}
-                      onClick={() => alternarNaLista('dias', idx)}
-                    >
-                      {infoDia(idx).curto}
-                    </Chip>
-                  ))}
-                </div>
-              </fieldset>
+              <SubPainel titulo="Disponibilidade">
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                    Dias disponíveis
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {ORDEM_DIAS.map((idx) => (
+                      <Chip
+                        key={idx}
+                        ativo={form.dias.includes(idx)}
+                        onClick={() => alternarNaLista('dias', idx)}
+                      >
+                        {infoDia(idx).curto}
+                      </Chip>
+                    ))}
+                  </div>
+                </fieldset>
 
-              <fieldset>
-                <legend className="mb-1.5 text-[13px] font-semibold text-ink">
-                  Horários disponíveis
-                </legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {horarios.map((h) => (
-                    <Chip
-                      key={h}
-                      ativo={form.horarios.includes(h)}
-                      onClick={() => alternarNaLista('horarios', h)}
-                    >
-                      {h}
-                    </Chip>
-                  ))}
-                </div>
-              </fieldset>
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+                    Horários disponíveis
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {horarios.map((h) => (
+                      <Chip
+                        key={h}
+                        ativo={form.horarios.includes(h)}
+                        onClick={() => alternarNaLista('horarios', h)}
+                      >
+                        {h}
+                      </Chip>
+                    ))}
+                  </div>
+                </fieldset>
+              </SubPainel>
 
               <RegrasDesignacao
                 setor="CAMPO"
@@ -672,22 +740,26 @@ export default function CadastroDirigentes({
                 aoAlterar={(patch) => alterarRegras('CAMPO', patch)}
               />
 
-              <div className="border-t border-line-soft pt-4">
-                <p className="mb-1.5 text-[13px] font-semibold text-ink">Ajudante</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <Chip
-                    ativo={form.ajudante === true}
-                    onClick={() => alternar('ajudante', form.ajudante !== true)}
-                  >
-                    Marcar como ajudante
-                  </Chip>
+              <SubPainel titulo="Ajudante">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">Marcar como ajudante</p>
+                    <p className="mt-0.5 text-[13px] text-muted">
+                      Também serve como ajudante na designação de Campo.
+                    </p>
+                  </div>
+                  <Toggle
+                    rotulo="Marcar como ajudante"
+                    checked={form.ajudante === true}
+                    aoMudar={(valor) => alternar('ajudante', valor)}
+                  />
                 </div>
                 {form.ajudante === true ? (
-                  <fieldset className="mt-3">
+                  <fieldset>
                     <legend className="mb-1.5 text-[13px] font-semibold text-ink">
                       Dias como ajudante
                     </legend>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {ORDEM_DIAS.map((idx) => (
                         <Chip
                           key={idx}
@@ -705,7 +777,7 @@ export default function CadastroDirigentes({
                     </p>
                   </fieldset>
                 ) : null}
-              </div>
+              </SubPainel>
             </section>
           ) : null}
 
@@ -716,48 +788,42 @@ export default function CadastroDirigentes({
             >
               <CabecalhoDepartamento id="AUDIO_VIDEO" descricao="Funções e reuniões" />
 
-              <div>
-                <p className="mb-1.5 text-[13px] font-semibold text-ink">
-                  Designações AVI
-                </p>
+              <SubPainel
+                titulo="Designações AVI"
+                descricao="Marque as funções em que o voluntário pode servir."
+              >
                 {aoDefinirAptidoes ? (
-                  <>
-                    <div className="flex flex-wrap gap-1.5">
-                      {FUNCOES_AVI.map((f) => (
-                        <Chip
-                          key={f.id}
-                          ativo={aptidoesForm.includes(f.id)}
-                          onClick={() => alternarAptidaoForm(f.id)}
-                        >
-                          {f.rotulo}
-                        </Chip>
-                      ))}
-                    </div>
-                    <p className="mt-1.5 text-[13px] text-muted">
-                      Marque as funções em que o voluntário pode servir.
-                    </p>
-                  </>
+                  <div
+                    className="flex flex-wrap gap-2"
+                    role="group"
+                    aria-label="Designações AVI"
+                  >
+                    {FUNCOES_AVI.map((f) => (
+                      <Chip
+                        key={f.id}
+                        ativo={aptidoesForm.includes(f.id)}
+                        onClick={() => alternarAptidaoForm(f.id)}
+                      >
+                        {f.rotulo}
+                      </Chip>
+                    ))}
+                  </div>
                 ) : (
                   <p className="rounded-xl bg-teal-tint px-3 py-2 text-[13px] text-primary-700">
                     As designações AVI são definidas pelo administrador.
                   </p>
                 )}
-              </div>
+              </SubPainel>
 
-              <div>
-                <p className="mb-1.5 text-[13px] font-semibold text-ink">Reuniões</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {REUNIOES_AVI.map((op) => (
-                    <Chip
-                      key={op.valor}
-                      ativo={(form.reunioes ?? 'ambos') === op.valor}
-                      onClick={() => alternar('reunioes', op.valor)}
-                    >
-                      {op.rotulo}
-                    </Chip>
-                  ))}
-                </div>
-              </div>
+              <SubPainel titulo="Reuniões">
+                <ListaEscolha
+                  rotulo="Reuniões"
+                  legenda={false}
+                  opcoes={REUNIOES_AVI}
+                  valor={form.reunioes ?? 'ambos'}
+                  aoEscolher={(valor) => alternar('reunioes', valor as ReuniaoAvi)}
+                />
+              </SubPainel>
 
               <RegrasDesignacao
                 setor="AUDIO_VIDEO"
@@ -768,30 +834,24 @@ export default function CadastroDirigentes({
           ) : null}
 
           {incluiCampo || incluiAvi ? (
-            <>
-              <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm">
-                <div>
-                  <p className="mb-1.5 text-[13px] font-semibold text-ink">Disponibilidade</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Chip
-                      ativo={form.ativo !== false}
-                      onClick={() => alternar('ativo', true)}
-                    >
-                      Disponível
-                    </Chip>
-                    <Chip
-                      ativo={form.ativo === false}
-                      onClick={() => alternar('ativo', false)}
-                    >
-                      Inativo
-                    </Chip>
-                  </div>
-                  <p className="mt-1.5 text-[13px] text-muted">
+            <section className="rounded-2xl bg-card p-4 shadow-sm">
+              <div className="mb-3">
+                <Kicker className="block text-muted">Disponibilidade</Kicker>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ink">Disponível</p>
+                  <p className="mt-0.5 text-[13px] text-muted">
                     Inativo continua na lista, mas fica fora do rodízio.
                   </p>
                 </div>
-              </section>
-            </>
+                <Toggle
+                  rotulo="Disponível"
+                  checked={form.ativo !== false}
+                  aoMudar={(valor) => alternar('ativo', valor)}
+                />
+              </div>
+            </section>
           ) : null}
 
           {!novo && (incluiCampo || incluiAvi) ? (

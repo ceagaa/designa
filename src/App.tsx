@@ -346,11 +346,14 @@ export default function App() {
 
   useEffect(() => {
     if (!prontoParaSair || splash !== 'ativo') return undefined
-    // Splash completo dura 4000ms (600ms com movimento reduzido), saída em 500ms.
+    // Splash some em ~2s no total: 1500ms de espera + 500ms de saída (600ms
+    // com movimento reduzido). O timer só conta depois que a tela inicial
+    // está pronta (`prontoParaSair`): se o carregamento passar de 2s, o
+    // splash fica até terminar — nunca revela uma tela pela metade.
     const reduzido =
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const duracao = reduzido ? 600 : 4000
+    const duracao = reduzido ? 600 : 1500
     const restante = Math.max(0, duracao - (Date.now() - inicioSplash.current))
     const saida = setTimeout(() => {
       setSplash('saindo')
